@@ -1,0 +1,384 @@
+#!/usr/bin/env python3
+"""
+Regression Analysis Table: Republican Candidate Calibration
+Creates a regression table analyzing whether prediction markets show partisan bias
+in pricing Republican candidates.
+
+Regression: Actual Outcome = β₀ + β₁ × Predicted Price + ε
+
+If markets are perfectly calibrated:
+  • β₀ (intercept) should be 0
+  • β₁ (slope) should be 1
+
+IMPORTANT: Uses Panel B elections only (elections available on BOTH platforms)
+to ensure apples-to-apples comparison.
+
+Outputs:
+- LaTeX table with regression results for Polymarket and Kalshi
+"""
+
+import pandas as pd
+import numpy as np
+from scipy import stats
+import json
+import os
+
+# Paths
+BASE_DIR = "/Users/paschal/Hall Research Dropbox/Elliot Paschal/Polymarket:Kalshi"
+DATA_DIR = f"{BASE_DIR}/data"
+MASTER_FILE = f"{DATA_DIR}/combined_political_markets_with_electoral_details_UPDATED.csv"
+PM_PRICES_FILE = f"{DATA_DIR}/polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
+KALSHI_PRICES_FILE = f"{DATA_DIR}/kalshi_all_political_prices_CORRECTED_v3.json"
+KALSHI_PRED_FILE = f"{DATA_DIR}/kalshi_prediction_accuracy_all_political_20260121_170951.csv"
+PANEL_B_FILE = f"{DATA_DIR}/shared_election_markets_detailed.csv"
+
+print("="*80)
+print("REGRESSION ANALYSIS: REPUBLICAN CANDIDATE CALIBRATION")
+print("Panel B Elections Only (Shared between Polymarket and Kalshi)")
+print("="*80)
+
+# ============================================================================
+# Load Panel B Elections (shared between both platforms)
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("LOADING PANEL B ELECTIONS")
+print(f"{'='*80}")
+
+panel_b = pd.read_csv(PANEL_B_FILE)
+print(f"✓ Loaded {len(panel_b)} Panel B elections")
+
+# Create set of Panel B election keys (country, office, location, election_year)
+panel_b_elections = set()
+for _, row in panel_b.iterrows():
+    key = (row['country'], row['office'], row['location'], int(row['election_year']))
+    panel_b_elections.add(key)
+
+print(f"✓ {len(panel_b_elections)} unique elections in Panel B")
+
+# ============================================================================
+# Load and Process Polymarket Data
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("LOADING POLYMARKET DATA")
+print(f"{'='*80}")
+
+df_master = pd.read_csv(MASTER_FILE, low_memory=False)
+df_pm_categories = df_master[df_master['platform'] == 'Polymarket'].copy()
+
+# Ensure market_id types match for merging
+df_pm_categories['market_id'] = df_pm_categories['market_id'].astype(str)
+
+# Filter to Panel B elections only
+def get_election_key(row):
+    if pd.isna(row['country']) or pd.isna(row['office']) or pd.isna(row['location']) or pd.isna(row['election_year']):
+        return None
+    return (row['country'], row['office'], row['location'], int(row['election_year']))
+
+df_pm_categories['election_key'] = df_pm_categories.apply(get_election_key, axis=1)
+df_pm_panel_b = df_pm_categories[df_pm_categories['election_key'].isin(panel_b_elections)].copy()
+
+# Exclude primaries - R vs D calibration doesn't apply to intra-party races
+df_pm_panel_b = df_pm_panel_b[df_pm_panel_b['is_primary'] == False].copy()
+
+print(f"✓ Filtered to {len(df_pm_panel_b)} Polymarket markets in Panel B elections (excluding primaries)")
+
+df_pm_republican = df_pm_panel_b[
+    (df_pm_panel_b['party_affiliation'] == 'Republican')
+].copy()
+pm_republican_markets = set(df_pm_republican['market_id'].unique())
+print(f"✓ {len(pm_republican_markets)} Republican candidate markets")
+
+with open(PM_PRICES_FILE) as f:
+    pm_prices = json.load(f)
+
+pm_data = []
+for token_id_str, price_history in pm_prices.items():
+    # Skip NaN entries
+    if token_id_str == 'NaN' or token_id_str == 'nan':
+        continue
+
+    # Look up market info by token_id (try both YES and NO token columns)
+    market_info = df_pm_republican[
+        (df_pm_republican['pm_token_id_yes'].astype(str) == str(token_id_str)) |
+        (df_pm_republican['pm_token_id_no'].astype(str) == str(token_id_str))
+    ]
+    if len(market_info) == 0:
+        continue
+
+    # Get close time
+    close_time_str = market_info['trading_close_time'].iloc[0]
+    if pd.isna(close_time_str):
+        continue
+    close_time = pd.to_datetime(close_time_str)
+    if pd.isna(close_time):
+        continue
+
+    # Get price at 1 day before close
+    target_date = close_time - pd.Timedelta(days=1)
+    target_timestamp = int(target_date.timestamp())
+    valid_prices = [p for p in price_history if p['t'] <= target_timestamp]
+
+    if not valid_prices:
+        continue
+
+    closest_price = max(valid_prices, key=lambda x: x['t'])
+    mean_price = closest_price['p']
+
+    # Get actual outcome
+    outcome_prices_str = market_info['pm_outcome_prices'].iloc[0]
+    if pd.isna(outcome_prices_str) or outcome_prices_str == '':
+        continue
+
+    try:
+        outcome_prices = json.loads(outcome_prices_str)
+        actual_outcome = 1 if outcome_prices[0] == "1" else 0
+    except:
+        continue
+
+    pm_data.append({
+        'prediction_price': mean_price,
+        'actual_outcome': actual_outcome
+    })
+
+df_pm = pd.DataFrame(pm_data)
+print(f"✓ Extracted {len(df_pm):,} Republican candidate predictions")
+
+# ============================================================================
+# Load and Process Kalshi Data
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("LOADING KALSHI DATA")
+print(f"{'='*80}")
+
+df_kalshi_categories = df_master[df_master['platform'] == 'Kalshi'].copy()
+
+# Ensure market_id types match for merging
+df_kalshi_categories['market_id'] = df_kalshi_categories['market_id'].astype(str)
+
+# Filter to Panel B elections only
+df_kalshi_categories['election_key'] = df_kalshi_categories.apply(get_election_key, axis=1)
+df_kalshi_panel_b = df_kalshi_categories[df_kalshi_categories['election_key'].isin(panel_b_elections)].copy()
+
+# Exclude primaries - R vs D calibration doesn't apply to intra-party races
+df_kalshi_panel_b = df_kalshi_panel_b[df_kalshi_panel_b['is_primary'] == False].copy()
+
+print(f"✓ Filtered to {len(df_kalshi_panel_b)} Kalshi markets in Panel B elections (excluding primaries)")
+
+df_kalshi_republican = df_kalshi_panel_b[
+    df_kalshi_panel_b['party_affiliation'] == 'Republican'
+].copy()
+
+kalshi_republican_markets = df_kalshi_republican['market_id'].unique().tolist()
+print(f"✓ {len(kalshi_republican_markets)} Republican candidate markets")
+
+# Load v2 JSON candlestick data
+with open(KALSHI_PRICES_FILE) as f:
+    kalshi_prices = json.load(f)
+
+kalshi_rep_dict = df_kalshi_republican.set_index('market_id').to_dict('index')
+
+df_kalshi_pred = pd.read_csv(KALSHI_PRED_FILE)
+df_kalshi_pred['market_id'] = df_kalshi_pred['ticker'].astype(str)
+kalshi_pred_outcomes = dict(zip(df_kalshi_pred['ticker'], df_kalshi_pred['actual_outcome']))
+
+kalshi_data_list = []
+for market_id in kalshi_republican_markets:
+    market = kalshi_rep_dict.get(market_id)
+    if not market:
+        continue
+
+    # Check for outcome - try k_settlement_value first, then result, then prediction file
+    actual_outcome = None
+    settlement_value = market.get('k_settlement_value')
+
+    if pd.notna(settlement_value):
+        if settlement_value == 100.0:
+            actual_outcome = 1
+        elif settlement_value == 0.0:
+            actual_outcome = 0
+
+    if actual_outcome is None:
+        result = market.get('result') or market.get('resolution_outcome')
+        if result:
+            if str(result).lower() == 'yes':
+                actual_outcome = 1
+            elif str(result).lower() == 'no':
+                actual_outcome = 0
+
+    if actual_outcome is None and market_id in kalshi_pred_outcomes:
+        pred_outcome = kalshi_pred_outcomes[market_id]
+        if pd.notna(pred_outcome):
+            actual_outcome = int(pred_outcome)
+
+    if actual_outcome is None:
+        continue
+
+    # Get candlestick data for this market
+    if market_id not in kalshi_prices:
+        continue
+
+    candlesticks = kalshi_prices[market_id]
+    if not candlesticks:
+        continue
+
+    close_time = pd.to_datetime(market.get('trading_close_time') or market.get('k_expiration_time'))
+    if pd.isna(close_time):
+        continue
+
+    target_date = close_time - pd.Timedelta(days=1)
+    target_timestamp = int(target_date.timestamp())
+
+    # Filter candlesticks to those before target date
+    valid_candles = [c for c in candlesticks if c.get('end_period_ts', 0) <= target_timestamp]
+
+    if valid_candles:
+        # Get most recent candlestick
+        most_recent = max(valid_candles, key=lambda x: x.get('end_period_ts', 0))
+        price_obj = most_recent.get('price', {})
+        close_price = price_obj.get('close')
+
+        if close_price is not None:
+            mean_price = close_price / 100.0  # Convert from cents to dollars
+
+            kalshi_data_list.append({
+                'prediction_price': mean_price,
+                'actual_outcome': actual_outcome
+            })
+
+df_kalshi = pd.DataFrame(kalshi_data_list)
+print(f"✓ Extracted {len(df_kalshi):,} Republican candidate predictions")
+
+# ============================================================================
+# Run Regressions
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("RUNNING REGRESSIONS")
+print(f"{'='*80}")
+
+def run_regression(df, platform_name):
+    """Run OLS regression and return results"""
+    X = df['prediction_price'].values
+    y = df['actual_outcome'].values
+
+    # Linear regression using scipy
+    slope, intercept, r_value, p_value, std_err = stats.linregress(X, y)
+
+    # Calculate predictions
+    y_pred = slope * X + intercept
+
+    # Calculate residuals
+    residuals = y - y_pred
+    mse = np.mean(residuals**2)
+
+    # Sample statistics
+    n = len(df)
+    mean_x = np.mean(X)
+    var_x = np.var(X, ddof=1)
+
+    # Standard error of slope (from scipy)
+    se_slope = std_err
+
+    # Standard error of intercept
+    se_intercept = np.sqrt(mse * (1/n + mean_x**2 / ((n-1) * var_x)))
+
+    # T-statistics
+    t_slope = slope / se_slope
+    t_intercept = intercept / se_intercept
+
+    # P-values (two-tailed)
+    p_slope = 2 * (1 - stats.t.cdf(abs(t_slope), n - 2))
+    p_intercept = 2 * (1 - stats.t.cdf(abs(t_intercept), n - 2))
+
+    # R-squared
+    r_squared = r_value**2
+
+    print(f"\n{platform_name}:")
+    print(f"  N = {n:,}")
+    print(f"  Intercept: {intercept:.4f} (SE: {se_intercept:.4f}, p: {p_intercept:.4f})")
+    print(f"  Slope:     {slope:.4f} (SE: {se_slope:.4f}, p: {p_slope:.4f})")
+    print(f"  R²:        {r_squared:.4f}")
+
+    return {
+        'platform': platform_name,
+        'n': n,
+        'intercept': intercept,
+        'se_intercept': se_intercept,
+        'p_intercept': p_intercept,
+        'slope': slope,
+        'se_slope': se_slope,
+        'p_slope': p_slope,
+        'r_squared': r_squared
+    }
+
+pm_results = run_regression(df_pm, "Polymarket")
+kalshi_results = run_regression(df_kalshi, "Kalshi")
+
+# ============================================================================
+# Generate LaTeX Table
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("GENERATING LATEX TABLE")
+print(f"{'='*80}\n")
+
+latex_output = f"{BASE_DIR}/tables/table_partisan_bias_regression.tex"
+
+with open(latex_output, 'w') as f:
+    f.write(r'\begin{table}[htbp]' + '\n')
+    f.write(r'\centering' + '\n')
+    f.write(r'\caption{Regression Analysis: Republican Candidate Calibration (1 Day Before Resolution)}' + '\n')
+    f.write(r'\label{tab:partisan_regression}' + '\n')
+    f.write(r'\footnotesize' + '\n')
+    f.write(r'\begin{tabular}{lcc}' + '\n')
+    f.write(r'\toprule' + '\n')
+    f.write(r' & Polymarket & Kalshi \\' + '\n')
+    f.write(r'\midrule' + '\n')
+
+    # Sample size
+    f.write(f"Observations & {pm_results['n']:,} & {kalshi_results['n']:,} \\\\\n")
+    f.write(r'\midrule' + '\n')
+
+    # Intercept
+    pm_stars_int = '***' if pm_results['p_intercept'] < 0.01 else ('**' if pm_results['p_intercept'] < 0.05 else ('*' if pm_results['p_intercept'] < 0.1 else ''))
+    kalshi_stars_int = '***' if kalshi_results['p_intercept'] < 0.01 else ('**' if kalshi_results['p_intercept'] < 0.05 else ('*' if kalshi_results['p_intercept'] < 0.1 else ''))
+
+    f.write(f"Intercept ($\\beta_0$) & {pm_results['intercept']:.4f}{pm_stars_int} & {kalshi_results['intercept']:.4f}{kalshi_stars_int} \\\\\n")
+    f.write(f" & ({pm_results['se_intercept']:.4f}) & ({kalshi_results['se_intercept']:.4f}) \\\\\n")
+    f.write(r'\addlinespace' + '\n')
+
+    # Slope
+    pm_stars_slope = '***' if pm_results['p_slope'] < 0.01 else ('**' if pm_results['p_slope'] < 0.05 else ('*' if pm_results['p_slope'] < 0.1 else ''))
+    kalshi_stars_slope = '***' if kalshi_results['p_slope'] < 0.01 else ('**' if kalshi_results['p_slope'] < 0.05 else ('*' if kalshi_results['p_slope'] < 0.1 else ''))
+
+    f.write(f"Slope ($\\beta_1$) & {pm_results['slope']:.4f}{pm_stars_slope} & {kalshi_results['slope']:.4f}{kalshi_stars_slope} \\\\\n")
+    f.write(f" & ({pm_results['se_slope']:.4f}) & ({kalshi_results['se_slope']:.4f}) \\\\\n")
+    f.write(r'\midrule' + '\n')
+
+    # R-squared
+    f.write(f"$R^2$ & {pm_results['r_squared']:.4f} & {kalshi_results['r_squared']:.4f} \\\\\n")
+
+    f.write(r'\bottomrule' + '\n')
+    f.write(r'\end{tabular}' + '\n')
+    f.write(r'\vspace{0.2cm}' + '\n')
+    f.write('\n')
+    f.write(r'\begin{minipage}{\textwidth}' + '\n')
+    f.write(r'\footnotesize' + '\n')
+    f.write(r'\textit{Notes:} This table reports OLS regression results for Republican candidate markets in Panel B elections (shared between both platforms). The dependent variable is the actual outcome (1 if Republican won, 0 otherwise) and the independent variable is the market price 1 day before resolution. Standard errors in parentheses. Perfect calibration would show $\beta_0 = 0$ and $\beta_1 = 1$. *** p$<$0.01, ** p$<$0.05, * p$<$0.1.' + '\n')
+    f.write(r'\end{minipage}' + '\n')
+    f.write(r'\end{table}' + '\n')
+
+print(f"✓ Saved LaTeX table: {latex_output}")
+
+print(f"\n{'='*80}")
+print("✓ REGRESSION TABLE GENERATION COMPLETE")
+print(f"{'='*80}")
+print(f"\nInterpretation Guide:")
+print(f"  • Perfect calibration: β₀ = 0, β₁ = 1")
+print(f"  • β₁ > 1: Markets underestimate Republicans")
+print(f"  • β₁ < 1: Markets overestimate Republicans")
+print(f"  • β₀ > 0: Systematic underestimation")
+print(f"  • β₀ < 0: Systematic overestimation")

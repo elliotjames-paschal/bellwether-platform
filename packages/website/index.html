@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4JTSRBJBY5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-4JTSRBJBY5');
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bellwether - Political Prediction Markets Research</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css?v=20260212e">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-inner">
+            <div class="nav-left">
+                <a href="./" class="nav-logo"><span class="nav-logo-text">Bel<span class="nav-logo-bounce">l</span><span class="nav-logo-rest">wether</span></span></a>
+                <div class="nav-links">
+                    <a href="./">Home</a>
+                    <a href="globe.html">Globe</a>
+                    <a href="research.html">Research</a>
+                    <a href="data.html">Data</a>
+                    <a href="about.html">About</a>
+                </div>
+            </div>
+            <a href="https://www.hoover.org" target="_blank" rel="noopener" class="nav-affiliation">
+                <img src="assets/hoover-tower.svg" alt="" class="nav-affiliation-icon">
+                <span>Hoover Institution</span>
+            </a>
+        </div>
+    </nav>
+    <script>
+    (function() {
+        var nav = document.querySelector('.nav');
+        var scrolled = false;
+        window.addEventListener('scroll', function() {
+            var s = window.scrollY > 20;
+            if (s !== scrolled) { scrolled = s; nav.classList.toggle('scrolled', s); }
+        }, { passive: true });
+    })();
+    </script>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-inner">
+        <div class="hero-content">
+            <div class="hero-layout">
+                <div class="hero-text">
+                    <h1>The information value of political prediction markets</h1>
+                    <p class="hero-description">
+                        <span class="brand-inline">Bell</span> studies how prediction markets on <a href="https://kalshi.com" target="_blank" rel="noopener" style="color: var(--gray-900); text-decoration: underline;">Kalshi</a> and <a href="https://polymarket.com" target="_blank" rel="noopener" style="color: var(--gray-900); text-decoration: underline;">Polymarket</a> process political information.
+                    </p>
+                    <ul class="hero-stats-list">
+                        <li><span class="stat-bullet"></span>Shared election markets call winners correctly <span class="stat-num" id="hero-accuracy">85%</span> of the time.</li>
+                        <li><span class="stat-bullet"></span>Markets overlap in just <span class="stat-num" id="hero-overlap">330</span> of <span class="stat-num" id="hero-total">1,822</span> electoral locations.</li>
+                        <li><span class="stat-bullet"></span>Only <span class="stat-num" id="hero-robust-pct">0.4%</span> of all political markets are robust enough to cite.</li>
+                    </ul>
+                </div>
+                <div class="hero-symbol">
+                    <div id="hero-globe-container"></div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </section>
+
+    <!-- Market Monitor -->
+    <section id="monitor" class="monitor-section">
+        <div class="container">
+            <div class="monitor-header">
+                <div class="monitor-header-left">
+                    <h2>Market Monitor <span class="monitor-live-badge"><span class="monitor-live-dot"></span>LIVE</span></h2>
+                </div>
+                <div class="monitor-header-right">
+                    <span class="monitor-status"><span id="monitor-market-count">0</span> live markets</span>
+                    <span class="monitor-timestamp">Updated <span id="monitor-last-update">just now</span></span>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="monitor-filters">
+                <select id="filter-category" class="monitor-filter">
+                    <option value="all">All Categories</option>
+                    <!-- Populated dynamically from data -->
+                </select>
+                <select id="filter-platform" class="monitor-filter">
+                    <option value="all">All Platforms</option>
+                    <option value="polymarket">Polymarket</option>
+                    <option value="kalshi">Kalshi</option>
+                </select>
+                <input type="text" id="filter-search" class="monitor-filter-search" placeholder="Search markets...">
+                <button id="export-monitor-btn" class="monitor-export-btn" title="Export as PNG">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="18" cy="5" r="3"/>
+                        <circle cx="6" cy="12" r="3"/>
+                        <circle cx="18" cy="19" r="3"/>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="monitor-tabs">
+                <button class="monitor-tab active" data-view="biggest_moves">
+                    Moving Now <span class="monitor-tab-count" id="tab-count-moves">0</span>
+                </button>
+                <button class="monitor-tab" data-view="highest_volume">
+                    Most Active <span class="monitor-tab-count" id="tab-count-volume">0</span>
+                </button>
+                <button class="monitor-tab" data-view="divergences">
+                    Divergences <span class="monitor-tab-count" id="tab-count-divergences">0</span>
+                </button>
+                <button class="monitor-tab" data-view="reportable">
+                    Reportable <span class="monitor-tab-count" id="tab-count-reportable">0</span>
+                </button>
+            </div>
+
+            <!-- Election Filter Chip (hidden by default) -->
+            <div class="election-filter-chip" id="election-filter-chip" style="display: none;">
+                <span class="election-filter-text">Showing markets for: <strong id="election-filter-name"></strong></span>
+                <button class="election-filter-dismiss" id="election-filter-dismiss">&times;</button>
+            </div>
+
+            <!-- Grid: Timeline + Cards + Sidebar -->
+            <div class="monitor-grid">
+                <!-- Left: Election Timeline -->
+                <aside class="election-timeline-sidebar" id="election-timeline">
+                    <div class="timeline-header">US ELECTION CALENDAR</div>
+                    <div class="timeline-content" id="timeline-content">
+                        <!-- Populated by JS -->
+                        <div class="timeline-loading">Loading elections...</div>
+                    </div>
+                    <div class="timeline-footer">
+                        <span class="timeline-footer-text">Click to filter markets</span>
+                    </div>
+                </aside>
+
+                <!-- Center: Cards -->
+                <div>
+                    <div class="monitor-cards" id="monitor-cards">
+                        <div class="monitor-empty">Loading markets...</div>
+                    </div>
+                    <div class="monitor-load-more" id="monitor-load-more" style="display: none;">
+                        <button id="load-more-btn">Load more markets</button>
+                        <button id="show-less-btn" style="display: none;">Show less</button>
+                    </div>
+                </div>
+
+                <!-- Right: Sidebar -->
+                <div class="monitor-sidebar">
+                    <!-- Data Helper -->
+                    <div class="sidebar-card data-helper-card" id="data-helper">
+                        <div class="sidebar-card-eyebrow">Help Bellwether Improve</div>
+                        <div class="sidebar-card-title">Help Us Match Markets</div>
+                        <p class="sidebar-card-desc">Select markets on Polymarket and Kalshi that cover the same event so we can compare them. You can also flag errors or mislabeled markets.</p>
+                        <button id="start-review-btn" class="data-helper-btn">
+                            <span class="btn-icon">✓</span>
+                            Start Reviewing
+                        </button>
+                        <div id="review-mode-controls" class="review-controls hidden">
+                            <div class="review-selected-count"><span id="selected-count">0</span> selected</div>
+                            <button id="submit-review-btn" class="review-submit-btn" disabled>Submit Feedback</button>
+                            <button id="cancel-review-btn" class="review-cancel-btn">Cancel</button>
+                        </div>
+                    </div>
+
+                    <!-- Latest Research -->
+                    <div class="sidebar-card sidebar-card-featured">
+                        <div class="sidebar-card-eyebrow">Latest Research</div>
+                        <div class="sidebar-card-title">How We Built a Trustworthy Price</div>
+                        <p class="sidebar-card-desc">Volume-weighted averaging and manipulation resistance scoring for prediction market prices.</p>
+                        <a href="papers/liquidity-accuracy/" class="sidebar-card-link">Read →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-top">
+                <div class="footer-brand">
+                    <span class="footer-title">Bellwether</span>
+                    <span class="footer-tagline">Political prediction market research</span>
+                </div>
+                <div class="footer-nav">
+                    <a href="research.html">Research</a>
+                    <a href="about.html">About</a>
+                    <a href="https://github.com/elliotjames-paschal/Bellwether" target="_blank" rel="noopener">GitHub</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-legal">
+                    <span>&copy; 2026 Hall Lab</span>
+                    <span class="footer-sep">·</span>
+                    <a href="https://www.hoover.org" target="_blank" rel="noopener">Hoover Institution</a>
+                </div>
+                <div class="footer-sources">
+                    <span class="footer-sources-label">Data updated from</span>
+                    <a href="https://polymarket.com" target="_blank" rel="noopener"><img src="assets/logo-polymarket.svg" alt="" class="footer-source-logo">Polymarket</a>
+                    <a href="https://kalshi.com" target="_blank" rel="noopener"><img src="assets/logo-kalshi.svg" alt="" class="footer-source-logo">Kalshi</a>
+                    <a href="https://domeapi.com" target="_blank" rel="noopener"><img src="assets/logo-dome.svg" alt="" class="footer-source-logo">Dome</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Election Detail Modal -->
+    <div id="election-modal" class="modal-overlay">
+        <div class="modal-content" id="election-modal-content">
+            <!-- Content injected by JS -->
+        </div>
+    </div>
+
+    <!-- Data Feedback Modal -->
+    <div id="feedback-modal" class="modal-overlay">
+        <div class="modal-content feedback-modal-content">
+            <button class="modal-close" id="feedback-modal-close">&times;</button>
+            <h3 class="feedback-modal-title">Label Selected Markets</h3>
+            <p class="feedback-modal-subtitle">You've selected <span id="feedback-count">0</span> market(s). What would you like to tell us?</p>
+
+            <div class="feedback-options">
+                <label class="feedback-option feedback-option-featured">
+                    <input type="radio" name="feedback-type" value="same-event">
+                    <span class="feedback-option-text">
+                        <strong>Same Event (Cross-Platform Match)</strong>
+                        <span class="feedback-option-desc">These markets on Polymarket and Kalshi are about the same event — help us link them for comparison</span>
+                    </span>
+                </label>
+                <label class="feedback-option">
+                    <input type="radio" name="feedback-type" value="not-political">
+                    <span class="feedback-option-text">
+                        <strong>Not Political</strong>
+                        <span class="feedback-option-desc">These markets aren't about politics</span>
+                    </span>
+                </label>
+                <label class="feedback-option">
+                    <input type="radio" name="feedback-type" value="wrong-category">
+                    <span class="feedback-option-text">
+                        <strong>Wrong Category</strong>
+                        <span class="feedback-option-desc">Mislabeled category (e.g., marked as Electoral but isn't)</span>
+                    </span>
+                </label>
+                <label class="feedback-option">
+                    <input type="radio" name="feedback-type" value="other">
+                    <span class="feedback-option-text">
+                        <strong>Other Issue</strong>
+                        <span class="feedback-option-desc">Something else is wrong</span>
+                    </span>
+                </label>
+            </div>
+
+            <div class="feedback-notes">
+                <label for="feedback-notes-input">Notes</label>
+                <textarea id="feedback-notes-input" placeholder="For matching: briefly explain why these are the same event. For errors: describe what's wrong." required></textarea>
+            </div>
+
+            <div class="feedback-actions">
+                <button id="feedback-cancel-btn" class="feedback-btn-secondary">Cancel</button>
+                <button id="feedback-submit-btn" class="feedback-btn-primary">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/globe-hero.js?v=20260210"></script>
+    <script src="js/monitor.js?v=20260212i"></script>
+</body>
+</html>

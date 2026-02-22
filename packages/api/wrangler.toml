@@ -1,0 +1,21 @@
+name = "bellwether-commercial-api"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Custom domain - add after deploying
+# routes = [
+#   { pattern = "api.bellwethermetrics.com", custom_domain = true }
+# ]
+
+# Share the same KV namespace as the internal API
+[[kv_namespaces]]
+binding = "BELLWETHER_KV"
+id = "2ce167f19ce748e0bf09b513eaafe9ad"
+
+# API keys stored in KV
+[[kv_namespaces]]
+binding = "API_KEYS"
+id = "d8c1ccf2df71408598d56bcb6305b4f9"
+
+[vars]
+ENVIRONMENT = "production"

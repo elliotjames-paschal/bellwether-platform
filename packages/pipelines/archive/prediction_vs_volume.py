@@ -1,0 +1,279 @@
+#!/usr/bin/env python3
+"""
+Prediction Price vs Volume Analysis
+
+Creates scatter plots showing the relationship between prediction prices
+and trading volume:
+1. Polymarket - All Political Markets
+2. Kalshi - All Political Markets
+3. Polymarket - Electoral Markets Only
+4. Kalshi - Electoral Markets Only
+
+Uses 1-day before resolution data.
+"""
+
+import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+import os
+import json
+
+# Set style
+sns.set_style("whitegrid")
+plt.rcParams['figure.figsize'] = (12, 8)
+
+# Color scheme - using Polymarket blue and Kalshi green
+COLORS = {
+    'primary': '#2C3E50',
+    'secondary': '#34495E',
+    'polymarket': '#5B8DEE',  # Polymarket blue
+    'polymarket_light': '#A8C5F7',  # Lighter blue for mean bars
+    'kalshi': '#2CB67D',  # Kalshi green
+    'kalshi_light': '#7DD9A8',  # Lighter green for mean bars
+}
+
+# Paths
+BASE_DIR = "/Users/paschal/Hall Research Dropbox/Elliot Paschal/Polymarket:Kalshi"
+DATA_DIR = f"{BASE_DIR}/data"
+
+# Prediction accuracy files (Nov 17, 2025)
+PM_PRED_FILE = f"{DATA_DIR}/polymarket_prediction_accuracy_all_political_20260121_170951.csv"
+KALSHI_PRED_FILE = f"{DATA_DIR}/kalshi_prediction_accuracy_all_political_20260121_170951.csv"
+
+# Market metadata files
+MASTER_FILE = f"{DATA_DIR}/combined_political_markets_with_electoral_details.csv"
+
+GRAPH_DIR = f"{BASE_DIR}/graphs/combined"
+os.makedirs(GRAPH_DIR, exist_ok=True)
+
+print("="*80)
+print("PREDICTION PRICE VS VOLUME ANALYSIS")
+print("="*80)
+
+# ============================================================================
+# Load Polymarket Data
+# ============================================================================
+
+print(f"\n📊 Loading Polymarket data...")
+df_pm_pred = pd.read_csv(PM_PRED_FILE)
+
+# Load master CSV and filter to Polymarket
+df_master = pd.read_csv(MASTER_FILE, low_memory=False)
+df_pm_markets = df_master[df_master['platform'] == 'Polymarket'].copy()
+
+# Get volume from market metadata
+pm_volume = df_pm_markets[['market_id', 'volume_usd', 'political_category']].copy()
+pm_volume = pm_volume.rename(columns={'volume_usd': 'volume'})
+
+# Ensure market_id types match for merging
+pm_volume['market_id'] = pm_volume['market_id'].astype(str)
+
+# Join prediction data with volume
+df_pm_pred['market_id'] = df_pm_pred['market_id'].astype(str)
+df_pm = df_pm_pred.merge(pm_volume, on='market_id', how='inner')
+
+print(f"✓ Loaded {len(df_pm):,} Polymarket prediction rows with volume")
+
+# Filter to 1 day before resolution
+df_pm_1d = df_pm[df_pm['days_before_close'] == 1].copy()
+
+# Deduplicate by market_id (each market has Yes/No rows)
+print(f"  Found {len(df_pm_1d):,} Polymarket rows (1 day before)")
+df_pm_1d = df_pm_1d.drop_duplicates(subset='market_id', keep='first').copy()
+
+print(f"✓ Deduplicated to {len(df_pm_1d):,} unique Polymarket predictions (1 day before)")
+
+# Separate all political vs electoral
+df_pm_all = df_pm_1d.copy()
+df_pm_electoral = df_pm_1d[df_pm_1d['political_category'] == '1. ELECTORAL'].copy()
+
+print(f"  • All political: {len(df_pm_all):,}")
+print(f"  • Electoral only: {len(df_pm_electoral):,}")
+
+# ============================================================================
+# Load Kalshi Data
+# ============================================================================
+
+print(f"\n📊 Loading Kalshi data...")
+df_kalshi_pred = pd.read_csv(KALSHI_PRED_FILE)
+
+# Load Kalshi data from master CSV
+df_kalshi_markets = df_master[df_master['platform'] == 'Kalshi'].copy()
+
+# Get volume from market metadata
+kalshi_volume = df_kalshi_markets[['market_id', 'volume_usd', 'political_category']].copy()
+kalshi_volume = kalshi_volume.rename(columns={'volume_usd': 'volume'})
+
+# Ensure market_id types match for merging
+kalshi_volume['market_id'] = kalshi_volume['market_id'].astype(str)
+
+# Join prediction data with volume
+if 'ticker' in df_kalshi_pred.columns and 'market_id' not in df_kalshi_pred.columns:
+    df_kalshi_pred['market_id'] = df_kalshi_pred['ticker'].astype(str)
+elif 'market_id' in df_kalshi_pred.columns:
+    df_kalshi_pred['market_id'] = df_kalshi_pred['market_id'].astype(str)
+
+df_kalshi = df_kalshi_pred.merge(
+    kalshi_volume[['market_id', 'volume', 'political_category']],
+    on='market_id',
+    how='inner'
+)
+
+print(f"✓ Loaded {len(df_kalshi):,} Kalshi prediction rows with volume")
+
+# Filter to 1 day before resolution
+df_kalshi_1d = df_kalshi[df_kalshi['days_before_close'] == 1].copy()
+
+print(f"✓ Filtered to {len(df_kalshi_1d):,} Kalshi predictions (1 day before)")
+
+# Separate all political vs electoral
+df_kalshi_all = df_kalshi_1d.copy()
+df_kalshi_electoral = df_kalshi_1d[df_kalshi_1d['political_category'] == '1. ELECTORAL'].copy()
+
+print(f"  • All political: {len(df_kalshi_all):,}")
+print(f"  • Electoral only: {len(df_kalshi_electoral):,}")
+
+# ============================================================================
+# Helper Function to Create Scatter Plot
+# ============================================================================
+
+def create_volume_scatter(df, title, output_file, color, color_light):
+    """Create prediction price vs volume scatter plot with binned averages."""
+
+    # Remove zero volume markets
+    df = df[df['volume'] > 0].copy()
+
+    # Create bins for prediction prices (10 bins from 0 to 1)
+    bins = np.linspace(0, 1, 11)
+    df['price_bin'] = pd.cut(df['prediction_price'], bins=bins)
+
+    # Calculate volume statistics per bin (mean and median)
+    bin_stats = df.groupby('price_bin', observed=False).agg({
+        'volume': ['mean', 'median', 'sum', 'count'],
+        'prediction_price': 'mean'
+    }).reset_index()
+
+    bin_stats.columns = ['price_bin', 'avg_volume', 'median_volume', 'total_volume', 'count', 'avg_price']
+
+    # Create figure with two subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
+
+    # Plot 1: Scatter plot with all data points
+    ax1.scatter(df['prediction_price'], df['volume'],
+               alpha=0.3, s=10, color=color, edgecolors='none')
+    ax1.set_xlabel('Prediction Price (1 Day Before Resolution)', fontsize=12, fontweight='bold')
+    ax1.set_ylabel('Trading Volume ($)', fontsize=12, fontweight='bold')
+    ax1.set_title(f'{title}\nAll Markets (Scatter)', fontsize=14, fontweight='bold')
+    ax1.set_yscale('log')
+    ax1.grid(True, alpha=0.3)
+
+    # Add sample size
+    ax1.text(0.02, 0.98, f'n = {len(df):,} markets',
+            transform=ax1.transAxes, fontsize=10,
+            verticalalignment='top',
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    # Plot 2: Binned volume (median bars + mean bars)
+    width = 0.04
+    offset = width / 2
+
+    # Bars for median (darker color)
+    ax2.bar(bin_stats['avg_price'] - offset, bin_stats['median_volume'],
+           width=width, color=color, alpha=0.8, edgecolor='white', linewidth=0.5,
+           label='Median Volume')
+
+    # Bars for mean (lighter color)
+    ax2.bar(bin_stats['avg_price'] + offset, bin_stats['avg_volume'],
+           width=width, color=color_light, alpha=0.8, edgecolor='white', linewidth=0.5,
+           label='Mean Volume')
+
+    ax2.set_xlabel('Prediction Price Bin (1 Day Before Resolution)', fontsize=12, fontweight='bold')
+    ax2.set_ylabel('Trading Volume ($)', fontsize=12, fontweight='bold')
+    ax2.set_title(f'{title}\nMedian & Mean Volume by Price Bin', fontsize=14, fontweight='bold')
+    ax2.set_yscale('log')  # Log scale to handle large differences
+    ax2.grid(True, alpha=0.3, axis='y')
+    ax2.legend(fontsize=10, loc='best')
+
+    # Add counts on bars
+    for idx, row in bin_stats.iterrows():
+        ax2.text(row['avg_price'], row['median_volume'],
+                f"n={int(row['count'])}",
+                ha='center', va='bottom', fontsize=8)
+
+    plt.tight_layout()
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    print(f"✓ Saved: {output_file}")
+    plt.close()
+
+    # Print statistics
+    print(f"\n  Statistics for {title}:")
+    print(f"    Total markets: {len(df):,}")
+    print(f"    Total volume: ${df['volume'].sum():,.0f}")
+    print(f"    Average volume: ${df['volume'].mean():,.0f}")
+    print(f"    Median volume: ${df['volume'].median():,.0f}")
+
+# ============================================================================
+# Create Graphs
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("CREATING GRAPHS")
+print(f"{'='*80}")
+
+# Graph 1: Polymarket - All Political Markets
+print("\n1. Polymarket - All Political Markets")
+create_volume_scatter(
+    df_pm_all,
+    "Polymarket: Prediction Price vs Trading Volume (All Political Markets)",
+    f"{GRAPH_DIR}/prediction_vs_volume_polymarket_all.png",
+    COLORS['polymarket'],
+    COLORS['polymarket_light']
+)
+
+# Graph 2: Kalshi - All Political Markets
+print("\n2. Kalshi - All Political Markets")
+create_volume_scatter(
+    df_kalshi_all,
+    "Kalshi: Prediction Price vs Trading Volume (All Political Markets)",
+    f"{GRAPH_DIR}/prediction_vs_volume_kalshi_all.png",
+    COLORS['kalshi'],
+    COLORS['kalshi_light']
+)
+
+# Graph 3: Polymarket - Electoral Markets Only
+print("\n3. Polymarket - Electoral Markets Only")
+create_volume_scatter(
+    df_pm_electoral,
+    "Polymarket: Prediction Price vs Trading Volume (Electoral Markets)",
+    f"{GRAPH_DIR}/prediction_vs_volume_polymarket_electoral.png",
+    COLORS['polymarket'],
+    COLORS['polymarket_light']
+)
+
+# Graph 4: Kalshi - Electoral Markets Only
+print("\n4. Kalshi - Electoral Markets Only")
+create_volume_scatter(
+    df_kalshi_electoral,
+    "Kalshi: Prediction Price vs Trading Volume (Electoral Markets)",
+    f"{GRAPH_DIR}/prediction_vs_volume_kalshi_electoral.png",
+    COLORS['kalshi'],
+    COLORS['kalshi_light']
+)
+
+# ============================================================================
+# Summary
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("SUMMARY")
+print(f"{'='*80}")
+print(f"Created 4 graphs showing prediction price vs trading volume:")
+print(f"  1. Polymarket - All Political Markets")
+print(f"  2. Kalshi - All Political Markets")
+print(f"  3. Polymarket - Electoral Markets")
+print(f"  4. Kalshi - Electoral Markets")
+print(f"\nAll graphs saved to: {GRAPH_DIR}")
+print(f"{'='*80}")

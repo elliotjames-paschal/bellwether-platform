@@ -1,0 +1,22 @@
+# Fly.io configuration for Bellwether Live Data Server
+
+app = "bellwether-live"
+primary_region = "sjc"  # San Jose (closest to Stanford)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false   # Keep running 24/7
+  auto_start_machines = true
+  min_machines_running = 1     # Always have 1 instance
+
+[[vm]]
+  size = "shared-cpu-1x"  # Free tier VM
+  memory = "256mb"

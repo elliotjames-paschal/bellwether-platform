@@ -1,0 +1,381 @@
+#!/usr/bin/env python3
+"""
+Brier Score Analysis Visualizations
+Creates two Brier score analysis plots:
+1. Time Series: Brier scores for 4 cohorts (7d, 14d, 30d, 60d) from 60 days to 0
+2. Category Breakdown: 7-day cohort Brier scores by political category (1 day before)
+
+Uses the same color scheme as Polymarket/Kalshi pipeline for consistency.
+"""
+
+import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend for LaTeX
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+import os
+
+# Set style for better-looking plots
+sns.set_style("whitegrid")
+plt.rcParams['figure.figsize'] = (12, 8)
+
+# Color scheme from Polymarket pipeline
+COLORS = {
+    'primary': '#2C3E50',
+    'secondary': '#34495E',
+    'tertiary': '#7F8C8D',
+    'light_gray': '#95A5A6',
+    'lighter_gray': '#BDC3C7',
+    'lightest_gray': '#D5DBDB',
+    'dark': '#1a1a1a',
+    'accent': '#546E7A'
+}
+
+# Cohort colors (4 distinct colors from palette)
+COHORT_COLORS = {
+    '7d': '#2C3E50',   # Darkest
+    '14d': '#34495E',
+    '30d': '#7F8C8D',
+    '60d': '#95A5A6'   # Lightest
+}
+
+# Paths
+BASE_DIR = "/Users/paschal/Hall Research Dropbox/Elliot Paschal/Polymarket:Kalshi"
+DATA_DIR = f"{BASE_DIR}/data"
+DATA_DIR_DESKTOP = "/Users/paschal/Desktop/Polymarket:Kalshi"
+OVERALL_FILE = f"{DATA_DIR}/combined_brier_overall_cohorts.csv"
+CATEGORIES_FILE = f"{DATA_DIR}/combined_brier_categories_cohorts.csv"
+
+# Prediction accuracy files (CORRECTED - with contamination adjustments)
+PM_PRED_FILE = f"{DATA_DIR}/polymarket_prediction_accuracy_all_political_20251120_134507.csv"
+KALSHI_PRED_FILE = f"{DATA_DIR}/kalshi_prediction_accuracy_all_political_20251120_134507.csv"
+
+# Market metadata file (master CSV with all markets)
+MASTER_FILE = f"{DATA_DIR}/combined_political_markets_with_electoral_details.csv"
+
+GRAPH_DIR = f"{BASE_DIR}/graphs/combined"
+os.makedirs(GRAPH_DIR, exist_ok=True)
+
+print("="*80)
+print("BRIER SCORE ANALYSIS")
+print("="*80)
+
+# ============================================================================
+# Load Data
+# ============================================================================
+
+print(f"\nLoading data...")
+print(f"  Overall cohorts: {OVERALL_FILE}")
+print(f"  Category cohorts: {CATEGORIES_FILE}")
+
+df_overall = pd.read_csv(OVERALL_FILE)
+df_categories = pd.read_csv(CATEGORIES_FILE)
+
+print(f"✓ Loaded overall cohorts: {len(df_overall)} rows")
+print(f"✓ Loaded category cohorts: {len(df_categories)} rows")
+
+# Load prediction accuracy data to filter for elections
+print(f"\nLoading prediction accuracy data for elections filtering...")
+print(f"  Polymarket predictions: {PM_PRED_FILE}")
+print(f"  Kalshi predictions: {KALSHI_PRED_FILE}")
+
+df_pm_pred = pd.read_csv(PM_PRED_FILE)
+df_kalshi_pred = pd.read_csv(KALSHI_PRED_FILE)
+
+print(f"✓ Loaded {len(df_pm_pred):,} Polymarket prediction rows")
+print(f"✓ Loaded {len(df_kalshi_pred):,} Kalshi prediction rows")
+
+# Load market metadata from master CSV
+print(f"\nLoading market metadata...")
+print(f"  Master file: {MASTER_FILE}")
+
+df_master = pd.read_csv(MASTER_FILE, low_memory=False)
+
+# Split by platform and extract metadata
+pm_meta = df_master[df_master['platform'] == 'Polymarket'][['market_id', 'election_type']].copy()
+kalshi_meta = df_master[df_master['platform'] == 'Kalshi'][['market_id', 'election_type']].copy()
+
+# Ensure market_id types match for merging
+pm_meta['market_id'] = pm_meta['market_id'].astype(str)
+kalshi_meta['market_id'] = kalshi_meta['market_id'].astype(str)
+
+print(f"✓ Loaded {len(pm_meta):,} Polymarket market metadata")
+print(f"✓ Loaded {len(kalshi_meta):,} Kalshi market metadata")
+
+# Join prediction data with metadata
+df_pm_pred['market_id'] = df_pm_pred['market_id'].astype(str)
+df_pm = df_pm_pred.merge(pm_meta, on='market_id', how='inner', suffixes=('', '_market'))
+if 'ticker' in df_kalshi_pred.columns:
+    df_kalshi_pred['market_id'] = df_kalshi_pred['ticker']
+df_kalshi_pred['market_id'] = df_kalshi_pred['market_id'].astype(str)
+df_kalshi = df_kalshi_pred.merge(kalshi_meta, on='market_id', how='inner', suffixes=('', '_market'))
+
+print(f"✓ Joined Polymarket: {len(df_pm):,} rows with election_type")
+print(f"✓ Joined Kalshi: {len(df_kalshi):,} rows with election_type")
+
+# If election_type has suffix, rename it
+if 'election_type_market' in df_pm.columns and 'election_type' not in df_pm.columns:
+    df_pm['election_type'] = df_pm['election_type_market']
+if 'election_type_market' in df_kalshi.columns and 'election_type' not in df_kalshi.columns:
+    df_kalshi['election_type'] = df_kalshi['election_type_market']
+
+# Filter to elections only (election_type is not null/NA)
+df_pm_elections = df_pm[
+    (df_pm['election_type'].notna()) &
+    (df_pm['election_type'] != 'NA')
+].copy()
+df_kalshi_elections = df_kalshi[
+    (df_kalshi['election_type'].notna()) &
+    (df_kalshi['election_type'] != 'NA')
+].copy()
+
+print(f"\n✓ Filtered to elections only:")
+print(f"  Polymarket: {len(df_pm_elections):,} election market predictions")
+print(f"  Kalshi: {len(df_kalshi_elections):,} election market predictions")
+print(f"  Total: {len(df_pm_elections) + len(df_kalshi_elections):,} election predictions")
+
+
+# ============================================================================
+# GRAPH 1: Brier Score Time Series (4 Cohorts)
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("GRAPH 1: Brier Score Time Series by Cohort")
+print(f"{'='*80}")
+
+# Expected day columns in order from far to near
+day_columns = ['60d', '30d', '20d', '14d', '12d', '10d', '8d', '7d', '6d', '5d', '4d', '3d', '2d', '1d']
+
+# Filter to cohorts we want
+cohorts = ['7d', '14d', '30d', '60d']
+
+fig, ax = plt.subplots(figsize=(14, 8))
+
+# Plot each cohort
+for cohort in cohorts:
+    cohort_data = df_overall[df_overall['Cohort'] == cohort]
+
+    if len(cohort_data) == 0:
+        print(f"⚠️  No data for cohort: {cohort}")
+        continue
+
+    # Extract the Brier scores for available day columns
+    days = []
+    scores = []
+
+    for day_col in day_columns:
+        if day_col in cohort_data.columns:
+            value = cohort_data[day_col].iloc[0]
+            if pd.notna(value):  # Only include non-null values
+                # Convert day column to numeric (e.g., '60d' -> 60)
+                day_num = int(day_col.replace('d', ''))
+                days.append(day_num)
+                scores.append(value)
+
+    if len(days) > 0:
+        # Plot line (reverse days so X-axis goes from 60 to 0)
+        ax.plot(days[::-1], scores[::-1],
+                marker='o',
+                markersize=6,
+                linewidth=2.5,
+                color=COHORT_COLORS[cohort],
+                label=f'{cohort} cohort (n={cohort_data["N"].iloc[0]:,})',
+                alpha=0.8)
+
+        print(f"✓ Plotted {cohort}: {len(days)} data points, final Brier = {scores[-1]:.4f}")
+
+# Formatting
+ax.set_xlabel('Days Before Resolution', fontsize=14, fontweight='bold')
+ax.set_ylabel('Brier Score (Mean Squared Error)', fontsize=14, fontweight='bold')
+ax.set_title('Brier Score Evolution by Cohort\n(Lower is Better - Perfect Calibration = 0)',
+             fontsize=16, fontweight='bold', pad=20)
+
+# Reverse x-axis so it goes from 60 to 0
+ax.invert_xaxis()
+
+# Add grid
+ax.grid(True, alpha=0.3, zorder=0)
+
+# Legend
+ax.legend(fontsize=12, loc='lower left', framealpha=0.9)
+
+plt.tight_layout()
+output_file_1 = f"{GRAPH_DIR}/brier_scores_timeseries.png"
+plt.savefig(output_file_1, dpi=300, bbox_inches='tight')
+print(f"\n✓ Saved: {output_file_1}")
+plt.close()
+
+
+# ============================================================================
+# GRAPH 2: Brier Score Time Series (4 Cohorts) - ELECTIONS ONLY
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("GRAPH 2: Brier Score Time Series by Cohort - ELECTIONS ONLY")
+print(f"{'='*80}")
+
+# Get unique election market IDs
+election_market_ids = set(df_pm_elections['market_id'].unique()) | set(df_kalshi_elections['market_id'].unique())
+print(f"✓ Found {len(election_market_ids):,} unique election markets")
+
+# For elections-only graph, we need to use the category data and filter for ELECTORAL category
+# The categories file has Brier scores by category, and ELECTORAL is the election category
+df_electoral = df_categories[df_categories['Category'] == '1. ELECTORAL'].copy()
+
+if len(df_electoral) == 0:
+    print("⚠️  No ELECTORAL category found in categories data")
+else:
+    print(f"✓ Found ELECTORAL category data with {len(df_electoral)} cohort(s)")
+
+    # Plot the elections-only time series using ELECTORAL category data
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    for cohort in cohorts:
+        cohort_data = df_electoral[df_electoral['Cohort'] == cohort]
+
+        if len(cohort_data) == 0:
+            print(f"⚠️  No data for cohort: {cohort}")
+            continue
+
+        # Extract the Brier scores for available day columns
+        days = []
+        scores = []
+
+        for day_col in day_columns:
+            if day_col in cohort_data.columns:
+                value = cohort_data[day_col].iloc[0]
+                if pd.notna(value):  # Only include non-null values
+                    # Convert day column to numeric (e.g., '60d' -> 60)
+                    day_num = int(day_col.replace('d', ''))
+                    days.append(day_num)
+                    scores.append(value)
+
+        if len(days) > 0:
+            # Plot line (reverse days so X-axis goes from 60 to 0)
+            ax.plot(days[::-1], scores[::-1],
+                    marker='o',
+                    markersize=6,
+                    linewidth=2.5,
+                    color=COHORT_COLORS[cohort],
+                    label=f'{cohort} cohort (n={cohort_data["N"].iloc[0]:,})',
+                    alpha=0.8)
+
+            print(f"✓ Plotted {cohort} elections: {len(days)} data points, final Brier = {scores[-1]:.4f}")
+
+# Formatting
+ax.set_xlabel('Days Before Resolution', fontsize=14, fontweight='bold')
+ax.set_ylabel('Brier Score (Mean Squared Error)', fontsize=14, fontweight='bold')
+ax.set_title('Brier Score Evolution by Cohort - Elections Only\n(Lower is Better - Perfect Calibration = 0)',
+             fontsize=16, fontweight='bold', pad=20)
+
+# Reverse x-axis so it goes from 60 to 0
+ax.invert_xaxis()
+
+# Add grid
+ax.grid(True, alpha=0.3, zorder=0)
+
+# Legend
+ax.legend(fontsize=12, loc='lower left', framealpha=0.9)
+
+plt.tight_layout()
+output_file_2 = f"{GRAPH_DIR}/brier_scores_timeseries_elections_only.png"
+plt.savefig(output_file_2, dpi=300, bbox_inches='tight')
+print(f"\n✓ Saved: {output_file_2}")
+plt.close()
+
+
+# ============================================================================
+# GRAPH 3: 7-Day Cohort Brier Scores by Category (1 Day Before)
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("GRAPH 3: 7-Day Cohort Brier Scores by Political Category")
+print(f"{'='*80}")
+
+# Filter to 7-day cohort
+df_7d = df_categories[df_categories['Cohort'] == '7d'].copy()
+print(f"Found {len(df_7d)} categories for 7-day cohort")
+
+# Extract 1-day before Brier scores
+if '1d' in df_7d.columns:
+    df_7d['brier_1d'] = df_7d['1d']
+
+    # Remove any NA values
+    df_7d = df_7d[df_7d['brier_1d'].notna()].copy()
+
+    # Sort by Brier score for better visualization
+    df_7d = df_7d.sort_values('brier_1d', ascending=False)
+
+    print(f"\nCategory Brier Scores (1 day before):")
+    for idx, row in df_7d.iterrows():
+        print(f"  • {row['Category']}: {row['brier_1d']:.4f} (n={row['N']:,})")
+
+    # Create the plot
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    # Create bar plot
+    bars = ax.barh(df_7d['Category'], df_7d['brier_1d'],
+                    color=COLORS['primary'],
+                    alpha=0.7,
+                    edgecolor=COLORS['dark'],
+                    linewidth=1.5)
+
+    # Add value labels on bars
+    for i, (idx, row) in enumerate(df_7d.iterrows()):
+        ax.text(row['brier_1d'] + 0.001, i,
+                f"{row['brier_1d']:.4f}",
+                va='center',
+                fontsize=10,
+                fontweight='bold')
+
+    # Add sample size annotations
+    for i, (idx, row) in enumerate(df_7d.iterrows()):
+        ax.text(0.001, i,
+                f"n={row['N']:,}",
+                va='center',
+                ha='left',
+                fontsize=9,
+                color='white',
+                fontweight='bold')
+
+    # Labels and formatting
+    ax.set_xlabel('Brier Score (1 Day Before Resolution)', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Political Category', fontsize=14, fontweight='bold')
+    ax.set_title('Brier Score Comparison by Political Category\n(7-Day Cohort, 1 Day Before Resolution)',
+                 fontsize=16, fontweight='bold', pad=20)
+    ax.grid(True, alpha=0.3, axis='x')
+
+    # Add note
+    ax.text(0.98, 0.98,
+            'Note: Higher Brier scores indicate worse calibration\n' +
+            'Sample sizes shown on left of each bar',
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment='top',
+            horizontalalignment='right',
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    plt.tight_layout()
+    output_file_2 = f"{GRAPH_DIR}/brier_scores_by_category_7d.png"
+    plt.savefig(output_file_2, dpi=300, bbox_inches='tight')
+    print(f"\n✓ Saved: {output_file_2}")
+    plt.close()
+else:
+    print("⚠️  Column '1d' not found in categories data")
+
+
+# ============================================================================
+# Summary
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("SUMMARY")
+print(f"{'='*80}")
+print(f"Cohorts analyzed: {', '.join(cohorts)}")
+print(f"Categories analyzed: {len(df_7d)} for 7-day cohort")
+print(f"\nGraphs saved to: {GRAPH_DIR}")
+print(f"  1. brier_scores_timeseries.png (all markets)")
+print(f"  2. brier_scores_timeseries_elections_only.png (elections only)")
+print(f"  3. brier_scores_by_category_7d.png")
+print(f"{'='*80}")
