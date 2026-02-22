@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4JTSRBJBY5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-4JTSRBJBY5');
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Globe - Bellwether</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css?v=20260211a">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/topojson-client@3"></script>
+    <style>
+        /* Globe View Styles */
+        body.globe-page {
+            background: #111827;
+            overflow: hidden;
+        }
+
+        .globe-page .nav {
+            background: rgba(17, 24, 39, 0.95);
+            border-bottom: 1px solid #374151;
+        }
+
+        .globe-page .nav-logo {
+            color: #fff;
+        }
+
+        .globe-page .nav-links a {
+            color: #9ca3af;
+        }
+
+        .globe-page .nav-links a:hover,
+        .globe-page .nav-links a.active {
+            color: #fff;
+        }
+
+        .globe-page .nav-affiliation {
+            color: #9ca3af;
+        }
+
+        .globe-page .nav-affiliation:hover {
+            color: #d1d5db;
+        }
+
+        .globe-page .nav-affiliation-icon {
+            filter: invert(1) opacity(0.6);
+        }
+
+        .globe-page .nav-affiliation:hover .nav-affiliation-icon {
+            filter: invert(1) opacity(0.8);
+        }
+
+        /* Logo gradient circle for dark mode */
+        .globe-page .nav-logo::before {
+            background: linear-gradient(135deg, #60a5fa, #34d399);
+            border-radius: 50%;
+        }
+
+        .globe-view {
+            display: flex;
+            height: calc(100vh - 57px);
+            background: #111827;
+        }
+
+        .globe-main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .globe-main #globe-container {
+            width: 850px !important;
+            height: 850px !important;
+        }
+
+        /* Override globe colors for dark theme */
+        .globe-page .globe-tooltip {
+            background: rgba(31, 41, 55, 0.95) !important;
+            border: 1px solid #374151;
+        }
+
+        /* Hide the explore button in globe view since we're already in it */
+        .globe-main #globe-container button {
+            display: none !important;
+        }
+
+        /* Zoom controls */
+        .globe-zoom-controls {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 10;
+        }
+
+        .globe-zoom-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid #4b5563;
+            background: rgba(31, 41, 55, 0.9);
+            color: #d1d5db;
+            font-size: 18px;
+            font-weight: 300;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            backdrop-filter: blur(4px);
+        }
+
+        .globe-zoom-btn:first-child {
+            border-radius: 6px 6px 0 0;
+        }
+
+        .globe-zoom-btn:last-child {
+            border-radius: 0 0 6px 6px;
+            border-top: none;
+        }
+
+        .globe-zoom-btn:hover {
+            background: rgba(55, 65, 81, 0.95);
+            color: #fff;
+        }
+
+        .globe-zoom-btn:active {
+            background: rgba(75, 85, 99, 0.95);
+        }
+
+        /* Floating election labels near globe */
+        .globe-markers {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .globe-marker {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .globe-marker:hover {
+            transform: scale(1.05);
+        }
+
+        .globe-marker-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: globe-dot-pulse 2s ease-in-out infinite;
+        }
+
+        .globe-marker-dot.hot {
+            background: #fbbf24;
+        }
+
+        .globe-marker-dot.normal {
+            background: #60a5fa;
+        }
+
+        @keyframes globe-dot-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.2); }
+        }
+
+        .globe-marker-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #fff;
+            background: rgba(31, 41, 55, 0.9);
+            padding: 4px 10px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+
+        /* Sidebar */
+        .globe-sidebar {
+            width: 380px;
+            background: #1f2937;
+            border-left: 1px solid #374151;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .globe-sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #374151;
+        }
+
+        .globe-search {
+            width: 100%;
+            padding: 10px 14px;
+            background: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .globe-search::placeholder {
+            color: #9ca3af;
+        }
+
+        .globe-search:focus {
+            border-color: #60a5fa;
+        }
+
+        .globe-filters {
+            padding: 16px 20px;
+            border-bottom: 1px solid #374151;
+        }
+
+        .globe-filter-group {
+            margin-bottom: 16px;
+        }
+
+        .globe-filter-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .globe-filter-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        /* Category dropdown */
+        .category-dropdown-wrap {
+            position: relative;
+            display: inline-flex;
+        }
+
+        .category-more-btn {
+            background: #1f2937;
+            border: 1px dashed #4b5563;
+        }
+        .category-more-btn.active {
+            background: #fff;
+            color: #111827;
+            border: 1px solid #fff;
+        }
+
+        .category-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 6px;
+            z-index: 100;
+            min-width: 160px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .category-dropdown.open {
+            display: block;
+        }
+
+        .category-dropdown-item {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 8px 10px;
+            background: transparent;
+            border: none;
+            color: #d1d5db;
+            font-size: 12px;
+            text-align: left;
+            cursor: pointer;
+            border-radius: 4px;
+            gap: 8px;
+        }
+
+        .category-dropdown-item:hover {
+            background: #374151;
+            color: #f3f4f6;
+        }
+
+        .category-dropdown-item.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .category-dropdown-item::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--cat-color, #6b7280);
+            flex-shrink: 0;
+        }
+
+        .globe-filter-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .globe-filter-pills-wrap {
+            position: relative;
+            z-index: 10;
+        }
+
+        .globe-filter-pill[data-color]::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 4px;
+            background: var(--pill-color, #6b7280);
+        }
+
+        .globe-filter-pill {
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #d1d5db;
+            background: #374151;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .globe-filter-pill:hover {
+            background: #4b5563;
+        }
+
+        .globe-filter-pill.active {
+            background: #fff;
+            color: #111827;
+        }
+
+        /* Data Layer Toggles */
+        .globe-layers {
+            padding: 16px 20px;
+            border-bottom: 1px solid #374151;
+        }
+
+        .globe-layer-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            cursor: pointer;
+        }
+
+        .globe-layer-toggle:hover {
+            opacity: 0.9;
+        }
+
+        .globe-layer-switch {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            background: #374151;
+            border-radius: 10px;
+            transition: background 0.2s;
+        }
+
+        .globe-layer-toggle.active .globe-layer-switch {
+            background: #6b9fd4;
+        }
+
+        .globe-layer-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .globe-layer-toggle.active .globe-layer-switch::after {
+            transform: translateX(16px);
+        }
+
+        .globe-layer-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #6b9fd4;
+        }
+
+        .globe-layer-label {
+            flex: 1;
+            font-size: 13px;
+            color: #d1d5db;
+        }
+
+        .globe-layer-toggle.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .globe-layer-toggle.disabled .globe-layer-label::after {
+            content: ' (coming soon)';
+            font-size: 10px;
+            color: #6b7280;
+        }
+
+        /* V-Dem Panel - Top Right of Globe */
+        .vdem-panel {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(17, 24, 39, 0.88);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(75, 85, 99, 0.5);
+            border-radius: 4px;
+            padding: 10px 12px;
+            z-index: 100;
+            font-family: var(--font-sans);
+        }
+        /* V-Dem Legend */
+        .vdem-legend {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(75, 85, 99, 0.4);
+            flex-shrink: 0;
+        }
+        .vdem-legend-bar {
+            height: 6px;
+            border-radius: 1px;
+            background: linear-gradient(to right,
+                #94a9bd 0%,
+                #dbeafe 100%
+            );
+        }
+        .vdem-legend-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 3px;
+            font-size: 9px;
+            color: #6b7280;
+        }
+
+        /* V-Dem Index Options */
+        .vdem-indices {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            overflow-y: auto;
+            max-height: 340px;
+            margin: 0 -4px;
+            padding: 0 4px;
+        }
+        .vdem-indices::-webkit-scrollbar {
+            width: 4px;
+        }
+        .vdem-indices::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .vdem-indices::-webkit-scrollbar-thumb {
+            background: rgba(148, 169, 189, 0.3);
+            border-radius: 2px;
+        }
+        .vdem-index-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 6px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .vdem-index-option:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .vdem-index-option.active {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        /* Radio Button */
+        .vdem-index-radio {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 1.5px solid #4b5563;
+            flex-shrink: 0;
+            transition: all 0.1s;
+            position: relative;
+        }
+        .vdem-index-option:hover .vdem-index-radio {
+            border-color: #9ca3af;
+        }
+        .vdem-index-option.active .vdem-index-radio {
+            border-color: #9ca3af;
+        }
+        .vdem-index-option.active .vdem-index-radio::after {
+            content: '';
+            position: absolute;
+            top: 1.5px;
+            left: 1.5px;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #d1d5db;
+        }
+
+        /* Index Label */
+        .vdem-index-label {
+            font-size: 11px;
+            color: #9ca3af;
+            flex: 1;
+        }
+        .vdem-index-option:hover .vdem-index-label {
+            color: #d1d5db;
+        }
+        .vdem-index-option.active .vdem-index-label {
+            color: #e5e7eb;
+        }
+
+        /* Inverted indicator */
+        .vdem-index-inverted {
+            font-size: 8px;
+            color: #6b7280;
+        }
+
+        /* V-Dem Tooltip */
+        .vdem-tooltip {
+            position: absolute;
+            right: calc(100% + 8px);
+            top: 0;
+            width: 200px;
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid rgba(75, 85, 99, 0.6);
+            border-radius: 3px;
+            padding: 8px 10px;
+            font-size: 11px;
+            line-height: 1.45;
+            color: #9ca3af;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.1s;
+            z-index: 101;
+        }
+        .vdem-tooltip.visible {
+            opacity: 1;
+        }
+
+        /* Country Info Panel - Shows when a country is clicked */
+        .country-info-panel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(17, 24, 39, 0.92);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(75, 85, 99, 0.5);
+            border-radius: 8px;
+            padding: 14px 16px;
+            z-index: 100;
+            min-width: 220px;
+            max-width: 280px;
+            display: none;
+            font-family: var(--font-sans);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .country-info-panel.visible {
+            display: block;
+        }
+        .country-info-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(75, 85, 99, 0.4);
+        }
+        .country-info-flag {
+            font-size: 28px;
+            line-height: 1;
+        }
+        .country-info-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #f3f4f6;
+        }
+        .country-info-close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            background: transparent;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            border-radius: 3px;
+            transition: all 0.15s;
+        }
+        .country-info-close:hover {
+            color: #d1d5db;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        /* V-Dem Score Section */
+        .country-vdem-section {
+            margin-bottom: 0;
+        }
+        .country-vdem-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+        .country-vdem-score {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+        .country-vdem-value {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            font-weight: 500;
+            color: #dbeafe;
+        }
+        .country-vdem-index {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        .country-vdem-bar {
+            height: 4px;
+            background: rgba(75, 85, 99, 0.4);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .country-vdem-bar-fill {
+            height: 100%;
+            background: linear-gradient(to right, #94a9bd, #dbeafe);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        /* Markets list */
+        .globe-elections {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+
+        .globe-elections-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .globe-elections-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .globe-elections-sort {
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .globe-elections-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .globe-election-item {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 14px;
+            background: rgba(55, 65, 81, 0.5);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .globe-election-item:hover {
+            background: #374151;
+        }
+
+        .globe-election-item.selected {
+            background: #374151;
+            border: 1px solid #60a5fa;
+            margin: -1px;
+        }
+
+        .globe-election-item.hovered {
+            background: #374151;
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.5);
+        }
+
+        .globe-election-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .globe-election-left {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .globe-election-flag {
+            font-size: 18px;
+            line-height: 1.2;
+            flex-shrink: 0;
+        }
+
+        .globe-election-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .globe-election-name {
+            font-family: var(--font-serif);
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1.3;
+            color: #fff;
+        }
+
+        .globe-election-meta {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        .globe-election-hot {
+            width: 8px;
+            height: 8px;
+            background: #fbbf24;
+            border-radius: 50%;
+            flex-shrink: 0;
+            animation: globe-dot-pulse 2s ease-in-out infinite;
+        }
+
+        .globe-election-probability {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .globe-election-probability-value {
+            font-family: var(--font-mono);
+            font-size: 22px;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .globe-election-probability-label {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .globe-election-links {
+            display: flex;
+            gap: 8px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(75, 85, 99, 0.4);
+            justify-content: flex-end;
+        }
+
+        .globe-election-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            font-size: 11px;
+            font-weight: 500;
+            text-decoration: none;
+            border-radius: 4px;
+            border: 1px solid #4b5563;
+            background: transparent;
+            color: #d1d5db;
+            transition: all 0.15s;
+        }
+
+        .globe-election-link:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        .globe-election-link.pm {
+            border-color: rgba(96, 165, 250, 0.4);
+            color: #93c5fd;
+        }
+        .globe-election-link.pm:hover {
+            border-color: #60a5fa;
+            background: rgba(96, 165, 250, 0.15);
+        }
+
+        .globe-election-link.kalshi {
+            border-color: rgba(52, 211, 153, 0.4);
+            color: #6ee7b7;
+        }
+        .globe-election-link.kalshi:hover {
+            border-color: #34d399;
+            background: rgba(52, 211, 153, 0.15);
+        }
+
+        .globe-election-link-arrow {
+            font-size: 9px;
+            opacity: 0.5;
+        }
+
+        /* Footer stats */
+        .globe-sidebar-footer {
+            padding: 12px 20px;
+            border-top: 1px solid #374151;
+            background: #1f2937;
+            text-align: center;
+        }
+
+        .globe-footer-stat {
+            font-size: 13px;
+            color: #9ca3af;
+        }
+
+        .globe-footer-stat strong {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* Empty state */
+        .globe-elections-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        /* Scrollbar styling */
+        .globe-elections::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .globe-elections::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .globe-elections::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 3px;
+        }
+
+        .globe-elections::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+    </style>
+</head>
+<body class="globe-page">
+    <nav class="nav">
+        <div class="nav-inner">
+            <div class="nav-left">
+                <a href="./" class="nav-logo"><span class="nav-logo-text">Bellwether</span></a>
+                <div class="nav-links">
+                    <a href="./">Home</a>
+                    <a href="globe.html" class="active">Globe</a>
+                    <a href="research.html">Research</a>
+                    <a href="data.html">Data</a>
+                    <a href="about.html">About</a>
+                </div>
+            </div>
+            <a href="https://www.hoover.org" target="_blank" rel="noopener" class="nav-affiliation">
+                <img src="assets/hoover-tower.svg" alt="" class="nav-affiliation-icon">
+                <span>Hoover Institution</span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="globe-view">
+        <!-- Globe Area -->
+        <div class="globe-main">
+            <div id="globe-container"></div>
+            <div class="globe-zoom-controls">
+                <button class="globe-zoom-btn" id="zoom-in" title="Zoom in">+</button>
+                <button class="globe-zoom-btn" id="zoom-out" title="Zoom out">−</button>
+            </div>
+
+            <!-- Country V-Dem Panel (shows when a country is clicked and V-Dem is enabled) -->
+            <div class="country-info-panel" id="country-info-panel">
+                <button class="country-info-close" id="country-info-close" title="Close">&times;</button>
+                <div class="country-info-header">
+                    <span class="country-info-flag" id="country-info-flag"></span>
+                    <span class="country-info-name" id="country-info-name"></span>
+                </div>
+                <div class="country-vdem-section" id="country-vdem-section">
+                    <div class="country-vdem-label">V-Dem Score</div>
+                    <div class="country-vdem-score">
+                        <span class="country-vdem-value" id="country-vdem-value"></span>
+                        <span class="country-vdem-index" id="country-vdem-index"></span>
+                    </div>
+                    <div class="country-vdem-bar">
+                        <div class="country-vdem-bar-fill" id="country-vdem-bar-fill"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- V-Dem Panel (hidden by default, shown when V-Dem layer is active) -->
+            <div class="vdem-panel" id="vdem-panel" style="display: none;">
+                <!-- Index Options -->
+                <div class="vdem-indices">
+                    <!-- Core Democracy -->
+                    <div class="vdem-index-option active" data-index="v2x_polyarchy" data-description="Measures responsiveness of rulers to citizens through electoral competition, free and fair elections, and freedom of association.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Electoral Democracy</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2x_libdem" data-description="Combines electoral democracy with rule of law, civil liberties, independent judiciary, and limits on executive power.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Liberal Democracy</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2x_partipdem" data-description="Emphasizes citizen participation beyond elections: civil society, direct democracy, local government.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Participatory Democracy</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2x_delibdem" data-description="Emphasizes reasoned debate, justification of decisions, and respect for counterarguments in political discourse.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Deliberative Democracy</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2x_egaldem" data-description="Focus on equal distribution of political power and resources across social groups.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Egalitarian Democracy</div>
+                    </div>
+                    <!-- Elections & Governance -->
+                    <div class="vdem-index-option" data-index="v2xel_frefair" data-description="Electoral integrity - free and fair elections without fraud, intimidation, or irregularities.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Clean Elections</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2x_rule" data-description="Transparent, predictable, and impartially enforced laws that apply equally to all.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Rule of Law</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2x_jucon" data-description="Extent to which executive power is constrained by an independent judiciary.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Judicial Constraints</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2x_corr" data-description="Corruption in public sector, executive, legislature, and judiciary. Higher = more corrupt." data-inverted="true">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Political Corruption</div>
+                        <div class="vdem-index-inverted">↕</div>
+                    </div>
+                    <!-- Rights & Freedoms -->
+                    <div class="vdem-index-option" data-index="v2x_civlib" data-description="Personal freedoms including movement, religion, expression, and personal autonomy.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Civil Liberties</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2x_freexp_altinf" data-description="Freedom of expression and access to alternative sources of information.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Freedom of Expression</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2x_clphy" data-description="Freedom from political killings, torture, and physical violence by the state.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Physical Integrity</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2x_clpriv" data-description="Freedom from government interference in private life, property rights.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Private Liberties</div>
+                    </div>
+                    <!-- Society & Inclusion -->
+                    <div class="vdem-index-option" data-index="v2x_gender" data-description="Women's political empowerment including civil liberties, participation, and representation.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Women's Empowerment</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2xcs_ccsi" data-description="Strength and independence of civil society organizations.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Civil Society</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2xeg_eqdr" data-description="Equal distribution of political power across social groups.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Equal Distribution</div>
+                    </div>
+                    <!-- Media -->
+                    <div class="vdem-index-option" data-index="v2xme_altinf" data-description="Availability of alternative sources of information and media independence.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Media Freedom</div>
+                    </div>
+                    <div class="vdem-index-option" data-index="v2x_freexp" data-description="Freedom of academic and cultural expression, discussion of political issues.">
+                        <div class="vdem-index-radio"></div>
+                        <div class="vdem-index-label">Expression (narrow)</div>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="vdem-legend">
+                    <div class="vdem-legend-bar"></div>
+                    <div class="vdem-legend-labels">
+                        <span>Worse</span>
+                        <span>Better</span>
+                    </div>
+                </div>
+
+                <!-- Tooltip (shown on hover) -->
+                <div class="vdem-tooltip" id="vdem-tooltip"></div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="globe-sidebar">
+            <!-- Search -->
+            <div class="globe-sidebar-header">
+                <input type="text" id="globe-search" class="globe-search" placeholder="Search country, election...">
+            </div>
+
+            <!-- Data Layers -->
+            <div class="globe-layers">
+                <div class="globe-filter-label">Data Layers</div>
+                <div class="globe-layer-toggle active" data-layer="markets">
+                    <div class="globe-layer-switch"></div>
+                    <div class="globe-layer-dot"></div>
+                    <div class="globe-layer-label">Political Markets</div>
+                </div>
+                <div class="globe-layer-toggle" data-layer="vdem">
+                    <div class="globe-layer-switch"></div>
+                    <div class="globe-layer-dot"></div>
+                    <div class="globe-layer-label">V-Dem Index</div>
+                </div>
+                <div class="globe-layer-toggle disabled" data-layer="acled">
+                    <div class="globe-layer-switch"></div>
+                    <div class="globe-layer-dot"></div>
+                    <div class="globe-layer-label">Conflict Events</div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="globe-filters">
+                <div class="globe-filter-group">
+                    <div class="globe-filter-label">Category</div>
+                    <div class="globe-filter-pills globe-filter-pills-wrap" id="filter-category">
+                        <button class="globe-filter-pill" data-value="all">All</button>
+                        <button class="globe-filter-pill active" data-value="Electoral" data-color="#3b82f6">Electoral</button>
+                        <button class="globe-filter-pill" data-value="Monetary Policy" data-color="#10b981">Monetary</button>
+                        <button class="globe-filter-pill" data-value="International" data-color="#06b6d4">Intl</button>
+                        <button class="globe-filter-pill" data-value="Military & Security" data-color="#64748b">Military</button>
+                        <div class="category-dropdown-wrap">
+                            <button class="globe-filter-pill category-more-btn" id="category-more-btn">More ▾</button>
+                            <div class="category-dropdown" id="category-dropdown">
+                                <button class="category-dropdown-item" data-value="Appointments" data-color="#f59e0b">Appointments</button>
+                                <button class="category-dropdown-item" data-value="Political Speech" data-color="#f97316">Political Speech</button>
+                                <button class="category-dropdown-item" data-value="Judicial" data-color="#ec4899">Judicial</button>
+                                <button class="category-dropdown-item" data-value="Legislative" data-color="#8b5cf6">Legislative</button>
+                                <button class="category-dropdown-item" data-value="Regulatory" data-color="#d946ef">Regulatory</button>
+                                <button class="category-dropdown-item" data-value="Government Operations" data-color="#0ea5e9">Government Ops</button>
+                                <button class="category-dropdown-item" data-value="Party Politics" data-color="#ef4444">Party Politics</button>
+                                <button class="category-dropdown-item" data-value="State & Local" data-color="#84cc16">State & Local</button>
+                                <button class="category-dropdown-item" data-value="Timing & Events" data-color="#a855f7">Timing & Events</button>
+                                <button class="category-dropdown-item" data-value="Polling & Approval" data-color="#14b8a6">Polling & Approval</button>
+                                <button class="category-dropdown-item" data-value="Crisis & Emergency" data-color="#dc2626">Crisis & Emergency</button>
+                                <button class="category-dropdown-item" data-value="Other" data-color="#6b7280">Other</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="globe-filter-group">
+                    <div class="globe-filter-label">Region</div>
+                    <div class="globe-filter-pills" id="filter-region">
+                        <button class="globe-filter-pill active" data-value="all">Global</button>
+                        <button class="globe-filter-pill" data-value="europe">Europe</button>
+                        <button class="globe-filter-pill" data-value="americas">Americas</button>
+                        <button class="globe-filter-pill" data-value="asia">Asia</button>
+                        <button class="globe-filter-pill" data-value="africa">Africa</button>
+                        <button class="globe-filter-pill" data-value="oceania">Oceania</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Markets List -->
+            <div class="globe-elections">
+                <div class="globe-elections-header">
+                    <span class="globe-elections-title">Markets (<span id="election-count">0</span>)</span>
+                    <span class="globe-elections-sort">by volume</span>
+                </div>
+                <div class="globe-elections-list" id="elections-list">
+                    <div class="globe-elections-empty">Loading markets...</div>
+                </div>
+            </div>
+
+            <!-- Footer Stats -->
+            <div class="globe-sidebar-footer">
+                <div class="globe-footer-stat">
+                    <strong id="stat-total-markets">—</strong> active markets
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/globe.js?v=20260210v"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        let allMarkets = [];
+        let filteredMarkets = [];
+
+        // Category colors (matching globe_markets.json)
+        const categoryColors = {
+            'Electoral': '#3b82f6',
+            'Monetary Policy': '#10b981',
+            'Legislative': '#8b5cf6',
+            'Appointments': '#f59e0b',
+            'Regulatory': '#ef4444',
+            'International': '#06b6d4',
+            'Judicial': '#ec4899',
+            'Military & Security': '#64748b',
+            'Crisis & Emergency': '#dc2626',
+            'Government Operations': '#0ea5e9',
+            'Party Politics': '#a855f7',
+            'State & Local': '#84cc16',
+            'Timing & Events': '#fbbf24',
+            'Polling & Approval': '#14b8a6',
+            'Political Speech': '#f97316',
+            'Other': '#6b7280'
+        };
+
+        // All categories shown in filter pills
+        const majorCategories = [
+            'Electoral', 'Monetary Policy', 'International', 'Military & Security',
+            'Appointments', 'Political Speech', 'Judicial', 'Legislative', 'Regulatory',
+            'Government Operations', 'Party Politics', 'State & Local',
+            'Timing & Events', 'Polling & Approval', 'Crisis & Emergency'
+        ];
+
+        // Filter state - default to Electoral (blue dots) for cleaner initial view
+        let filters = {
+            category: 'Electoral',
+            region: 'all',
+            search: ''
+        };
+
+        // Country name to flag emoji
+        const countryFlags = {
+            'United States': '🇺🇸', 'Germany': '🇩🇪', 'France': '🇫🇷', 'United Kingdom': '🇬🇧', 'Brazil': '🇧🇷',
+            'Mexico': '🇲🇽', 'India': '🇮🇳', 'Japan': '🇯🇵', 'Australia': '🇦🇺', 'Canada': '🇨🇦',
+            'Italy': '🇮🇹', 'Spain': '🇪🇸', 'Netherlands': '🇳🇱', 'Belgium': '🇧🇪', 'Austria': '🇦🇹',
+            'Switzerland': '🇨🇭', 'Poland': '🇵🇱', 'Czech Republic': '🇨🇿', 'Czechia': '🇨🇿', 'Sweden': '🇸🇪', 'Norway': '🇳🇴',
+            'Denmark': '🇩🇰', 'Finland': '🇫🇮', 'Ireland': '🇮🇪', 'Portugal': '🇵🇹', 'Greece': '🇬🇷',
+            'Romania': '🇷🇴', 'Hungary': '🇭🇺', 'Bulgaria': '🇧🇬', 'Croatia': '🇭🇷', 'Slovakia': '🇸🇰',
+            'Slovenia': '🇸🇮', 'Lithuania': '🇱🇹', 'Latvia': '🇱🇻', 'Estonia': '🇪🇪', 'Cyprus': '🇨🇾',
+            'Malta': '🇲🇹', 'Luxembourg': '🇱🇺', 'Israel': '🇮🇱', 'Turkey': '🇹🇷', 'Russia': '🇷🇺',
+            'Ukraine': '🇺🇦', 'Argentina': '🇦🇷', 'Chile': '🇨🇱', 'Colombia': '🇨🇴', 'Peru': '🇵🇪',
+            'Venezuela': '🇻🇪', 'Ecuador': '🇪🇨', 'Uruguay': '🇺🇾', 'Paraguay': '🇵🇾', 'Bolivia': '🇧🇴',
+            'South Korea': '🇰🇷', 'Korea': '🇰🇷', 'Taiwan': '🇹🇼', 'Thailand': '🇹🇭', 'Malaysia': '🇲🇾', 'Singapore': '🇸🇬',
+            'Indonesia': '🇮🇩', 'Philippines': '🇵🇭', 'Vietnam': '🇻🇳', 'South Africa': '🇿🇦', 'Nigeria': '🇳🇬',
+            'Egypt': '🇪🇬', 'Kenya': '🇰🇪', 'Ghana': '🇬🇭', 'Morocco': '🇲🇦', 'Algeria': '🇩🇿',
+            'New Zealand': '🇳🇿', 'Saudi Arabia': '🇸🇦', 'UAE': '🇦🇪', 'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩',
+            'Costa Rica': '🇨🇷', 'Panama': '🇵🇦', 'Cuba': '🇨🇺', 'Dominican Republic': '🇩🇴',
+            'China': '🇨🇳', 'Hong Kong': '🇭🇰', 'Serbia': '🇷🇸', 'Georgia': '🇬🇪', 'Armenia': '🇦🇲',
+            'Azerbaijan': '🇦🇿', 'Kazakhstan': '🇰🇿', 'Uzbekistan': '🇺🇿', 'Iran': '🇮🇷', 'Iraq': '🇮🇶'
+        };
+
+        // Region mapping
+        const regionMap = {
+            'north_america': 'americas',
+            'south_america': 'americas',
+            'europe': 'europe',
+            'asia': 'asia',
+            'middle_east': 'asia',
+            'africa': 'africa',
+            'oceania': 'oceania'
+        };
+
+        function getFlag(country) {
+            return countryFlags[country] || '🌍';
+        }
+
+        function getCategoryColor(category) {
+            return categoryColors[category] || categoryColors['Other'];
+        }
+
+        function matchesCategory(marketCategory, filterCategory) {
+            if (filterCategory === 'all') return true;
+            if (filterCategory === 'other') {
+                return !majorCategories.includes(marketCategory);
+            }
+            return marketCategory === filterCategory;
+        }
+
+        function applyFilters() {
+            filteredMarkets = allMarkets.filter(e => {
+                // Must have location data
+                if (!e.lat || !e.lng) return false;
+
+                // Category filter
+                const cat = e.category_display || 'Other';
+                if (!matchesCategory(cat, filters.category)) return false;
+
+                // Region filter
+                if (filters.region !== 'all') {
+                    const region = regionMap[e.region] || e.region;
+                    if (region !== filters.region) return false;
+                }
+
+                // Search filter
+                if (filters.search) {
+                    const search = filters.search.toLowerCase();
+                    const label = (e.label || '').toLowerCase();
+                    const country = (e.country || '').toLowerCase();
+                    const location = (e.location || '').toLowerCase();
+                    const category = (e.category_display || '').toLowerCase();
+                    if (!label.includes(search) && !country.includes(search) &&
+                        !location.includes(search) && !category.includes(search)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            // Sort by volume
+            filteredMarkets.sort((a, b) => {
+                return (b.total_volume || 0) - (a.total_volume || 0);
+            });
+
+            renderMarkets();
+            updateStats();
+
+            // Update globe filtering if available
+            if (window.setGlobeFilter) {
+                window.setGlobeFilter(filters.category, filters.region);
+            }
+        }
+
+        function renderMarkets() {
+            const container = document.getElementById('elections-list');
+            const countEl = document.getElementById('election-count');
+
+            if (!container) return;
+
+            countEl.textContent = filteredMarkets.length;
+
+            if (filteredMarkets.length === 0) {
+                container.innerHTML = '<div class="globe-elections-empty">No markets match your filters</div>';
+                return;
+            }
+
+            container.innerHTML = filteredMarkets.slice(0, 100).map(e => {
+                const flag = getFlag(e.country);
+                const categoryColor = getCategoryColor(e.category_display);
+
+                // Price is 0-1 format, convert to percentage
+                const price = e.price || e.pm_price || e.k_price;
+                const priceStr = price ? Math.round(price * 100) + '%' : null;
+                const isHot = e.price_change_24h && Math.abs(e.price_change_24h) > 0.05;
+
+                // Build platform links
+                const url = e.url || e.pm_url || e.k_url;
+                const pmLink = e.pm_url || (e.has_pm && url)
+                    ? `<a href="${e.pm_url || url}" target="_blank" rel="noopener" class="globe-election-link pm" onclick="event.stopPropagation()">Polymarket <span class="globe-election-link-arrow">↗</span></a>`
+                    : '';
+                const kLink = e.k_url || (e.has_k && !e.has_pm && url)
+                    ? `<a href="${e.k_url || url}" target="_blank" rel="noopener" class="globe-election-link kalshi" onclick="event.stopPropagation()">Kalshi <span class="globe-election-link-arrow">↗</span></a>`
+                    : '';
+                const hasLinks = pmLink || kLink;
+
+                // Format volume
+                const volume = e.total_volume || 0;
+                const volumeStr = volume >= 1000000
+                    ? '$' + (volume / 1000000).toFixed(1) + 'M'
+                    : volume >= 1000
+                        ? '$' + (volume / 1000).toFixed(0) + 'K'
+                        : '$' + volume.toFixed(0);
+
+                // Category badge with color
+                const category = e.category_display || 'Other';
+
+                return `
+                    <div class="globe-election-item" data-country="${e.country || ''}" data-category="${category}">
+                        <div class="globe-election-header">
+                            <div class="globe-election-left">
+                                <span class="globe-election-flag">${flag}</span>
+                                <div class="globe-election-info">
+                                    <div class="globe-election-name">${e.label || 'Unknown Market'}</div>
+                                    <div class="globe-election-meta">
+                                        <span style="color: ${categoryColor}">${category}</span>
+                                        ${e.platform ? ' · ' + e.platform : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            ${isHot ? '<div class="globe-election-hot"></div>' : ''}
+                        </div>
+                        <div class="globe-election-probability">
+                            ${priceStr ? `<span class="globe-election-probability-value">${priceStr}</span>` : ''}
+                            <span class="globe-election-probability-label">${volumeStr} vol</span>
+                        </div>
+                        ${hasLinks ? `
+                        <div class="globe-election-links">
+                            ${pmLink}${kLink}
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            // Add click handlers to rotate globe to country and show selected state
+            container.querySelectorAll('.globe-election-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    // Don't trigger if clicking a link
+                    if (e.target.closest('.globe-election-link')) return;
+
+                    // Remove selected from all items
+                    container.querySelectorAll('.globe-election-item').forEach(el => el.classList.remove('selected'));
+                    // Add selected to this item
+                    item.classList.add('selected');
+
+                    const country = item.dataset.country;
+                    if (country && window.rotateGlobeTo) {
+                        window.rotateGlobeTo(country);
+                    }
+                });
+            });
+        }
+
+        function updateStats() {
+            const statTotal = document.getElementById('stat-total-markets');
+            if (statTotal) {
+                statTotal.textContent = allMarkets.length.toLocaleString();
+            }
+        }
+
+        // Layer state
+        const layers = {
+            markets: true,
+            vdem: false,
+            acled: false
+        };
+
+        function setupFilterHandlers() {
+            // V-Dem panel elements
+            const vdemPanel = document.getElementById('vdem-panel');
+            const vdemTooltip = document.getElementById('vdem-tooltip');
+            const vdemLegend = vdemPanel ? vdemPanel.querySelector('.vdem-legend') : null;
+
+            // Layer toggles
+            document.querySelectorAll('.globe-layer-toggle:not(.disabled)').forEach(toggle => {
+                toggle.addEventListener('click', (e) => {
+                    const layer = toggle.dataset.layer;
+                    layers[layer] = !layers[layer];
+                    toggle.classList.toggle('active', layers[layer]);
+
+                    // Notify globe of layer change
+                    if (window.setGlobeLayer) {
+                        window.setGlobeLayer(layer, layers[layer]);
+                    }
+
+                    // Show/hide V-Dem panel
+                    if (layer === 'vdem' && vdemPanel) {
+                        vdemPanel.style.display = layers[layer] ? 'block' : 'none';
+                    }
+
+                    // If markets layer is toggled, update sidebar
+                    if (layer === 'markets') {
+                        applyFilters();
+                    }
+                });
+            });
+
+            // V-Dem index panel handlers
+            if (vdemPanel) {
+                const indexOptions = vdemPanel.querySelectorAll('.vdem-index-option');
+
+                indexOptions.forEach(option => {
+                    // Click to select index
+                    option.addEventListener('click', () => {
+                        // Deselect all
+                        indexOptions.forEach(opt => opt.classList.remove('active'));
+                        // Select clicked
+                        option.classList.add('active');
+
+                        // Update globe
+                        const index = option.dataset.index;
+                        if (window.setVdemIndex) {
+                            window.setVdemIndex(index);
+                        }
+
+                        // Update legend for inverted indices
+                        if (vdemLegend) {
+                            if (option.dataset.inverted === 'true') {
+                                vdemLegend.classList.add('inverted');
+                            } else {
+                                vdemLegend.classList.remove('inverted');
+                            }
+                        }
+                    });
+
+                    // Hover for tooltip
+                    option.addEventListener('mouseenter', (e) => {
+                        const description = option.dataset.description;
+                        if (description && vdemTooltip) {
+                            vdemTooltip.textContent = description;
+                            vdemTooltip.classList.add('visible');
+                            // Position tooltip near the hovered item
+                            const optRect = option.getBoundingClientRect();
+                            const panelRect = vdemPanel.getBoundingClientRect();
+                            vdemTooltip.style.top = (optRect.top - panelRect.top) + 'px';
+                        }
+                    });
+
+                    option.addEventListener('mouseleave', () => {
+                        if (vdemTooltip) {
+                            vdemTooltip.classList.remove('visible');
+                        }
+                    });
+                });
+            }
+
+            // Category dropdown
+            const categoryDropdown = document.getElementById('category-dropdown');
+            const categoryMoreBtn = document.getElementById('category-more-btn');
+
+            // Set color CSS variables on dropdown items
+            document.querySelectorAll('.category-dropdown-item').forEach(item => {
+                if (item.dataset.color) {
+                    item.style.setProperty('--cat-color', item.dataset.color);
+                }
+            });
+
+            categoryMoreBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                categoryDropdown.classList.toggle('open');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!categoryDropdown.contains(e.target) && e.target !== categoryMoreBtn) {
+                    categoryDropdown.classList.remove('open');
+                }
+            });
+
+            // Dropdown item selection
+            document.querySelectorAll('.category-dropdown-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    // Clear all active states
+                    document.querySelectorAll('#filter-category .globe-filter-pill').forEach(p => p.classList.remove('active'));
+                    document.querySelectorAll('.category-dropdown-item').forEach(i => i.classList.remove('active'));
+
+                    // Mark this item active and update the "More" button
+                    item.classList.add('active');
+                    categoryMoreBtn.classList.add('active');
+                    categoryMoreBtn.textContent = item.textContent + ' ▾';
+
+                    // Apply filter
+                    filters.category = item.dataset.value;
+                    applyFilters();
+
+                    // Close dropdown
+                    categoryDropdown.classList.remove('open');
+                });
+            });
+
+            // Category filter (main pills - exclude the "More" button)
+            document.querySelectorAll('#filter-category .globe-filter-pill:not(.category-more-btn)').forEach(pill => {
+                pill.addEventListener('click', () => {
+                    // Clear all active states
+                    document.querySelectorAll('#filter-category .globe-filter-pill').forEach(p => p.classList.remove('active'));
+                    document.querySelectorAll('.category-dropdown-item').forEach(i => i.classList.remove('active'));
+
+                    // Reset "More" button text
+                    categoryMoreBtn.textContent = 'More ▾';
+
+                    pill.classList.add('active');
+                    filters.category = pill.dataset.value;
+                    applyFilters();
+                });
+            });
+
+            // Region filter
+            document.querySelectorAll('#filter-region .globe-filter-pill').forEach(pill => {
+                pill.addEventListener('click', () => {
+                    document.querySelectorAll('#filter-region .globe-filter-pill').forEach(p => p.classList.remove('active'));
+                    pill.classList.add('active');
+                    filters.region = pill.dataset.value;
+                    applyFilters();
+                    // Rotate globe to region
+                    if (window.rotateGlobeTo) {
+                        window.rotateGlobeTo(pill.dataset.value);
+                    }
+                });
+            });
+
+            // Search
+            const searchInput = document.getElementById('globe-search');
+            if (searchInput) {
+                let debounceTimer;
+                searchInput.addEventListener('input', () => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        filters.search = searchInput.value.trim();
+                        applyFilters();
+                        // Rotate globe to first result's country
+                        if (filters.search && filteredMarkets.length > 0 && window.rotateGlobeTo) {
+                            const firstMatch = filteredMarkets[0];
+                            if (firstMatch.country) {
+                                window.rotateGlobeTo(firstMatch.country);
+                            }
+                        }
+                    }, 300);
+                });
+            }
+        }
+
+        async function loadData() {
+            try {
+                const response = await fetch('data/active_markets.json');
+                if (!response.ok) throw new Error('Failed to load data');
+                const data = await response.json();
+
+                // Load all markets with location data
+                allMarkets = (data.markets || []).filter(m => m.lat && m.lng);
+                console.log('Loaded', allMarkets.length, 'markets with locations');
+                applyFilters();
+            } catch (err) {
+                console.error('Error loading markets:', err);
+                document.getElementById('elections-list').innerHTML =
+                    '<div class="globe-elections-empty">Unable to load markets</div>';
+            }
+        }
+
+        // Handle globe marker click - filter sidebar to show markets for that location
+        window.onGlobeMarkerClick = function(market) {
+            if (!market) return;
+
+            const country = market.country || '';
+            if (!country) return;
+
+            // Set search filter to country name and update the input
+            const searchInput = document.getElementById('globe-search');
+            if (searchInput) {
+                searchInput.value = country;
+            }
+            filters.search = country;
+            applyFilters();
+        };
+
+        // Country Info Panel elements (V-Dem only panel)
+        const countryPanel = document.getElementById('country-info-panel');
+        const countryFlag = document.getElementById('country-info-flag');
+        const countryNameEl = document.getElementById('country-info-name');
+        const countryVdemSection = document.getElementById('country-vdem-section');
+        const countryVdemValue = document.getElementById('country-vdem-value');
+        const countryVdemIndex = document.getElementById('country-vdem-index');
+        const countryVdemBarFill = document.getElementById('country-vdem-bar-fill');
+        const countryCloseBtn = document.getElementById('country-info-close');
+
+        // Close button handler
+        if (countryCloseBtn) {
+            countryCloseBtn.addEventListener('click', () => {
+                countryPanel.classList.remove('visible');
+            });
+        }
+
+        // Handle country click from globe
+        window.onGlobeCountryClick = function(data) {
+            if (!data || !data.name) return;
+
+            // Always filter the sidebar to show this country's markets
+            const searchInput = document.getElementById('globe-search');
+            if (searchInput) {
+                searchInput.value = data.name;
+            }
+            filters.search = data.name;
+            applyFilters();
+
+            // Only show the V-Dem panel if V-Dem layer is enabled and we have data
+            if (data.vdemEnabled && data.vdem) {
+                countryPanel.classList.add('visible');
+
+                // Set country name and flag
+                const flag = countryFlags[data.name] || '🌍';
+                countryFlag.textContent = flag;
+                countryNameEl.textContent = data.name;
+
+                // Show V-Dem score
+                const score = data.vdem.value;
+                const displayScore = data.vdem.inverted ? (1 - score) : score;
+                countryVdemValue.textContent = (displayScore * 100).toFixed(0);
+                countryVdemIndex.textContent = data.vdem.label || 'Index';
+                countryVdemBarFill.style.width = (displayScore * 100) + '%';
+            } else {
+                // Hide panel if V-Dem not enabled
+                countryPanel.classList.remove('visible');
+            }
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupFilterHandlers();
+            loadData();
+            // Globe is auto-initialized by globe.js when it finds #globe-container
+
+            // Zoom controls
+            const zoomInBtn = document.getElementById('zoom-in');
+            const zoomOutBtn = document.getElementById('zoom-out');
+            if (zoomInBtn) {
+                zoomInBtn.addEventListener('click', () => {
+                    if (window.globeZoomIn) window.globeZoomIn();
+                });
+            }
+            if (zoomOutBtn) {
+                zoomOutBtn.addEventListener('click', () => {
+                    if (window.globeZoomOut) window.globeZoomOut();
+                });
+            }
+        });
+    })();
+    </script>
+</body>
+</html>
