@@ -8,11 +8,15 @@ This file should NOT be committed to version control.
 import os
 from pathlib import Path
 
-# Base directory (derived from this file's location: scripts/config.py → parent is scripts/, grandparent is project root)
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Base directory (bellwether-platform root)
+# config.py is at packages/pipelines/config.py, so we go up 2 levels
+PIPELINES_DIR = Path(__file__).resolve().parent  # packages/pipelines/
+PACKAGES_DIR = PIPELINES_DIR.parent              # packages/
+BASE_DIR = PACKAGES_DIR.parent                   # bellwether-platform/
+
 DATA_DIR = BASE_DIR / "data"
-SCRIPTS_DIR = BASE_DIR / "scripts"
-WEBSITE_DIR = BASE_DIR / "website"
+SCRIPTS_DIR = PIPELINES_DIR  # Pipeline scripts are in packages/pipelines/
+WEBSITE_DIR = PACKAGES_DIR / "website"
 
 # API Keys - loaded from environment or local file
 def get_dome_api_key():

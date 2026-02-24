@@ -75,18 +75,29 @@ except ImportError:
 # CONFIGURATION
 # =============================================================================
 
-from config import BASE_DIR, DATA_DIR, WEBSITE_DIR
-SCRIPTS_DIR = BASE_DIR / "scripts"
+from config import BASE_DIR, DATA_DIR, WEBSITE_DIR, SCRIPTS_DIR
+
+# Additional script directories for V2 pipeline
+ENRICHMENT_DIR = BASE_DIR / "scripts"
+MATCHER_DIR = BASE_DIR / "bellwether-matcher" / "pipeline"
 
 
-def run_script(script_name, description, args=None, required=True):
+def run_script(script_name, description, args=None, required=True, script_dir=None):
     """
     Run a Python script and return success status.
 
     Captures stdout/stderr and logs them appropriately.
+
+    Args:
+        script_name: Name of the script file
+        description: Human-readable description for logging
+        args: Optional list of command-line arguments
+        required: If True, missing script is an error; if False, it's skipped
+        script_dir: Optional directory to look for script (defaults to SCRIPTS_DIR)
     """
     logger = get_logger("orchestrator")
-    script_path = SCRIPTS_DIR / script_name
+    base_dir = script_dir if script_dir else SCRIPTS_DIR
+    script_path = base_dir / script_name
 
     if not script_path.exists():
         logger.warning(f"Script not found: {script_name}")
@@ -472,7 +483,33 @@ def main():
         results["web_data"] = success
         step_results["generate_web_data"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
-        # Generate market map for commercial API (depends on active_markets.json)
+        # === V2 TICKER-BASED MATCHING ===
+        # Step 1: Enrich markets with full API data
+        success = run_script(
+            "enrich_markets_with_api_data.py",
+            "Enrich markets with API data",
+            script_dir=ENRICHMENT_DIR,
+            required=False
+        )
+        results["enrich_markets"] = success
+        step_results["enrich_markets"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # Step 2: Generate canonical tickers using GPT-4o
+        if has_openai:
+            success = run_script(
+                "create_tickers.py",
+                "Generate canonical BWR tickers (GPT-4o)",
+                script_dir=MATCHER_DIR,
+                required=False
+            )
+            results["create_tickers"] = success
+            step_results["create_tickers"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+        else:
+            logger.info("Skipping ticker generation (no OpenAI API key)")
+            results["create_tickers"] = None
+            step_results["create_tickers"] = "SKIP"
+
+        # Step 3: Generate market map using ticker-based matching
         success = run_script(
             "generate_market_map.py",
             "Generate market map for commercial API",
