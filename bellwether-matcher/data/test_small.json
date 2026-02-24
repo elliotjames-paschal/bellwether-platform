@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-02-23T13:20:07.878976",
+  "input_file": "/Users/paschal/bellwether-platform/data/enriched_sample.json.gz",
+  "model": "gpt-4o",
+  "batch_size": 3,
+  "total_markets": 3,
+  "total_batches": 1,
+  "elapsed_seconds": 496.8295040130615,
+  "extractions": [
+    {
+      "index": 0,
+      "category": "sports - college basketball championship",
+      "agent": "Vanderbilt",
+      "action": "become",
+      "target": "SEC regular season champion",
+      "mechanism": "2025-26 season results",
+      "threshold": "any",
+      "timeframe": "2025-26 season",
+      "market_id": "KXSECREG-26-VAN",
+      "platform": "Kalshi",
+      "original_question": "Will Vanderbilt be the SEC regular season champions?"
+    }
+  ]
+}

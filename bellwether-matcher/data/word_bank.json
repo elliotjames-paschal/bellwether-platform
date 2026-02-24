@@ -1,0 +1,409 @@
+{
+  "_note": "Action = what happens. Mechanism = how resolution is determined. Threshold = numeric value. Each field has ONE purpose. Do not put action verbs in the mechanism field or thresholds in the mechanism field. If the market is about an announcement of intent, action = the intended action, mechanism = ANNOUNCED.",
+
+  "actions": {
+    "WIN": {
+      "aliases": ["win", "wins", "won", "elected", "victory", "be the", "become the", "becomes the"],
+      "description": "Wins election, contest, or award"
+    },
+    "CONTROL": {
+      "aliases": ["control", "controls", "take control", "gain control", "hold majority"],
+      "description": "Party controls legislative chamber"
+    },
+    "LEAVE": {
+      "aliases": ["leave", "leaves", "depart", "departs", "out", "ceases to be", "no longer be", "ceases"],
+      "description": "Departs position by ANY means (umbrella for resign/fire/impeach when unspecified)"
+    },
+    "RESIGN": {
+      "aliases": ["resign", "resigns", "step down", "steps down", "voluntary resignation"],
+      "description": "Voluntarily leaves position"
+    },
+    "FIRE": {
+      "aliases": ["fire", "fires", "fired", "dismiss", "dismissed", "remove", "removed", "sack"],
+      "description": "Involuntarily removed by superior authority"
+    },
+    "IMPEACH": {
+      "aliases": ["impeach", "impeached", "be impeached", "impeachment"],
+      "description": "Impeached by legislature (House vote only, no conviction required)"
+    },
+    "CONVICT": {
+      "aliases": ["convict", "convicted", "found guilty", "guilty"],
+      "description": "Found guilty (impeachment conviction OR criminal)"
+    },
+    "FIRST_OUT": {
+      "aliases": ["first leader out", "first to leave", "first out"],
+      "description": "First among a group to depart position"
+    },
+    "CUT": {
+      "aliases": ["cut", "cuts", "lower", "lowers", "reduce", "reduces", "decrease", "decreases"],
+      "description": "Reduces rate, spending, or quantity"
+    },
+    "HIKE": {
+      "aliases": ["hike", "hikes", "raise", "raises", "increase", "increases", "grow", "advance"],
+      "description": "Increases rate, spending, or quantity"
+    },
+    "HOLD": {
+      "aliases": ["hold", "holds", "maintain", "unchanged", "no change", "steady", "serve", "serves"],
+      "description": "Keeps rate/policy unchanged OR holds position"
+    },
+    "VISIT": {
+      "aliases": ["visit", "visits", "travel to", "go to", "enter"],
+      "description": "Physically travels to location"
+    },
+    "MEET": {
+      "aliases": ["meet", "meets", "meeting", "summit", "talk", "talks"],
+      "description": "Two parties meet in person"
+    },
+    "SAY": {
+      "aliases": ["say", "says", "announce", "announces", "claim", "claims", "declare", "declares", "state", "states"],
+      "description": "Makes public statement (general)"
+    },
+    "ENDORSE": {
+      "aliases": ["endorse", "endorses", "endorsed", "endorsement", "back", "support"],
+      "description": "Publicly endorses candidate or position"
+    },
+    "PASS": {
+      "aliases": ["pass", "passes", "passed", "enact", "enacts", "enacted", "becomes law", "be passed"],
+      "description": "Legislation passes (chamber or both)"
+    },
+    "SIGN": {
+      "aliases": ["sign", "signs", "signed", "signs into law"],
+      "description": "Executive signs bill into law"
+    },
+    "VETO": {
+      "aliases": ["veto", "vetoes", "vetoed"],
+      "description": "Executive vetoes legislation"
+    },
+    "ISSUE": {
+      "aliases": ["issue", "issues", "issued", "invoke", "invokes"],
+      "description": "Issues executive order or directive"
+    },
+    "BAN": {
+      "aliases": ["ban", "bans", "banned", "prohibit", "prohibits"],
+      "description": "Prohibits activity or substance"
+    },
+    "REPEAL": {
+      "aliases": ["repeal", "repeals", "repealed", "overturn", "abolish", "eliminate", "eliminated"],
+      "description": "Reverses existing law or policy"
+    },
+    "REPORT": {
+      "aliases": ["report", "reports", "release", "releases", "publish", "publishes"],
+      "description": "Official data release (BLS, BEA, etc.)"
+    },
+    "HIT": {
+      "aliases": ["hit", "hits", "reach", "reaches", "achieve", "achieves", "achieved", "exceed", "exceeds", "surpass", "dip", "dips", "fall", "falls", "be above", "be below", "be more than", "be less than"],
+      "description": "Reaches threshold (direction in THRESHOLD segment)"
+    },
+    "VOTE": {
+      "aliases": ["vote", "votes", "vote yea", "vote nay"],
+      "description": "Casts or conducts vote"
+    },
+    "APPOINT": {
+      "aliases": ["appoint", "appoints", "nominate", "nominates", "name", "names", "named"],
+      "description": "Nominates person to position"
+    },
+    "CONFIRM": {
+      "aliases": ["confirm", "confirms", "confirmed", "confirmation"],
+      "description": "Senate confirms nominee"
+    },
+    "INDICT": {
+      "aliases": ["indict", "indicts", "indicted", "charge", "charges", "charged"],
+      "description": "Formally charged with crime"
+    },
+    "ARREST": {
+      "aliases": ["arrest", "arrests", "arrested", "detain", "detained"],
+      "description": "Taken into custody"
+    },
+    "SENTENCE": {
+      "aliases": ["sentence", "sentenced", "be sentenced", "sentencing"],
+      "description": "Court issues sentence"
+    },
+    "JAIL": {
+      "aliases": ["jail", "jailed", "in jail", "imprisoned", "prison"],
+      "description": "Incarcerated"
+    },
+    "PARDON": {
+      "aliases": ["pardon", "pardons", "pardoned", "commute", "commutes"],
+      "description": "Grants pardon or commutation"
+    },
+    "RULE": {
+      "aliases": ["rule", "rules", "ruled", "ruling", "decide", "decides"],
+      "description": "Court issues ruling"
+    },
+    "RUN": {
+      "aliases": ["run", "runs", "running", "announce candidacy", "campaign", "seek"],
+      "description": "Announces candidacy for office"
+    },
+    "RECEIVE": {
+      "aliases": ["receive", "receives", "get", "gets", "awarded"],
+      "description": "Receives award or recognition (when not election)"
+    },
+    "CAPTURE": {
+      "aliases": ["capture", "captures", "captured", "take", "takes", "seize"],
+      "description": "Military captures territory"
+    },
+    "STRIKE": {
+      "aliases": ["strike", "strikes", "attack", "attacks", "bomb", "bombs"],
+      "description": "Military or labor strike"
+    },
+    "INVADE": {
+      "aliases": ["invade", "invades", "invaded", "invasion", "forces in"],
+      "description": "Military invasion"
+    },
+    "CEASEFIRE": {
+      "aliases": ["ceasefire", "ceasefire broken", "peace", "truce"],
+      "description": "Ceasefire declared or broken"
+    },
+    "JOIN": {
+      "aliases": ["join", "joins", "joined", "rejoin"],
+      "description": "Joins organization or alliance"
+    },
+    "WITHDRAW": {
+      "aliases": ["withdraw", "withdraws", "withdrew", "exit", "exits"],
+      "description": "Withdraws from organization or agreement"
+    },
+    "DEPORT": {
+      "aliases": ["deport", "deports", "deported", "deportation"],
+      "description": "Deports individuals"
+    },
+    "SHUTDOWN": {
+      "aliases": ["shutdown", "shut down", "close", "closes"],
+      "description": "Government shutdown"
+    },
+    "DEFAULT": {
+      "aliases": ["default", "defaults", "defaulted"],
+      "description": "Debt default"
+    },
+    "SELL": {
+      "aliases": ["sell", "sells", "sold", "divest", "divests"],
+      "description": "Sells asset or divests"
+    },
+    "BUY": {
+      "aliases": ["buy", "buys", "bought", "acquire", "acquires", "take a stake"],
+      "description": "Purchases or acquires asset"
+    },
+    "LAUNCH": {
+      "aliases": ["launch", "launches", "launched", "perform", "be operational", "operational"],
+      "description": "Launches product or initiative"
+    },
+    "END": {
+      "aliases": ["end", "ends", "ended", "terminate", "terminates", "dissolved", "dissolve", "be eliminated"],
+      "description": "Ends program, agency, or agreement"
+    },
+    "AGREE": {
+      "aliases": ["agree", "agrees", "agreed", "accept", "accepts"],
+      "description": "Agrees to terms or proposal"
+    },
+    "TESTIFY": {
+      "aliases": ["testify", "testifies", "testified", "testimony"],
+      "description": "Gives testimony"
+    },
+    "SEND": {
+      "aliases": ["send", "sends", "sent", "deploy", "deploys"],
+      "description": "Sends troops, aid, or resources"
+    },
+    "RECOGNIZE": {
+      "aliases": ["recognize", "recognizes", "recognized", "recognition"],
+      "description": "Officially recognizes entity or status"
+    },
+    "IMPOSE": {
+      "aliases": ["impose", "imposes", "imposed", "sanction", "sanctions"],
+      "description": "Imposes sanctions or penalties"
+    },
+    "RESCHEDULE": {
+      "aliases": ["reschedule", "reschedules", "rescheduled", "reclassify"],
+      "description": "Reschedules drug classification"
+    },
+    "DEBATE": {
+      "aliases": ["debate", "debates", "debated"],
+      "description": "Participates in debate"
+    },
+    "APPROVE": {
+      "aliases": ["approve", "approves", "approved", "approval"],
+      "description": "Approves application or request"
+    },
+    "ENCOUNTER": {
+      "aliases": ["encounter", "encounters", "military encounter", "engagement", "military engagement"],
+      "description": "Military encounter/engagement"
+    },
+    "APPEAR": {
+      "aliases": ["go on", "appear", "appears", "be on", "goes on"],
+      "description": "Appears on show or at event"
+    },
+    "DOWNGRADE": {
+      "aliases": ["downgrade", "downgrades", "downgraded"],
+      "description": "Credit rating downgrade"
+    },
+    "LOSE": {
+      "aliases": ["lose", "loses", "lost"],
+      "description": "Loses election or contest"
+    },
+    "DIVORCE": {
+      "aliases": ["divorce", "divorces", "divorced"],
+      "description": "Gets divorced"
+    },
+    "SELF_CERTIFY": {
+      "aliases": ["self-certify", "self certify", "certify themselves"],
+      "description": "State self-certifies election results"
+    },
+    "TRANSACT": {
+      "aliases": ["transact", "transactions", "transaction"],
+      "description": "Financial transactions (e.g., Treasury on blockchain)"
+    }
+  },
+
+  "mechanisms": {
+    "ANY_MEANS": {
+      "aliases": ["any means", "for any reason", "by any method", "in any way"],
+      "description": "Leaves position by any method (resign, fire, impeach, death, etc.)"
+    },
+    "VOLUNTARY": {
+      "aliases": ["voluntarily", "resigns", "steps down", "voluntary", "resignation"],
+      "description": "Voluntary departure only"
+    },
+    "HOUSE_VOTE": {
+      "aliases": ["house votes", "house impeaches", "articles of impeachment"],
+      "description": "House votes articles of impeachment (no Senate conviction required)"
+    },
+    "HOUSE_AND_SENATE": {
+      "aliases": ["impeached and removed", "convicted by senate", "removed from office via impeachment"],
+      "description": "Impeached by House AND convicted by Senate"
+    },
+    "25TH_AMENDMENT": {
+      "aliases": ["25th amendment", "section 4", "cabinet removes"],
+      "description": "Removed via 25th Amendment"
+    },
+    "FIRED": {
+      "aliases": ["fired", "dismissed", "terminated", "removed by"],
+      "description": "Dismissed by superior authority"
+    },
+    "FIRST_OUT": {
+      "aliases": ["first to", "first among", "before any other", "first leader to leave", "first leader out"],
+      "description": "Ordinal race - first among group"
+    },
+    "ANNOUNCED": {
+      "aliases": ["announces", "announced", "announcement"],
+      "description": "Announcement counts (vs actual event)"
+    },
+    "SPECIFIC_MEETING": {
+      "aliases": ["at the march meeting", "at the fomc meeting", "at the june meeting", "at its meeting", "fomc press conference", "press conference"],
+      "description": "Decision at a specific named meeting (FOMC, ECB, etc.)"
+    },
+    "ANY_MEETING": {
+      "aliases": ["at any meeting", "at any point", "during"],
+      "description": "Any meeting during time window"
+    },
+    "EMERGENCY": {
+      "aliases": ["emergency meeting", "unscheduled", "emergency"],
+      "description": "Unscheduled/emergency meeting"
+    },
+    "ADV_EST": {
+      "aliases": ["advance estimate", "advance reading", "first estimate"],
+      "description": "BEA Advance Estimate (first GDP reading)"
+    },
+    "FINAL_EST": {
+      "aliases": ["final estimate", "revised estimate", "third estimate"],
+      "description": "BEA Final/Revised Estimate"
+    },
+    "MONTHLY_REPORT": {
+      "aliases": ["monthly", "monthly report", "monthly release"],
+      "description": "Monthly data release (BLS jobs, CPI, etc.)"
+    },
+    "NBER_OFFICIAL": {
+      "aliases": ["nber", "officially declared", "nber declares"],
+      "description": "NBER official recession declaration"
+    },
+    "CERTIFIED": {
+      "aliases": ["certified", "officially certified", "certified results", "sworn in", "inaugurated", "inaugurated as", "confirmed by the senate", "senate confirmed", "senate confirmation"],
+      "description": "Officially certified election result or confirmed appointment"
+    },
+    "PROJECTED": {
+      "aliases": ["projected", "called", "ap calls", "media calls"],
+      "description": "Called/projected by media (not official)"
+    },
+    "PRIMARY": {
+      "aliases": ["primary", "nomination", "party primary", "wins nomination", "presidential campaign", "campaign", "formally nominated"],
+      "description": "Party primary/nomination or campaign context"
+    },
+    "SIGNED_INTO_LAW": {
+      "aliases": ["signed into law", "becomes law", "president signs"],
+      "description": "Bill signed into law by executive"
+    },
+    "PASSED_CHAMBER": {
+      "aliases": ["passes house", "passes senate", "passed by"],
+      "description": "Passed one chamber (not yet law)"
+    },
+    "EXECUTIVE_ORDER": {
+      "aliases": ["executive order", "eo", "executive action", "by executive order"],
+      "description": "Via executive order"
+    },
+    "PHYSICAL_PRESENCE": {
+      "aliases": ["physically present", "visits", "travels to", "sets foot", "physically travelled", "physically travelled to", "visit after"],
+      "description": "Person physically present in location"
+    },
+    "IN_PERSON": {
+      "aliases": ["in person", "face to face", "meets with"],
+      "description": "Two parties meet face-to-face"
+    },
+    "PUBLIC_STATEMENT": {
+      "aliases": ["publicly", "public statement", "says publicly", "announces", "verbal mention", "verbally"],
+      "description": "Public verbal/written statement"
+    },
+    "OFFICIAL_SOURCE": {
+      "aliases": ["official", "official report", "government data", "according to", "credible reporting", "consensus of credible reporting", "silver bulletin", "votehub", "isw map", "fy 2025 ice annual report", "list release", "reported by source agencies"],
+      "description": "Data from official or credible reporting source"
+    },
+    "VOTE_COUNT": {
+      "aliases": ["vote count", "first roll-call vote", "roll-call vote", "votes cast"],
+      "description": "Resolution based on vote count/tally"
+    },
+    "COURT_RULING": {
+      "aliases": ["supreme court ruling", "court ruling", "court decision", "judicial ruling"],
+      "description": "Court issues official ruling"
+    },
+    "FORMAL_CHARGES": {
+      "aliases": ["formal charges", "formal charge", "indictment", "grand jury"],
+      "description": "Formal criminal charges filed"
+    },
+    "STD": {
+      "aliases": [],
+      "description": "Standard/obvious resolution for this market type (no special mechanism)"
+    }
+  },
+
+  "agent_rules": {
+    "description": "Agents are NOT enumerated. Use these formatting rules:",
+    "people": "Last name, ALL CAPS. Examples: 'Donald Trump' → TRUMP, 'Jerome Powell' → POWELL",
+    "people_ambiguous": "If last name is ambiguous, use FIRST_LAST: 'Hillary Clinton' → H_CLINTON, 'Bill Clinton' → B_CLINTON",
+    "institutions": "Standard abbreviation, ALL CAPS: 'Federal Reserve' → FED, 'Supreme Court' → SCOTUS, 'Bureau of Labor Statistics' → BLS",
+    "parties": "Standard abbreviation: 'Democratic Party' → DEM, 'Republican Party' → GOP, 'Labour Party' → LAB",
+    "countries": "ISO 3166-1 alpha-2: 'United States' → US, 'United Kingdom' → UK, 'Germany' → DE",
+    "us_states": "Two-letter postal code: 'California' → CA, 'Texas' → TX"
+  },
+
+  "target_rules": {
+    "description": "Targets are NOT enumerated. Use these formatting rules:",
+    "offices": "Standard abbreviation: 'President' → PRES, 'Vice President' → VP, 'House' → HOUSE, 'Senate' → SENATE, 'Governor' → GOV, 'Fed Chair' → FED_CHAIR, 'Cabinet' → CABINET",
+    "economic": "Standard abbreviation: 'GDP' → GDP, 'CPI' → CPI, 'unemployment rate' → UNEMPLOYMENT, 'federal funds rate' → FFR",
+    "bills": "Short descriptive slug, ALL CAPS: 'tax reform bill' → TAX_REFORM, 'immigration bill' → IMMIGRATION, 'debt ceiling' → DEBT_CEILING",
+    "general": "Short descriptive slug, ALL CAPS, underscores for spaces: 'Time Person of the Year' → TIME_POTY"
+  },
+
+  "threshold_rules": {
+    "description": "Thresholds encode numeric conditions:",
+    "comparison": "GT (>), LT (<), GTE (>=), LTE (<=), EQ (=): 'above 2.0%' → GT_2.0PCT, 'at least 25bps' → GTE_25BPS, 'exactly 4.2%' → EQ_4.2PCT",
+    "range": "Use underscore for ranges: 'between 1.0% and 1.5%' → 1.0_1.5PCT",
+    "counts": "For counts: 'at least 3' → GTE_3, 'exactly 2' → EQ_2",
+    "basis_points": "25BPS, 50BPS, 75BPS, 100BPS",
+    "none": "If no threshold applies: ANY"
+  },
+
+  "timeframe_rules": {
+    "description": "Timeframes derived from end_date field:",
+    "year": "If end_date is Dec 31: use year only → 2025",
+    "year_adjusted": "If end_date is Jan 1-20: use previous year (market is about that year)",
+    "quarter": "For quarterly data: 2025_Q3",
+    "month": "For monthly data or specific meetings: MAR2026, SEP2025",
+    "term": "For full presidential term: 2029 (end of term)"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "generated_at": "2026-02-23T14:57:28.631931",
+  "input_file": "/Users/paschal/bellwether-platform/data/enriched_sample.json.gz",
+  "model": "gpt-4o",
+  "batch_size": 5,
+  "total_markets": 5,
+  "total_batches": 1,
+  "elapsed_seconds": 3.013848066329956,
+  "extractions": [
+    {
+      "index": 0,
+      "agent": "Vanderbilt",
+      "action": "be",
+      "target": "SEC regular season champions",
+      "mechanism": "2025-26 Men's College Basketball SEC regular season champion",
+      "threshold": "any",
+      "timeframe": "2025-26",
+      "market_id": "KXSECREG-26-VAN",
+      "platform": "Kalshi",
+      "original_question": "Will Vanderbilt be the SEC regular season champions?"
+    },
+    {
+      "index": 1,
+      "agent": "Arkansas",
+      "action": "be",
+      "target": "SEC regular season champions",
+      "mechanism": "2025-26 Men's College Basketball SEC regular season champion",
+      "threshold": "any",
+      "timeframe": "2025-26",
+      "market_id": "KXSECREG-26-ARK",
+      "platform": "Kalshi",
+      "original_question": "Will Arkansas be the SEC regular season champions?"
+    },
+    {
+      "index": 2,
+      "agent": "Georgia",
+      "action": "be",
+      "target": "SEC regular season champions",
+      "mechanism": "2025-26 Men's College Basketball SEC regular season champion",
+      "threshold": "any",
+      "timeframe": "2025-26",
+      "market_id": "KXSECREG-26-UGA",
+      "platform": "Kalshi",
+      "original_question": "Will Georgia be the SEC regular season champions?"
+    },
+    {
+      "index": 3,
+      "agent": "Alabama",
+      "action": "be",
+      "target": "SEC regular season champions",
+      "mechanism": "2025-26 Men's College Basketball SEC regular season champion",
+      "threshold": "any",
+      "timeframe": "2025-26",
+      "market_id": "KXSECREG-26-ALA",
+      "platform": "Kalshi",
+      "original_question": "Will Alabama be the SEC regular season champions?"
+    },
+    {
+      "index": 4,
+      "agent": "Florida",
+      "action": "be",
+      "target": "SEC regular season champions",
+      "mechanism": "2025-26 Men's College Basketball SEC regular season champion",
+      "threshold": "any",
+      "timeframe": "2025-26",
+      "market_id": "KXSECREG-26-FLA",
+      "platform": "Kalshi",
+      "original_question": "Will Florida be the SEC regular season champions?"
+    }
+  ]
+}
