@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Fetch Orderbook History from Dome API (Parallel Version)
+Fetch Current Orderbook Snapshots (Native APIs)
 
-Fetches historical orderbook snapshots for all eligible political markets
-(resolved after Oct 2025) from Dome API's orderbook endpoints.
+Fetches current orderbook snapshots for all eligible political markets
+using native Polymarket CLOB and Kalshi orderbook endpoints.
 
-Uses parallel fetching with 10 workers for ~5x speedup.
+Uses parallel fetching with 10 workers for fast throughput.
 
 Output:
     data/orderbook_history_polymarket.json
@@ -25,156 +25,117 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config import BASE_DIR, DATA_DIR, get_dome_api_key
+from config import BASE_DIR, DATA_DIR
 
 MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 PM_OUTPUT_FILE = DATA_DIR / "orderbook_history_polymarket.json"
 KALSHI_OUTPUT_FILE = DATA_DIR / "orderbook_history_kalshi.json"
 CHECKPOINT_FILE = DATA_DIR / "orderbook_fetch_checkpoint.json"
 
-# Dome API Configuration
-DOME_API_BASE = "https://api.domeapi.io/v1"
-DOME_API_KEY = get_dome_api_key()
+# Native API endpoints
+PM_CLOB_BOOK_URL = "https://clob.polymarket.com/book"
+KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2"
 
 # Parallelism settings
-NUM_WORKERS = 10  # 10 parallel workers
+NUM_WORKERS = 10
 MAX_RETRIES = 3
-CHECKPOINT_INTERVAL = 100  # Save checkpoint every N markets
+RETRY_DELAY = 5
 
-# Rate limiting (Dev tier: 100 req/sec, we'll use 80 to be safe)
-# With 10 workers, each worker waits 0.125s between requests = 80 req/sec total
-RATE_LIMIT_DELAY = 0.125
-
-# Data availability dates (in ms)
-PM_DATA_START = int(datetime(2025, 10, 14).timestamp() * 1000)
-KALSHI_DATA_START = int(datetime(2025, 10, 29).timestamp() * 1000)
-
-# Thread-safe counters and data
+# Thread-safe state
 _lock = threading.Lock()
-_request_times = []
 
 
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def rate_limit():
-    """Simple rate limiting - just sleep a small amount per request.
-    With 10 workers each sleeping 0.1s, we get ~100 req/sec total.
-    """
-    time.sleep(0.1)
+class RateLimiter:
+    """Thread-safe rate limiter."""
+    def __init__(self, delay):
+        self._delay = delay
+        self._lock = threading.Lock()
+        self._last = 0.0
+
+    def wait(self):
+        with self._lock:
+            now = time.monotonic()
+            elapsed = now - self._last
+            if elapsed < self._delay:
+                time.sleep(self._delay - elapsed)
+            self._last = time.monotonic()
 
 
-def fetch_orderbook_snapshots(platform, identifier, start_ts, end_ts, sample_rate=1):
-    """
-    Fetch all orderbook snapshots for a market within a time range.
+_rate_limiter = RateLimiter(0.12)  # ~80 req/sec across all workers
 
-    Polymarket: Uses cursor-based pagination (pagination_key)
-    Kalshi: Uses timestamp-based pagination (advance start_time)
 
-    Args:
-        sample_rate: Keep every Nth snapshot (1 = all, 10 = every 10th)
-    """
-    all_snapshots = []
+def fetch_pm_orderbook(token_id):
+    """Fetch current orderbook from Polymarket CLOB API."""
+    for attempt in range(MAX_RETRIES):
+        try:
+            _rate_limiter.wait()
+            response = requests.get(
+                PM_CLOB_BOOK_URL,
+                params={'token_id': token_id},
+                timeout=10
+            )
 
-    if platform == 'polymarket':
-        endpoint = f"{DOME_API_BASE}/polymarket/orderbooks"
-        id_param = 'token_id'
-    else:
-        endpoint = f"{DOME_API_BASE}/kalshi/orderbooks"
-        id_param = 'ticker'
-
-    # For Kalshi, use timestamp-based pagination
-    # For Polymarket, use cursor-based pagination
-    cursor = None
-    current_start = start_ts
-    snapshot_count = 0  # For sampling
-
-    for page in range(500):  # Max 500 pages = 100,000 snapshots
-        params = {
-            id_param: identifier,
-            'start_time': current_start,
-            'end_time': end_ts,
-            'limit': 200
-        }
-
-        # Only use cursor for Polymarket
-        if platform == 'polymarket' and cursor:
-            params['pagination_key'] = cursor
-
-        for attempt in range(MAX_RETRIES):
-            try:
-                rate_limit()
-
-                response = requests.get(
-                    endpoint,
-                    headers={"Authorization": DOME_API_KEY},
-                    params=params,
-                    timeout=30
-                )
-
-                if response.status_code == 200:
-                    data = response.json()
-                    snapshots = data.get('snapshots', [])
-
-                    if not snapshots:
-                        return all_snapshots
-
-                    # Apply sampling if sample_rate > 1
-                    if sample_rate > 1:
-                        for s in snapshots:
-                            if snapshot_count % sample_rate == 0:
-                                all_snapshots.append(s)
-                            snapshot_count += 1
-                    else:
-                        all_snapshots.extend(snapshots)
-
-                    if platform == 'polymarket':
-                        # Polymarket: use cursor-based pagination
-                        pagination = data.get('pagination', {})
-                        cursor = pagination.get('pagination_key') or pagination.get('paginationKey')
-                        has_more = pagination.get('has_more', False)
-
-                        if not cursor or not has_more:
-                            return all_snapshots
-                    else:
-                        # Kalshi: use timestamp-based pagination
-                        # Move start_time to after the last snapshot
-                        last_ts = snapshots[-1].get('timestamp', 0)
-                        if last_ts <= current_start:
-                            # No progress, stop
-                            return all_snapshots
-                        current_start = last_ts + 1
-
-                        if current_start >= end_ts:
-                            return all_snapshots
-
-                    break
-
-                elif response.status_code == 429:
-                    wait_time = 10 * (2 ** attempt)
-                    time.sleep(wait_time)
-                    continue
-
-                elif response.status_code == 404:
-                    return all_snapshots
-
-                else:
-                    time.sleep(2)
-                    continue
-
-            except Exception as e:
-                time.sleep(2)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('bids') or data.get('asks'):
+                    return data
+                return {}
+            elif response.status_code == 429:
+                time.sleep(10 * (2 ** attempt))
                 continue
-        else:
-            break  # All retries failed
+            elif response.status_code == 404:
+                return {}
+            else:
+                return None
 
-    return all_snapshots
+        except Exception:
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_DELAY)
+                continue
+            return None
+
+    return None
+
+
+def fetch_kalshi_orderbook(ticker):
+    """Fetch current orderbook from Kalshi native API."""
+    for attempt in range(MAX_RETRIES):
+        try:
+            _rate_limiter.wait()
+            response = requests.get(
+                f"{KALSHI_API_BASE}/markets/{ticker}/orderbook",
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('orderbook'):
+                    return data
+                return {}
+            elif response.status_code == 429:
+                time.sleep(10 * (2 ** attempt))
+                continue
+            elif response.status_code == 404:
+                return {}
+            else:
+                return None
+
+        except Exception:
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_DELAY)
+                continue
+            return None
+
+    return None
 
 
 def extract_metrics_from_snapshot(snapshot, platform='polymarket'):
     """Extract key metrics from an orderbook snapshot."""
-    timestamp = snapshot.get('timestamp', 0)
+    timestamp = int(datetime.now().timestamp() * 1000)  # Current time in ms
 
     if platform == 'kalshi':
         orderbook = snapshot.get('orderbook', {})
@@ -259,46 +220,33 @@ def extract_metrics_from_snapshot(snapshot, platform='polymarket'):
 
 
 def process_market(row, platform):
-    """Process a single market - fetch and extract metrics."""
+    """Process a single market - fetch orderbook and extract metrics."""
     market_id = str(row['market_id'])
 
     if platform == 'polymarket':
         identifier = str(row['pm_token_id_yes'])
-        data_start = PM_DATA_START
-        sample_rate = 1  # Keep all snapshots for Polymarket
+        snapshot = fetch_pm_orderbook(identifier)
     else:
-        identifier = market_id  # For Kalshi, market_id is the ticker
-        data_start = KALSHI_DATA_START
-        sample_rate = 10  # Sample every 10th for Kalshi (~30 min intervals)
+        identifier = market_id
+        snapshot = fetch_kalshi_orderbook(identifier)
 
-    close_ts = int(row['trading_close_time'].timestamp() * 1000)
-    start_ts = max(data_start, close_ts - (90 * 24 * 3600 * 1000))
-    end_ts = close_ts
-
-    snapshots = fetch_orderbook_snapshots(platform, identifier, start_ts, end_ts, sample_rate=sample_rate)
-
-    if snapshots:
-        metrics = [extract_metrics_from_snapshot(s, platform=platform) for s in snapshots]
+    if snapshot and snapshot != {}:
+        metrics = extract_metrics_from_snapshot(snapshot, platform=platform)
         return market_id, {
             'token_id' if platform == 'polymarket' else 'ticker': identifier,
             'question': row['question'][:100] if pd.notna(row.get('question')) else '',
             'category': row.get('political_category', ''),
             'volume_usd': row.get('volume_usd', 0),
-            'trading_close_time': str(row['trading_close_time']),
-            'n_snapshots': len(snapshots),
-            'metrics': metrics
+            'trading_close_time': str(row.get('trading_close_time', '')),
+            'n_snapshots': 1,
+            'metrics': [metrics]
         }
 
     return market_id, None
 
 
 def save_checkpoint(processed_with_data, processed_no_data):
-    """Save lightweight checkpoint to allow resuming.
-
-    Only stores IDs, not data. Data is stored in output files.
-    - processed_with_data: Markets that returned snapshots (don't retry)
-    - processed_no_data: Markets that returned 0 snapshots (retry on next run)
-    """
+    """Save lightweight checkpoint to allow resuming."""
     checkpoint = {
         'processed_with_data': list(processed_with_data),
         'processed_no_data': list(processed_no_data),
@@ -309,28 +257,21 @@ def save_checkpoint(processed_with_data, processed_no_data):
 
 
 def load_checkpoint():
-    """Load checkpoint if exists.
-
-    Returns (processed_with_data, processed_no_data) sets.
-    Data is NOT stored in checkpoint - it's loaded from output files.
-    """
+    """Load checkpoint if exists."""
     if CHECKPOINT_FILE.exists():
         try:
             with open(CHECKPOINT_FILE) as f:
                 checkpoint = json.load(f)
 
-            # New format: just ID sets
             processed_with_data = set(checkpoint.get('processed_with_data', []))
             processed_no_data = set(checkpoint.get('processed_no_data', []))
 
-            # Backwards compatibility: old format stored data in checkpoint
-            # Extract IDs from old format if present
+            # Backwards compatibility
             if 'pm_data' in checkpoint:
                 processed_with_data.update(checkpoint['pm_data'].keys())
             if 'kalshi_data' in checkpoint:
                 processed_with_data.update(checkpoint['kalshi_data'].keys())
             if 'processed_ids' in checkpoint:
-                # Old processed_ids - assume they had data
                 processed_with_data.update(checkpoint['processed_ids'])
 
             return processed_with_data, processed_no_data
@@ -339,9 +280,12 @@ def load_checkpoint():
     return set(), set()
 
 
+CHECKPOINT_INTERVAL = 100
+
+
 def main():
     log("=" * 60)
-    log("FETCHING ORDERBOOK HISTORY FROM DOME API (PARALLEL)")
+    log("FETCHING ORDERBOOK SNAPSHOTS (NATIVE APIs)")
     log(f"Using {NUM_WORKERS} parallel workers")
     log("=" * 60)
 
@@ -426,7 +370,7 @@ def main():
                     pm_data[market_id] = result
                     pm_success += 1
                     processed_with_data.add(market_id)
-                    processed_no_data.discard(market_id)  # Remove from no-data set if present
+                    processed_no_data.discard(market_id)
                 else:
                     pm_empty += 1
                     processed_no_data.add(market_id)
@@ -437,7 +381,6 @@ def main():
                     log(f"   Processed {completed}/{len(pm_to_process)} PM "
                         f"(success: {pm_success}, empty: {pm_empty})")
                     save_checkpoint(processed_with_data, processed_no_data)
-                    # Also save data to output file periodically
                     with open(PM_OUTPUT_FILE, 'w') as f:
                         json.dump(pm_data, f)
 
@@ -468,7 +411,7 @@ def main():
                     kalshi_data[market_id] = result
                     k_success += 1
                     processed_with_data.add(market_id)
-                    processed_no_data.discard(market_id)  # Remove from no-data set if present
+                    processed_no_data.discard(market_id)
                 else:
                     k_empty += 1
                     processed_no_data.add(market_id)
@@ -479,7 +422,6 @@ def main():
                     log(f"   Processed {completed}/{len(kalshi_to_process)} Kalshi "
                         f"(success: {k_success}, empty: {k_empty})")
                     save_checkpoint(processed_with_data, processed_no_data)
-                    # Also save data to output file periodically
                     with open(KALSHI_OUTPUT_FILE, 'w') as f:
                         json.dump(kalshi_data, f)
 
@@ -496,7 +438,7 @@ def main():
         json.dump(kalshi_data, f)
     log(f"   Saved {len(kalshi_data):,} Kalshi markets to {KALSHI_OUTPUT_FILE.name}")
 
-    # Save final checkpoint (keep track of no-data markets for retry)
+    # Save final checkpoint
     save_checkpoint(processed_with_data, processed_no_data)
     if processed_no_data:
         log(f"\n   Checkpoint saved with {len(processed_no_data):,} markets to retry")

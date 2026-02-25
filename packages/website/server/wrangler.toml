@@ -8,8 +8,5 @@ workers_dev = true
 binding = "BELLWETHER_KV"
 id = "2ce167f19ce748e0bf09b513eaafe9ad"
 
-# Environment variables (set via wrangler secret or dashboard)
-# DOME_API_KEY - set via: npx wrangler secret put DOME_API_KEY
-
 [vars]
 # Non-secret environment variables can go here

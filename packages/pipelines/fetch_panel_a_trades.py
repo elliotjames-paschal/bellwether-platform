@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Fetch Panel A Trades from Dome API
+Fetch Panel A Trades from Polymarket Data API
 
-Fetches trade/order data from Dome API for Polymarket Panel A election markets.
+Fetches trade data from the public Polymarket Data API for Panel A election markets.
 This data is used for trader-level partisanship analysis.
 
 Usage:
@@ -17,26 +17,48 @@ import json
 import os
 import sys
 import time
+import threading
 from datetime import datetime
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
 import requests
 
 # Add scripts dir to path for config import
 sys.path.insert(0, str(Path(__file__).parent))
-from config import BASE_DIR, DATA_DIR, get_dome_api_key
+from config import BASE_DIR, DATA_DIR
 
 # Constants
-DOME_API_BASE = "https://api.domeapi.io/v1"
+DATA_API_BASE = "https://data-api.polymarket.com"
 TRADES_FILE = DATA_DIR / "panel_a_trades.json"
 STATE_FILE = DATA_DIR / "panel_a_trades_state.json"
 MASTER_CSV = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 PANEL_A_CSV = DATA_DIR / "election_winner_panel_a_detailed.csv"
 
-# Rate limiting
-REQUESTS_PER_SECOND = 2
-REQUEST_DELAY = 1.0 / REQUESTS_PER_SECOND
+# Rate limiting & parallelism
+MAX_WORKERS = 5
+RATE_LIMIT_DELAY = 0.2  # 200ms between requests
+MAX_RETRIES = 3
+
+
+class RateLimiter:
+    """Thread-safe rate limiter."""
+    def __init__(self, delay):
+        self._delay = delay
+        self._lock = threading.Lock()
+        self._last = 0.0
+
+    def wait(self):
+        with self._lock:
+            now = time.monotonic()
+            elapsed = now - self._last
+            if elapsed < self._delay:
+                time.sleep(self._delay - elapsed)
+            self._last = time.monotonic()
+
+
+_rate_limiter = RateLimiter(RATE_LIMIT_DELAY)
 
 
 def log(msg):
@@ -47,8 +69,8 @@ def derive_candidate_party(winning_party, winning_outcome):
     """
     Derive which party the market question is asking about using resolution logic.
 
-    If the market resolved YES, the candidate in the question won → candidate_party = winning_party
-    If the market resolved NO, the candidate in the question lost → candidate_party = opposite
+    If the market resolved YES, the candidate in the question won -> candidate_party = winning_party
+    If the market resolved NO, the candidate in the question lost -> candidate_party = opposite
 
     Returns 'Republican', 'Democrat', or None.
     """
@@ -117,72 +139,100 @@ def get_panel_a_markets():
     return merged[['market_id', 'pm_condition_id', 'winning_party', 'question', 'candidate_party']]
 
 
-def fetch_orders_for_condition(condition_id, api_key, last_offset=0, max_pages=100, max_retries=3):
+def fetch_trades_for_condition(condition_id, max_retries=3):
     """
-    Fetch all orders for a condition ID from Dome API.
+    Fetch all trades for a condition ID from Polymarket Data API.
 
     Args:
         condition_id: Polymarket condition ID
-        api_key: Dome API bearer token
-        last_offset: Starting offset for pagination
-        max_pages: Maximum pages to fetch (safety limit)
         max_retries: Number of retries per request
 
     Returns:
-        List of order records, new offset
+        List of trade records (mapped to downstream-compatible format), new offset
     """
-    headers = {"Authorization": api_key}
-    all_orders = []
-    offset = last_offset
-    limit = 100  # Dome API default
+    all_trades = []
+    offset = 0
+    limit = 1000  # Data API caps at 1000 per page
+    max_offset = 10000  # Data API max offset
 
-    for page in range(max_pages):
-        url = f"{DOME_API_BASE}/polymarket/orders"
-        params = {
-            "condition_id": condition_id,
-            "limit": limit,
-            "offset": offset
-        }
-
-        success = False
+    while offset <= max_offset:
         for retry in range(max_retries):
             try:
-                resp = requests.get(url, headers=headers, params=params, timeout=60)
+                _rate_limiter.wait()
+                resp = requests.get(
+                    f"{DATA_API_BASE}/trades",
+                    params={
+                        "market": condition_id,
+                        "limit": limit,
+                        "offset": offset
+                    },
+                    timeout=60
+                )
                 resp.raise_for_status()
-                data = resp.json()
+                trades = resp.json()
 
-                orders = data if isinstance(data, list) else data.get('orders', data.get('data', []))
-                success = True
+                if not isinstance(trades, list):
+                    trades = trades.get('data', [])
+
+                if not trades:
+                    return all_trades, offset
+
+                # Map Data API fields to downstream-compatible format
+                for trade in trades:
+                    all_trades.append({
+                        'user': trade.get('proxyWallet', ''),       # proxyWallet -> user
+                        'price': trade.get('price'),
+                        'shares_normalized': trade.get('size'),      # size -> shares_normalized
+                        'timestamp': trade.get('timestamp'),
+                        'token_id': trade.get('asset', ''),          # asset -> token_id
+                        'token_label': trade.get('outcome', ''),     # outcome -> token_label
+                        'side': trade.get('side', ''),
+                        'condition_id': trade.get('conditionId', condition_id),
+                        'transaction_hash': trade.get('transactionHash', ''),
+                    })
+
+                # If we got fewer than limit, we've reached the end
+                if len(trades) < limit:
+                    return all_trades, offset + len(trades)
+
+                offset += len(trades)
                 break
 
             except requests.exceptions.Timeout:
                 if retry < max_retries - 1:
-                    log(f"  Timeout on page {page}, retry {retry + 1}/{max_retries}...")
-                    time.sleep(2 ** retry)  # Exponential backoff
+                    log(f"  Timeout, retry {retry + 1}/{max_retries}...")
+                    time.sleep(2 ** retry)
                 else:
                     log(f"  Timeout after {max_retries} retries for {condition_id[:30]}...")
-                    return all_orders, offset
+                    return all_trades, offset
 
             except requests.exceptions.RequestException as e:
-                log(f"  Error fetching orders for {condition_id[:30]}...: {e}")
-                return all_orders, offset
+                if retry < max_retries - 1:
+                    time.sleep(2 ** retry)
+                else:
+                    log(f"  Error fetching trades for {condition_id[:30]}...: {e}")
+                    return all_trades, offset
 
-        if not success:
-            break
+    return all_trades, offset
 
-        if not orders:
-            break
 
-        all_orders.extend(orders)
-        offset += len(orders)
+def fetch_market_trades(market_row):
+    """Fetch trades for a single market (for parallel execution)."""
+    market_id = str(market_row['market_id'])
+    condition_id = str(market_row['pm_condition_id'])
+    winning_party = market_row['winning_party']
+    candidate_party = market_row.get('candidate_party', '')
 
-        # If we got fewer than limit, we've reached the end
-        if len(orders) < limit:
-            break
+    trades, final_offset = fetch_trades_for_condition(condition_id)
 
-        time.sleep(REQUEST_DELAY)
+    # Add market metadata to each trade
+    for trade in trades:
+        trade['_market_id'] = market_id
+        trade['_condition_id'] = condition_id
+        trade['_winning_party'] = winning_party
+        trade['_candidate_party'] = candidate_party
 
-    return all_orders, offset
+    return market_id, condition_id, winning_party, candidate_party, trades, final_offset
 
 
 def load_state():
@@ -221,22 +271,15 @@ def save_trades(trades_data):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fetch Panel A trades from Dome API")
+    parser = argparse.ArgumentParser(description="Fetch Panel A trades from Polymarket Data API")
     parser.add_argument("--backfill", action="store_true", help="Full historical fetch")
     parser.add_argument("--limit", type=int, default=0, help="Limit to N markets (for testing)")
-    parser.add_argument("--parallel", type=int, default=1, help="Number of parallel workers (default: 1)")
+    parser.add_argument("--parallel", type=int, default=MAX_WORKERS, help=f"Number of parallel workers (default: {MAX_WORKERS})")
     args = parser.parse_args()
 
     log("=" * 60)
-    log("FETCH PANEL A TRADES")
+    log("FETCH PANEL A TRADES (Polymarket Data API)")
     log("=" * 60)
-
-    # Get API key
-    try:
-        api_key = get_dome_api_key()
-    except ValueError as e:
-        log(f"Error: {e}")
-        return 1
 
     # Get Panel A markets
     markets = get_panel_a_markets()
@@ -259,65 +302,63 @@ def main():
         markets = markets.head(args.limit)
         log(f"Limited to {args.limit} markets (testing mode)")
 
-    # Fetch orders for each market
-    total_new_orders = 0
-    markets_processed = 0
-
-    for idx, row in markets.iterrows():
-        market_id = str(row['market_id'])
+    # Filter to markets that need fetching
+    markets_to_fetch = []
+    for _, row in markets.iterrows():
         condition_id = str(row['pm_condition_id'])
-        winning_party = row['winning_party']
-        candidate_party = row.get('candidate_party', '')  # Party of the candidate the market is about
-
-        # Get last offset for this market
         last_offset = state["market_offsets"].get(condition_id, 0)
+        if args.backfill or last_offset == 0:
+            markets_to_fetch.append(row)
 
-        if not args.backfill and last_offset > 0:
-            # Skip if we've already fetched this market (unless backfilling)
-            continue
+    log(f"Markets to fetch: {len(markets_to_fetch)}")
 
-        log(f"Fetching orders for {market_id} ({condition_id[:20]}...)")
+    if not markets_to_fetch:
+        log("No new markets to fetch")
+        return 0
 
-        orders, new_offset = fetch_orders_for_condition(condition_id, api_key, last_offset)
+    # Fetch trades in parallel
+    total_new_trades = 0
+    markets_processed = 0
+    num_workers = min(args.parallel, len(markets_to_fetch))
 
-        if orders:
-            # Add market metadata to each order
-            for order in orders:
-                order['_market_id'] = market_id
-                order['_condition_id'] = condition_id
-                order['_winning_party'] = winning_party
-                order['_candidate_party'] = candidate_party  # Party of the candidate
+    log(f"Fetching with {num_workers} parallel workers...")
 
-            trades_data["trades"].extend(orders)
-            total_new_orders += len(orders)
-            log(f"  Fetched {len(orders)} orders")
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = {executor.submit(fetch_market_trades, row): row for row in markets_to_fetch}
 
-        # Update state
-        state["market_offsets"][condition_id] = new_offset
+        for future in as_completed(futures):
+            market_id, condition_id, winning_party, candidate_party, trades, final_offset = future.result()
+            markets_processed += 1
 
-        # Save metadata about the market
-        trades_data["markets"][condition_id] = {
-            "market_id": market_id,
-            "winning_party": winning_party,
-            "candidate_party": candidate_party if pd.notna(candidate_party) else None,
-            "orders_fetched": new_offset
-        }
+            if trades:
+                trades_data["trades"].extend(trades)
+                total_new_trades += len(trades)
+                log(f"  {market_id}: {len(trades)} trades")
 
-        markets_processed += 1
+            # Update state
+            state["market_offsets"][condition_id] = final_offset
 
-        # Periodic save
-        if markets_processed % 10 == 0:
-            save_trades(trades_data)
-            save_state(state)
-            log(f"  Progress: {markets_processed}/{len(markets)} markets")
+            # Save metadata about the market
+            trades_data["markets"][condition_id] = {
+                "market_id": market_id,
+                "winning_party": winning_party,
+                "candidate_party": candidate_party if pd.notna(candidate_party) else None,
+                "orders_fetched": final_offset
+            }
+
+            # Periodic save
+            if markets_processed % 10 == 0:
+                save_trades(trades_data)
+                save_state(state)
+                log(f"  Progress: {markets_processed}/{len(markets_to_fetch)} markets, {total_new_trades} trades")
 
     # Final save
     save_trades(trades_data)
     save_state(state)
 
     log("=" * 60)
-    log(f"COMPLETE: {total_new_orders} new orders from {markets_processed} markets")
-    log(f"Total orders in file: {len(trades_data['trades'])}")
+    log(f"COMPLETE: {total_new_trades} new trades from {markets_processed} markets")
+    log(f"Total trades in file: {len(trades_data['trades'])}")
     log(f"Output: {TRADES_FILE}")
     log("=" * 60)
 

@@ -4,13 +4,16 @@
 PIPELINE SCRIPT: Check Market Resolutions
 ================================================================================
 
-Part of the NEW Bellwether Pipeline (January 2026+)
+Part of the Bellwether V2 Pipeline
 
 This script:
 1. Gets all markets from master CSV where is_closed = False
-2. Queries Dome API to check if they have closed
+2. Queries native Kalshi API + Polymarket Gamma API to check if they have closed
 3. Updates winning_outcome and is_closed for resolved markets
 4. Saves updates back to master CSV
+
+No Dome API required — uses native platform APIs directly.
+Uses parallel requests (10 workers, 40 req/sec) for speed.
 
 Usage:
     python pipeline_check_resolutions.py
@@ -26,7 +29,8 @@ import pandas as pd
 import requests
 import json
 import time
-import os
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
@@ -34,42 +38,65 @@ from pathlib import Path
 # CONFIGURATION
 # =============================================================================
 
-from config import DATA_DIR, get_dome_api_key, rotate_backups
+from config import DATA_DIR, rotate_backups
 
 # Input/Output files
 MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 BACKUP_DIR = DATA_DIR / "backups"
 
-DOME_API_KEY = get_dome_api_key()
-DOME_PM_BASE = "https://api.domeapi.io/v1/polymarket"
-DOME_KALSHI_BASE = "https://api.domeapi.io/v1/kalshi"
-KALSHI_DIRECT_BASE = "https://api.elections.kalshi.com/trade-api/v2"
+# Native API endpoints
+KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2"
+POLYMARKET_API_BASE = "https://gamma-api.polymarket.com"
 
-# Rate limiting (dev tier: 100 req/sec)
-RATE_LIMIT_DELAY = float(os.environ.get('DOME_RATE_LIMIT', '0.01'))
+# Parallel fetch settings
+MAX_WORKERS = 10        # Concurrent threads per platform
+MAX_REQ_PER_SEC = 40    # Global rate limit per platform
 MAX_RETRIES = 3
-
-# Track fallback usage for logging
-_kalshi_fallback_count = 0
 
 
 def log(msg):
     """Print timestamped log message."""
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def fetch_kalshi_direct(ticker):
-    """Fetch market data directly from Kalshi API (fallback when Dome is stale).
+# =============================================================================
+# RATE LIMITER
+# =============================================================================
 
-    Kalshi's direct API: https://api.elections.kalshi.com/trade-api/v2/markets/{ticker}
+class RateLimiter:
+    """Thread-safe rate limiter. Ensures max N requests per second globally."""
+
+    def __init__(self, max_per_second):
+        self.min_interval = 1.0 / max_per_second
+        self._lock = threading.Lock()
+        self._last_time = 0.0
+
+    def acquire(self):
+        with self._lock:
+            now = time.monotonic()
+            wait = self._last_time + self.min_interval - now
+            if wait > 0:
+                time.sleep(wait)
+            self._last_time = time.monotonic()
+
+
+# =============================================================================
+# KALSHI — Native API
+# =============================================================================
+
+def fetch_kalshi_market(ticker, rate_limiter=None):
+    """Fetch market data from Kalshi native API.
+
+    Endpoint: GET /trade-api/v2/markets/{ticker}
     No auth required for public market data.
     """
-    global _kalshi_fallback_count
-
     for attempt in range(MAX_RETRIES):
         try:
+            if rate_limiter:
+                rate_limiter.acquire()
+
             response = requests.get(
-                f"{KALSHI_DIRECT_BASE}/markets/{ticker}",
+                f"{KALSHI_API_BASE}/markets/{ticker}",
                 timeout=15
             )
 
@@ -78,33 +105,11 @@ def fetch_kalshi_direct(ticker):
                 m = data.get("market", {})
 
                 if m:
-                    _kalshi_fallback_count += 1
-
-                    # Map Kalshi direct API fields to our format
-                    # Kalshi uses ISO timestamps, convert to unix
-                    close_time = None
-                    if m.get("close_time"):
-                        try:
-                            close_time = int(datetime.fromisoformat(
-                                m["close_time"].replace("Z", "+00:00")
-                            ).timestamp())
-                        except:
-                            pass
-
-                    expiration_time = None
-                    if m.get("expiration_time"):
-                        try:
-                            expiration_time = int(datetime.fromisoformat(
-                                m["expiration_time"].replace("Z", "+00:00")
-                            ).timestamp())
-                        except:
-                            pass
-
                     return {
                         "status": m.get("status"),
                         "result": m.get("result"),
-                        "close_time": close_time,
-                        "expiration_time": expiration_time,
+                        "close_time": m.get("close_time"),
+                        "expiration_time": m.get("expiration_time"),
                         "volume": m.get("volume"),
                         "volume_24h": m.get("volume_24h"),
                         "open_interest": m.get("open_interest"),
@@ -121,7 +126,6 @@ def fetch_kalshi_direct(ticker):
                         "category": m.get("category"),
                         "yes_sub_title": m.get("yes_sub_title"),
                         "no_sub_title": m.get("no_sub_title"),
-                        "_source": "kalshi_direct",
                     }
 
                 return None
@@ -146,113 +150,102 @@ def fetch_kalshi_direct(ticker):
     return None
 
 
-def is_dome_stale(dome_data):
-    """Detect if Dome data is stale for a Kalshi market.
+# =============================================================================
+# POLYMARKET — Gamma API
+# =============================================================================
 
-    Stale = close_time has passed but status is still 'open' with no result.
-    """
-    if not dome_data:
-        return False
+def fetch_polymarket_market(market_id, rate_limiter=None):
+    """Fetch market data from Polymarket Gamma API.
 
-    close_time = dome_data.get("close_time", 0)
-    status = dome_data.get("status")
-    result = dome_data.get("result")
-
-    now = time.time()
-
-    # Stale if: close_time passed AND still showing open AND no result
-    return (close_time > 0) and (close_time < now) and (status == "open") and (result is None)
-
-
-def fetch_polymarket_full(condition_id):
-    """Fetch FULL market data for a Polymarket market from Dome API.
-
-    Returns all available fields for updating the master CSV when market closes.
-
-    Note: The Dome API defaults to returning only open markets. To find markets
-    that have closed, we first try without a filter, then try with closed=true.
+    Uses GET /markets/{id} for numeric IDs, GET /markets?slug={slug} for slugs.
+    No auth required.
     """
     for attempt in range(MAX_RETRIES):
         try:
-            markets = []
+            if rate_limiter:
+                rate_limiter.acquire()
 
-            # First try without filter (finds still-open markets)
-            response = requests.get(
-                f"{DOME_PM_BASE}/markets",
-                headers={"Authorization": DOME_API_KEY},
-                params={
-                    "limit": 1,
-                    "condition_id": condition_id,
-                },
-                timeout=15
-            )
+            # Numeric IDs use path param, slugs use query param
+            if str(market_id).isdigit():
+                response = requests.get(
+                    f"{POLYMARKET_API_BASE}/markets/{market_id}",
+                    timeout=15
+                )
+            else:
+                response = requests.get(
+                    f"{POLYMARKET_API_BASE}/markets",
+                    params={"slug": market_id},
+                    timeout=15
+                )
 
             if response.status_code == 200:
                 data = response.json()
-                markets = data.get("markets", [])
+
+                # Slug query returns array, numeric returns dict
+                if isinstance(data, list):
+                    if not data:
+                        return None
+                    m = data[0]
+                elif isinstance(data, dict):
+                    m = data
+                else:
+                    return None
+
+                # Determine winning outcome from outcomePrices
+                winning_side = None
+                last_price_yes = None
+                last_price_no = None
+
+                outcome_prices = m.get("outcomePrices")
+                if outcome_prices:
+                    try:
+                        prices = json.loads(outcome_prices) if isinstance(outcome_prices, str) else outcome_prices
+                        if len(prices) >= 2:
+                            last_price_yes = float(prices[0])
+                            last_price_no = float(prices[1])
+                            # If market is closed and one outcome is ~1.0, that's the winner
+                            if m.get("closed"):
+                                if last_price_yes >= 0.99:
+                                    winning_side = "Yes"
+                                elif last_price_no >= 0.99:
+                                    winning_side = "No"
+                    except (json.JSONDecodeError, TypeError, ValueError):
+                        pass
+
+                # Extract token IDs
+                token_yes = None
+                token_no = None
+                clob_tokens = m.get("clobTokenIds")
+                if clob_tokens:
+                    try:
+                        tokens = json.loads(clob_tokens) if isinstance(clob_tokens, str) else clob_tokens
+                        if len(tokens) >= 2:
+                            token_yes = tokens[0]
+                            token_no = tokens[1]
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                return {
+                    "closed": bool(m.get("closed")),
+                    "winning_side": winning_side,
+                    "end_time": m.get("endDate"),
+                    "close_time": m.get("closedTime"),
+                    "volume_total": m.get("volumeNum") or m.get("volume") or 0,
+                    "last_price_yes": last_price_yes,
+                    "last_price_no": last_price_no,
+                    "token_id_yes": token_yes,
+                    "token_id_no": token_no,
+                    "tags": [m.get("category")] if m.get("category") else [],
+                    "market_slug": m.get("slug"),
+                }
+
             elif response.status_code == 429:
-                wait_time = 10 * (2 ** attempt)
-                time.sleep(wait_time)
+                time.sleep(5 * (2 ** attempt))
                 continue
 
-            # If not found, try with closed=true (finds newly-closed markets)
-            if not markets:
-                response = requests.get(
-                    f"{DOME_PM_BASE}/markets",
-                    headers={"Authorization": DOME_API_KEY},
-                    params={
-                        "limit": 1,
-                        "condition_id": condition_id,
-                        "closed": "true",
-                    },
-                    timeout=15
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    markets = data.get("markets", [])
-                elif response.status_code == 429:
-                    wait_time = 10 * (2 ** attempt)
-                    time.sleep(wait_time)
-                    continue
-
-            if markets:
-                m = markets[0]
-                # Extract all relevant fields
-                result = {
-                    # Status fields
-                    "status": m.get("status"),
-                    "winning_side": m.get("winning_side", {}).get("label") if m.get("winning_side") else None,
-                    "winning_side_id": m.get("winning_side", {}).get("id") if m.get("winning_side") else None,
-
-                    # Time fields
-                    "completed_time": m.get("completed_time"),
-                    "start_time": m.get("start_time"),
-                    "end_time": m.get("end_time"),
-                    "close_time": m.get("close_time"),
-
-                    # Volume and liquidity
-                    "volume_total": m.get("volume_total"),
-                    "volume_24h": m.get("volume_24h"),
-                    "liquidity": m.get("liquidity"),
-
-                    # Price data
-                    "last_price_yes": m.get("side_a", {}).get("last_price") if m.get("side_a") else None,
-                    "last_price_no": m.get("side_b", {}).get("last_price") if m.get("side_b") else None,
-
-                    # Token IDs (for reference)
-                    "token_id_yes": m.get("side_a", {}).get("id") if m.get("side_a") else None,
-                    "token_id_no": m.get("side_b", {}).get("id") if m.get("side_b") else None,
-
-                    # Market info
-                    "title": m.get("title"),
-                    "description": m.get("description"),
-                    "tags": m.get("tags", []),
-                    "market_slug": m.get("market_slug"),
-                    "event_slug": m.get("event_slug"),
-                }
-                return result
-
-            return None
+            else:
+                time.sleep(2)
+                continue
 
         except Exception as e:
             if attempt < MAX_RETRIES - 1:
@@ -263,105 +256,9 @@ def fetch_polymarket_full(condition_id):
     return None
 
 
-def fetch_kalshi_full(ticker):
-    """Fetch FULL market data for a Kalshi market from Dome API.
-
-    Returns all available fields for updating the master CSV when market closes.
-
-    Note: The Dome API defaults to returning only open markets. To find markets
-    that have closed, we first try without a filter, then try with status=closed.
-    """
-    for attempt in range(MAX_RETRIES):
-        try:
-            markets = []
-
-            # First try without filter (finds still-open markets)
-            response = requests.get(
-                f"{DOME_KALSHI_BASE}/markets",
-                headers={"Authorization": DOME_API_KEY},
-                params={
-                    "limit": 1,
-                    "market_ticker": ticker,
-                },
-                timeout=15
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                markets = data.get("markets", [])
-            elif response.status_code == 429:
-                wait_time = 10 * (2 ** attempt)
-                time.sleep(wait_time)
-                continue
-
-            # If not found, try with status=closed (finds closed markets)
-            if not markets:
-                response = requests.get(
-                    f"{DOME_KALSHI_BASE}/markets",
-                    headers={"Authorization": DOME_API_KEY},
-                    params={
-                        "limit": 1,
-                        "market_ticker": ticker,
-                        "status": "closed",
-                    },
-                    timeout=15
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    markets = data.get("markets", [])
-                elif response.status_code == 429:
-                    wait_time = 10 * (2 ** attempt)
-                    time.sleep(wait_time)
-                    continue
-
-            if markets:
-                m = markets[0]
-                # Extract all relevant fields
-                result = {
-                    # Status fields
-                    "status": m.get("status"),
-                    "result": m.get("result"),
-
-                    # Time fields
-                    "start_time": m.get("start_time"),
-                    "end_time": m.get("end_time"),
-                    "close_time": m.get("close_time"),
-                    "expiration_time": m.get("expiration_time"),
-
-                    # Volume and liquidity
-                    "volume": m.get("volume"),
-                    "volume_24h": m.get("volume_24h"),
-                    "open_interest": m.get("open_interest"),
-                    "liquidity": m.get("liquidity"),
-
-                    # Price data
-                    "last_price": m.get("last_price"),
-                    "yes_bid": m.get("yes_bid"),
-                    "yes_ask": m.get("yes_ask"),
-                    "no_bid": m.get("no_bid"),
-                    "no_ask": m.get("no_ask"),
-
-                    # Market info
-                    "title": m.get("title"),
-                    "subtitle": m.get("subtitle"),
-                    "market_ticker": m.get("market_ticker"),
-                    "event_ticker": m.get("event_ticker"),
-                    "category": m.get("category"),
-                    "yes_sub_title": m.get("yes_sub_title"),
-                    "no_sub_title": m.get("no_sub_title"),
-                }
-                return result
-
-            return None
-
-        except Exception as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(2)
-                continue
-            return None
-
-    return None
-
+# =============================================================================
+# MAIN
+# =============================================================================
 
 def main():
     """Main function to check market resolutions."""
@@ -369,6 +266,7 @@ def main():
     print("PIPELINE: CHECK MARKET RESOLUTIONS")
     print("=" * 70)
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Workers: {MAX_WORKERS} per platform, rate limit: {MAX_REQ_PER_SEC} req/sec")
     print("=" * 70 + "\n")
 
     # Load master CSV
@@ -406,157 +304,162 @@ def main():
     resolved_count = 0
 
     # ==========================================================================
-    # CHECK POLYMARKET MARKETS
+    # CHECK POLYMARKET MARKETS (parallel)
     # ==========================================================================
 
     log("\n" + "=" * 50)
-    log("CHECKING POLYMARKET MARKETS")
+    log("CHECKING POLYMARKET MARKETS (Gamma API)")
     log("=" * 50)
 
+    pm_limiter = RateLimiter(MAX_REQ_PER_SEC)
     pm_resolved = 0
+    pm_checked = 0
 
+    # Build work items: (df_index, row_data)
+    pm_work = []
     for idx, row in pm_open.iterrows():
-        condition_id = row.get('pm_condition_id')
-
-        if pd.isna(condition_id):
+        market_id = row.get('market_id')
+        if pd.isna(market_id):
             continue
+        pm_work.append((idx, row, str(market_id)))
 
-        market_data = fetch_polymarket_full(str(condition_id))
+    log(f"  Fetching {len(pm_work):,} markets ({MAX_WORKERS} workers)...")
 
-        if market_data and (market_data.get("status") == "closed" or market_data.get("winning_side") is not None):
-            # Market has closed or has a winning side - update ALL available fields in master CSV
+    # Parallel fetch
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(fetch_polymarket_market, mid, pm_limiter): (idx, row)
+            for idx, row, mid in pm_work
+        }
 
-            # Core resolution fields
-            df.loc[idx, 'is_closed'] = True
-            df.loc[idx, 'winning_outcome'] = market_data.get("winning_side")
+        for future in as_completed(futures):
+            idx, row = futures[future]
+            pm_checked += 1
+            market_data = future.result()
 
-            # Time fields
-            if market_data.get("completed_time"):
-                completed_dt = datetime.fromtimestamp(market_data["completed_time"])
-                df.loc[idx, 'trading_close_time'] = completed_dt.isoformat()
+            if market_data and (market_data.get("closed") or market_data.get("winning_side") is not None):
+                # Core resolution fields
+                df.loc[idx, 'is_closed'] = True
+                df.loc[idx, 'winning_outcome'] = market_data.get("winning_side")
 
-            if market_data.get("end_time"):
-                df.loc[idx, 'scheduled_end_time'] = datetime.fromtimestamp(market_data["end_time"]).isoformat()
+                # Time fields
+                if market_data.get("close_time"):
+                    df.loc[idx, 'trading_close_time'] = market_data["close_time"]
+                if market_data.get("end_time"):
+                    df.loc[idx, 'scheduled_end_time'] = market_data["end_time"]
 
-            # Volume (update with final volume)
-            if market_data.get("volume_total"):
-                df.loc[idx, 'volume_usd'] = market_data["volume_total"]
+                # Volume
+                if market_data.get("volume_total"):
+                    df.loc[idx, 'volume_usd'] = market_data["volume_total"]
 
-            # Final prices
-            if market_data.get("last_price_yes") is not None:
-                df.loc[idx, 'pm_last_price_yes'] = market_data["last_price_yes"]
-            if market_data.get("last_price_no") is not None:
-                df.loc[idx, 'pm_last_price_no'] = market_data["last_price_no"]
+                # Final prices
+                if market_data.get("last_price_yes") is not None:
+                    df.loc[idx, 'pm_last_price_yes'] = market_data["last_price_yes"]
+                if market_data.get("last_price_no") is not None:
+                    df.loc[idx, 'pm_last_price_no'] = market_data["last_price_no"]
 
-            # Token IDs (if not already set)
-            if pd.isna(row.get('pm_token_id_yes')) and market_data.get("token_id_yes"):
-                df.loc[idx, 'pm_token_id_yes'] = market_data["token_id_yes"]
-            if pd.isna(row.get('pm_token_id_no')) and market_data.get("token_id_no"):
-                df.loc[idx, 'pm_token_id_no'] = market_data["token_id_no"]
+                # Token IDs (if not already set)
+                if pd.isna(row.get('pm_token_id_yes')) and market_data.get("token_id_yes"):
+                    df.loc[idx, 'pm_token_id_yes'] = market_data["token_id_yes"]
+                if pd.isna(row.get('pm_token_id_no')) and market_data.get("token_id_no"):
+                    df.loc[idx, 'pm_token_id_no'] = market_data["token_id_no"]
 
-            # Update tags if available
-            if market_data.get("tags"):
-                df.loc[idx, 'tags'] = json.dumps(market_data["tags"])
+                # Tags
+                if market_data.get("tags"):
+                    df.loc[idx, 'tags'] = json.dumps(market_data["tags"])
 
-            # Slugs (for disambiguation in GPT election labelling)
-            if market_data.get("market_slug"):
-                df.loc[idx, 'pm_market_slug'] = market_data["market_slug"]
-            if market_data.get("event_slug"):
-                df.loc[idx, 'pm_event_slug'] = market_data["event_slug"]
+                # Slug
+                if market_data.get("market_slug"):
+                    df.loc[idx, 'pm_market_slug'] = market_data["market_slug"]
 
-            pm_resolved += 1
-            resolved_count += 1
+                pm_resolved += 1
+                resolved_count += 1
 
-            if pm_resolved % 10 == 0:
-                log(f"  Resolved {pm_resolved} Polymarket markets...")
+            if pm_checked % 500 == 0:
+                log(f"  Checked {pm_checked:,}/{len(pm_work):,} PM markets ({pm_resolved} resolved)...")
 
-        time.sleep(RATE_LIMIT_DELAY)
-
-    log(f"  Polymarket: {pm_resolved} newly resolved")
+    log(f"  Polymarket: {pm_resolved} newly resolved (of {pm_checked:,} checked)")
 
     # ==========================================================================
-    # CHECK KALSHI MARKETS
+    # CHECK KALSHI MARKETS (parallel)
     # ==========================================================================
 
     log("\n" + "=" * 50)
-    log("CHECKING KALSHI MARKETS")
+    log("CHECKING KALSHI MARKETS (native API)")
     log("=" * 50)
 
-    global _kalshi_fallback_count
-    _kalshi_fallback_count = 0
+    kalshi_limiter = RateLimiter(MAX_REQ_PER_SEC)
     kalshi_resolved = 0
+    kalshi_checked = 0
 
+    # Build work items
+    kalshi_work = []
     for idx, row in kalshi_open.iterrows():
         ticker = row.get('market_id')
-
         if pd.isna(ticker):
             continue
+        kalshi_work.append((idx, row, str(ticker)))
 
-        # First try Dome API
-        market_data = fetch_kalshi_full(str(ticker))
+    log(f"  Fetching {len(kalshi_work):,} markets ({MAX_WORKERS} workers)...")
 
-        # Detect stale Dome data and fallback to Kalshi direct API
-        if is_dome_stale(market_data):
-            direct_data = fetch_kalshi_direct(str(ticker))
-            if direct_data:
-                market_data = direct_data
+    # Parallel fetch
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(fetch_kalshi_market, ticker, kalshi_limiter): (idx, row)
+            for idx, row, ticker in kalshi_work
+        }
 
-        if market_data and (market_data.get("status") in ("closed", "finalized", "settled") or market_data.get("result") is not None):
-            # Market has closed or has a result - update ALL available fields in master CSV
+        for future in as_completed(futures):
+            idx, row = futures[future]
+            kalshi_checked += 1
+            market_data = future.result()
 
-            # Core resolution fields
-            df.loc[idx, 'is_closed'] = True
-            # Update k_status (use status from API, or "finalized" if we have a result)
-            if market_data.get("status"):
-                df.loc[idx, 'k_status'] = market_data["status"]
-            elif market_data.get("result") is not None:
-                df.loc[idx, 'k_status'] = "finalized"
-            if market_data.get("result") is not None:
-                # Normalize to title case (Yes/No) for consistency
-                result = market_data["result"]
-                if result in ("yes", "no"):
-                    result = result.title()
-                df.loc[idx, 'winning_outcome'] = result
+            if market_data and (market_data.get("status") in ("closed", "finalized", "settled") or market_data.get("result") is not None):
+                # Core resolution fields
+                df.loc[idx, 'is_closed'] = True
+                if market_data.get("status"):
+                    df.loc[idx, 'k_status'] = market_data["status"]
+                elif market_data.get("result") is not None:
+                    df.loc[idx, 'k_status'] = "finalized"
+                if market_data.get("result") is not None:
+                    result = market_data["result"]
+                    if result in ("yes", "no"):
+                        result = result.title()
+                    df.loc[idx, 'winning_outcome'] = result
 
-            # Time fields
-            if market_data.get("close_time"):
-                df.loc[idx, 'trading_close_time'] = datetime.fromtimestamp(market_data["close_time"]).isoformat()
+                # Time fields
+                if market_data.get("close_time"):
+                    df.loc[idx, 'trading_close_time'] = market_data["close_time"]
+                if market_data.get("expiration_time"):
+                    df.loc[idx, 'k_expiration_time'] = market_data["expiration_time"]
 
-            if market_data.get("expiration_time"):
-                df.loc[idx, 'k_expiration_time'] = datetime.fromtimestamp(market_data["expiration_time"]).isoformat()
+                # Volume
+                if market_data.get("volume"):
+                    df.loc[idx, 'volume_usd'] = market_data["volume"]
 
-            # Volume (update with final volume)
-            if market_data.get("volume"):
-                df.loc[idx, 'volume_usd'] = market_data["volume"]
+                # Final prices
+                if market_data.get("last_price") is not None:
+                    df.loc[idx, 'k_last_price'] = market_data["last_price"]
+                if market_data.get("yes_bid") is not None:
+                    df.loc[idx, 'k_yes_bid'] = market_data["yes_bid"]
+                if market_data.get("yes_ask") is not None:
+                    df.loc[idx, 'k_yes_ask'] = market_data["yes_ask"]
 
-            # Final prices
-            if market_data.get("last_price") is not None:
-                df.loc[idx, 'k_last_price'] = market_data["last_price"]
+                # Open interest
+                if market_data.get("open_interest") is not None:
+                    df.loc[idx, 'k_open_interest'] = market_data["open_interest"]
 
-            if market_data.get("yes_bid") is not None:
-                df.loc[idx, 'k_yes_bid'] = market_data["yes_bid"]
-            if market_data.get("yes_ask") is not None:
-                df.loc[idx, 'k_yes_ask'] = market_data["yes_ask"]
+                # Event ticker (if not already set)
+                if pd.isna(row.get('k_event_ticker')) and market_data.get("event_ticker"):
+                    df.loc[idx, 'k_event_ticker'] = market_data["event_ticker"]
 
-            # Open interest
-            if market_data.get("open_interest") is not None:
-                df.loc[idx, 'k_open_interest'] = market_data["open_interest"]
+                kalshi_resolved += 1
+                resolved_count += 1
 
-            # Event ticker (if not already set)
-            if pd.isna(row.get('k_event_ticker')) and market_data.get("event_ticker"):
-                df.loc[idx, 'k_event_ticker'] = market_data["event_ticker"]
+            if kalshi_checked % 500 == 0:
+                log(f"  Checked {kalshi_checked:,}/{len(kalshi_work):,} Kalshi markets ({kalshi_resolved} resolved)...")
 
-            kalshi_resolved += 1
-            resolved_count += 1
-
-            if kalshi_resolved % 10 == 0:
-                log(f"  Resolved {kalshi_resolved} Kalshi markets...")
-
-        time.sleep(RATE_LIMIT_DELAY)
-
-    log(f"  Kalshi: {kalshi_resolved} newly resolved")
-    if _kalshi_fallback_count > 0:
-        log(f"  (Used Kalshi direct API fallback for {_kalshi_fallback_count} stale Dome responses)")
+    log(f"  Kalshi: {kalshi_resolved} newly resolved (of {kalshi_checked:,} checked)")
 
     # ==========================================================================
     # SAVE UPDATES
@@ -578,6 +481,8 @@ def main():
     print("=" * 70)
     print(f"Markets checked: {len(open_markets):,}")
     print(f"Newly resolved: {resolved_count}")
+    print(f"  Polymarket: {pm_resolved}")
+    print(f"  Kalshi: {kalshi_resolved}")
     print(f"Finished: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 70 + "\n")
 

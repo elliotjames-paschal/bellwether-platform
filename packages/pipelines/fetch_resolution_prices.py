@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Fetch Resolution Prices from Dome API
+Fetch Resolution Prices via Native APIs
 
 This script fetches the TRUE resolution prices (last traded price before market closure)
-for all resolved markets by calling the Dome API with end_time = trading_close_time.
+for all resolved markets by calling native platform APIs directly:
+- Polymarket: CLOB API prices-history endpoint
+- Kalshi: Native series candlestick endpoint (with trades API fallback)
 
 This allows comparison between:
 1. Current truncated prices (at event date for elections, trading_close - 24h for others)
@@ -18,52 +20,55 @@ import json
 import time
 import os
 import sys
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
 
 # Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config import BASE_DIR, DATA_DIR, get_dome_api_key
+from config import BASE_DIR, DATA_DIR
 
 MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 OUTPUT_FILE = DATA_DIR / "resolution_prices.json"
 CHECKPOINT_FILE = DATA_DIR / "resolution_prices_checkpoint.json"
 
-# Dome API Configuration
-DOME_API_BASE = "https://api.domeapi.io/v1"
-DOME_API_KEY = get_dome_api_key()
+# Native API endpoints
+CLOB_API_BASE = "https://clob.polymarket.com"
+KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2"
 
-# Parallel processing (dev tier: 100 req/sec, 500 req/10sec)
-MAX_WORKERS = 10  # Very conservative to avoid rate limits
+# Parallel processing
+MAX_WORKERS = 10
 MAX_RETRIES = 3
 CHECKPOINT_INTERVAL = 500  # Save checkpoint every N markets
+RATE_LIMIT_DELAY = 0.1  # 100ms between requests
 
-# Thread-safe counters and rate limiting
+# Thread-safe counters
 results_lock = threading.Lock()
-progress_lock = threading.Lock()
-rate_limit_lock = threading.Lock()
-request_times = []  # Track recent requests
 
-def rate_limited_request():
-    """Ensure we don't exceed rate limits using sliding window."""
-    with rate_limit_lock:
-        now = time.time()
-        # Remove requests older than 1 second
-        while request_times and request_times[0] < now - 1.0:
-            request_times.pop(0)
 
-        # If we've made 50+ requests in last second, wait
-        if len(request_times) >= 50:
-            sleep_time = 1.0 - (now - request_times[0]) + 0.05
-            if sleep_time > 0:
-                time.sleep(sleep_time)
+class RateLimiter:
+    """Thread-safe rate limiter."""
+    def __init__(self, delay):
+        self._delay = delay
+        self._lock = threading.Lock()
+        self._last = 0.0
 
-        request_times.append(time.time())
+    def wait(self):
+        with self._lock:
+            now = time.monotonic()
+            elapsed = now - self._last
+            if elapsed < self._delay:
+                time.sleep(self._delay - elapsed)
+            self._last = time.monotonic()
+
+
+_rate_limiter = RateLimiter(RATE_LIMIT_DELAY)
+
 
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+
 
 def parse_close_time(close_time_val):
     """Parse trading_close_time to Unix timestamp."""
@@ -78,50 +83,57 @@ def parse_close_time(close_time_val):
     except:
         return None
 
-def fetch_polymarket_resolution_price(condition_id, token_id_yes, trading_close_ts):
-    """Fetch the resolution price for a Polymarket market."""
-    # Request data up to trading close time
-    # Start from 30 days before to ensure we get some data
-    start_ts = trading_close_ts - (30 * 86400)
 
+def derive_series_ticker(ticker):
+    """Derive series ticker from market ticker (everything before last hyphen).
+
+    e.g. PRES-2024-DT -> PRES-2024, KXSENATE-26-GA-R -> KXSENATE-26-GA
+    """
+    parts = ticker.split('-')
+    if len(parts) > 1:
+        return '-'.join(parts[:-1])
+    return ticker
+
+
+def fetch_polymarket_resolution_price(token_id, trading_close_ts):
+    """Fetch the resolution price for a Polymarket market via CLOB API."""
     for attempt in range(MAX_RETRIES):
         try:
-            rate_limited_request()
+            _rate_limiter.wait()
             response = requests.get(
-                f"{DOME_API_BASE}/polymarket/candlesticks/{condition_id}",
-                headers={"Authorization": DOME_API_KEY},
+                f"{CLOB_API_BASE}/prices-history",
                 params={
-                    'start_time': start_ts,
-                    'end_time': trading_close_ts,
-                    'interval': 1440  # Daily candles
+                    'market': token_id,
+                    'interval': 'max',
+                    'fidelity': 1440  # Daily candles
                 },
                 timeout=15
             )
 
             if response.status_code == 200:
                 data = response.json()
-                candlesticks = data.get('candlesticks', [])
+                history = data.get('history', [])
 
-                for token_data in candlesticks:
-                    if len(token_data) != 2:
-                        continue
+                if not history:
+                    return None
 
-                    candle_array = token_data[0]
-                    token_info = token_data[1]
-                    this_token_id = str(token_info.get('token_id', ''))
+                # Find the last price point before trading_close_ts
+                best = None
+                for point in history:
+                    ts = point.get('t', 0)
+                    if ts <= trading_close_ts:
+                        best = point
 
-                    if this_token_id == str(token_id_yes) and candle_array:
-                        # Get the LAST candle (resolution price)
-                        last_candle = candle_array[-1]
-                        close_price = last_candle.get('price', {}).get('close', 0)
-                        last_ts = last_candle.get('end_period_ts', 0)
-                        return {
-                            'price': close_price / 100.0,  # Convert cents to probability
-                            'timestamp': last_ts,
-                            'date': datetime.fromtimestamp(last_ts).strftime('%Y-%m-%d') if last_ts else None
-                        }
+                if best:
+                    price = float(best.get('p', 0))
+                    ts = best.get('t', 0)
+                    return {
+                        'price': price,
+                        'timestamp': ts,
+                        'date': datetime.fromtimestamp(ts).strftime('%Y-%m-%d') if ts else None
+                    }
 
-                return None  # Token not found in response
+                return None
 
             elif response.status_code == 429:
                 wait_time = 10 * (2 ** attempt)
@@ -129,7 +141,7 @@ def fetch_polymarket_resolution_price(condition_id, token_id_yes, trading_close_
                 time.sleep(wait_time)
                 continue
             elif response.status_code == 400:
-                return None  # Invalid condition_id
+                return None  # Invalid token_id
             else:
                 return None
 
@@ -141,6 +153,7 @@ def fetch_polymarket_resolution_price(condition_id, token_id_yes, trading_close_
 
     return None
 
+
 def fetch_kalshi_resolution_price_from_trades(ticker, trading_close_ts):
     """Fallback: Fetch resolution price from Kalshi trades API."""
     # Get trades up to trading close time
@@ -148,10 +161,9 @@ def fetch_kalshi_resolution_price_from_trades(ticker, trading_close_ts):
 
     for attempt in range(MAX_RETRIES):
         try:
-            rate_limited_request()
-            # Correct URL format: ticker as query param, not path param
+            _rate_limiter.wait()
             response = requests.get(
-                "https://api.elections.kalshi.com/trade-api/v2/markets/trades",
+                f"{KALSHI_API_BASE}/markets/trades",
                 params={
                     'ticker': ticker,
                     'limit': 100
@@ -209,20 +221,21 @@ def fetch_kalshi_resolution_price_from_trades(ticker, trading_close_ts):
 
     return None
 
+
 def fetch_kalshi_resolution_price(ticker, trading_close_ts):
-    """Fetch the resolution price for a Kalshi market."""
+    """Fetch the resolution price for a Kalshi market via native series candlestick API."""
+    series_ticker = derive_series_ticker(ticker)
     start_ts = trading_close_ts - (30 * 86400)
 
     for attempt in range(MAX_RETRIES):
         try:
-            rate_limited_request()
+            _rate_limiter.wait()
             response = requests.get(
-                f"{DOME_API_BASE}/kalshi/candlesticks/{ticker}",
-                headers={"Authorization": DOME_API_KEY},
+                f"{KALSHI_API_BASE}/series/{series_ticker}/markets/{ticker}/candlesticks",
                 params={
-                    'start_time': start_ts,
-                    'end_time': trading_close_ts,
-                    'interval': 1440
+                    'period_interval': 1440,  # Daily candles
+                    'start_ts': start_ts,
+                    'end_ts': trading_close_ts
                 },
                 timeout=15
             )
@@ -232,7 +245,7 @@ def fetch_kalshi_resolution_price(ticker, trading_close_ts):
                 candlesticks = data.get('candlesticks', [])
 
                 if candlesticks:
-                    # Check if we have a valid close price
+                    # Get the last candle's close price
                     last_candle = candlesticks[-1]
                     close_price = last_candle.get('price', {}).get('close')
                     if close_price is not None:
@@ -241,18 +254,21 @@ def fetch_kalshi_resolution_price(ticker, trading_close_ts):
                             'price': close_price / 100.0,
                             'timestamp': last_ts,
                             'date': datetime.fromtimestamp(last_ts).strftime('%Y-%m-%d') if last_ts else None,
-                            'source': 'dome'
+                            'source': 'kalshi_candlestick'
                         }
 
-                # Dome returned empty or no valid price - try Kalshi trades API fallback
+                # No valid candlestick data - try trades API fallback
                 return fetch_kalshi_resolution_price_from_trades(ticker, trading_close_ts)
 
             elif response.status_code == 429:
                 wait_time = 10 * (2 ** attempt)
                 time.sleep(wait_time)
                 continue
+            elif response.status_code == 404:
+                # Series not found - try trades API fallback
+                return fetch_kalshi_resolution_price_from_trades(ticker, trading_close_ts)
             else:
-                # Dome API error - try fallback
+                # Other API error - try fallback
                 return fetch_kalshi_resolution_price_from_trades(ticker, trading_close_ts)
 
         except Exception as e:
@@ -263,6 +279,7 @@ def fetch_kalshi_resolution_price(ticker, trading_close_ts):
             return fetch_kalshi_resolution_price_from_trades(ticker, trading_close_ts)
 
     return None
+
 
 def save_checkpoint(results, processed_ids):
     """Save checkpoint to allow resuming."""
@@ -288,7 +305,6 @@ def load_checkpoint():
 def process_polymarket_market(row, pm_token_ids):
     """Process a single Polymarket market - returns results for both YES and NO tokens."""
     market_id = str(row['market_id'])
-    condition_id = row['pm_condition_id']
     token_id_yes = str(row['pm_token_id_yes'])
     token_id_no = str(row['pm_token_id_no']) if pd.notna(row.get('pm_token_id_no')) else None
     trading_close_ts = parse_close_time(row['trading_close_time'])
@@ -298,8 +314,8 @@ def process_polymarket_market(row, pm_token_ids):
 
     results = []
 
-    # Fetch candlestick data (contains both tokens)
-    result = fetch_polymarket_resolution_price(condition_id, token_id_yes, trading_close_ts)
+    # Fetch price history for YES token via CLOB API
+    result = fetch_polymarket_resolution_price(token_id_yes, trading_close_ts)
 
     # Add YES token result if in prediction_accuracy
     if result and token_id_yes in pm_token_ids:
@@ -353,13 +369,13 @@ def process_kalshi_market(row):
             'resolution_date': result['date'],
             'trading_close_time': row['trading_close_time'],
             'winning_outcome': row['winning_outcome'],
-            'source': result.get('source', 'dome')
+            'source': result.get('source', 'kalshi_candlestick')
         }
     return market_id, None
 
 def main():
     log("="*60)
-    log("FETCHING RESOLUTION PRICES FROM DOME API (PARALLEL)")
+    log("FETCHING RESOLUTION PRICES (NATIVE APIs)")
     log(f"Using {MAX_WORKERS} parallel workers")
     log("="*60)
 
@@ -419,7 +435,7 @@ def main():
     log(f"\n   To process: {len(pm_to_process):,} Polymarket, {len(kalshi_to_process):,} Kalshi")
 
     # Process Polymarket markets in parallel
-    log("\n3. Fetching Polymarket resolution prices (parallel)...")
+    log("\n3. Fetching Polymarket resolution prices (CLOB API, parallel)...")
     pm_success = 0
     pm_errors = 0
     processed_count = 0
@@ -448,7 +464,7 @@ def main():
     save_checkpoint(results, processed_ids)
 
     # Process Kalshi markets in parallel
-    log("\n4. Fetching Kalshi resolution prices (parallel, with trades API fallback)...")
+    log("\n4. Fetching Kalshi resolution prices (native candlestick + trades fallback)...")
     k_success = 0
     k_errors = 0
     k_fallback = 0

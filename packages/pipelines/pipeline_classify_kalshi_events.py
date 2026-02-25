@@ -1,130 +1,52 @@
 #!/usr/bin/env python3
 """
 ================================================================================
-PIPELINE SCRIPT: Discover Kalshi Political Markets via Search
+PIPELINE SCRIPT: Classify Kalshi Political Event Tickers
 ================================================================================
 
-Part of the NEW Bellwether Pipeline (January 2026+)
+Part of the Bellwether V2 Pipeline
 
-This script:
-1. Searches the Dome API for Kalshi markets matching 221 political keywords
-2. Deduplicates by market_ticker, extracts unique event_tickers
-3. Updates kalshi_political_event_tickers.json (marks found tickers as political)
-4. Saves a market cache for downstream pipeline steps (avoids re-fetching)
+This script mirrors the Polymarket tag classification approach:
+1. Fetches all SERIES from the Kalshi Series API (single page, ~8K series)
+2. Filters by political categories (Elections, Politics, Economics, World)
+3. Fetches events for political series
+4. Saves political event_tickers to kalshi_political_event_tickers.json
 
-No GPT/OpenAI required — search terms are hand-curated to cover all 15 political
-categories. Coverage: 99.3% of previously-identified political event_tickers.
+The Kalshi hierarchy is: Series -> Events -> Markets
+Categories live on Series, so filtering at the series level is most efficient.
 
 Usage:
     python pipeline_classify_kalshi_events.py [--full-refresh]
 
 Options:
-    --full-refresh  Search both open AND closed markets (default: open only)
+    --full-refresh  Reclassify all (ignore existing classifications)
 
 Output:
     - data/kalshi_political_event_tickers.json
-    - data/kalshi_political_markets_cache.json
 
 ================================================================================
 """
 
-import requests
 import json
-import time
-import os
 import sys
+import time
+import requests
 from datetime import datetime
-from pathlib import Path
+
+from config import DATA_DIR
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
-from config import BASE_DIR, DATA_DIR, get_dome_api_key
-
-# Output files
+KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2"
 EVENT_TICKERS_FILE = DATA_DIR / "kalshi_political_event_tickers.json"
-MARKET_CACHE_FILE = DATA_DIR / "kalshi_political_markets_cache.json"
 
-DOME_API_KEY = get_dome_api_key()
-DOME_KALSHI_BASE = "https://api.domeapi.io/v1/kalshi"
-RATE_LIMIT_DELAY = float(os.environ.get('DOME_RATE_LIMIT', '0.15'))
+# Categories we consider political (from Kalshi's own category system)
+POLITICAL_CATEGORIES = {"Elections", "Politics", "Economics", "World"}
+
 MAX_RETRIES = 3
-
-# =============================================================================
-# POLITICAL SEARCH TERMS (221 verified, all return ≥1 result)
-#
-# Dome API search does EXACT WORD matching (case-insensitive) on market titles.
-# "election" does NOT match "elections" or "electoral" — each form is separate.
-# =============================================================================
-
-KALSHI_SEARCH_TERMS = [
-    # Elections & Offices (22)
-    "election", "elections", "elected", "electoral",
-    "senate", "governor", "governorship", "gubernatorial",
-    "congress", "congressional", "president", "presidential", "presidency",
-    "nominee", "nomination", "primary", "mayor", "candidate", "candidates",
-    "speaker", "attorney general", "secretary of state",
-    # Parties (8)
-    "democrat", "democratic", "Democrats", "republican", "Republicans",
-    "party", "GOP", "convention",
-    # Key Figures (21)
-    "trump", "biden", "musk", "vance", "putin", "Zelenskyy",
-    "powell", "netanyahu", "maduro", "xi jinping",
-    "RFK", "Kennedy", "Pelosi", "McConnell", "Schumer", "AOC",
-    "DeSantis", "Newsom", "Haley", "Obama", "Harris",
-    # Economic / Fed (24)
-    "federal reserve", "Fed meeting", "funds rate",
-    "tariff", "GDP", "inflation", "recession", "CPI", "rate", "rates",
-    "basis points", "employment", "unemployment", "jobs added", "NFP", "ADP",
-    "treasury", "balance sheet", "yields", "credit rating", "central bank",
-    "debt", "credit card",
-    # Government Bodies (18)
-    "DOGE", "USAID", "CFPB", "FDIC", "CDC", "DOJ", "FTC", "FDA",
-    "SEC", "EPA", "FBI", "ATF", "FCC", "NPR", "IRS",
-    "Medicare", "social security",
-    # Legislative (11)
-    "legislation", "becomes law", "bill", "bills",
-    "filibuster", "reconciliation", "repeal",
-    "constitutional", "amendment", "act of 2025", "act of 2026",
-    # Judicial & Legal (9)
-    "supreme court", "lawsuit", "antitrust",
-    "charged", "arrested", "indictment", "pardon", "pardoned", "subpoena",
-    # Executive (10)
-    "executive", "cabinet", "secretary", "white house", "veto",
-    "impeach", "impeached", "impeachment", "confirm", "confirmed",
-    # Government Ops (8)
-    "shutdown", "debt ceiling", "budget", "spending",
-    "sovereign", "congestion", "fund", "51st",
-    # International (27)
-    "NATO", "sanctions", "parliament", "prime minister", "chancellor",
-    "embassy", "diplomat", "BRICS", "Schengen", "eurozone",
-    "EU", "European", "United Nations", "NordStream",
-    "agreement", "deal", "peace",
-    "Israel", "Ukraine", "Russia", "China", "Iran", "Syria",
-    "Greenland", "Canada", "Canadian",
-    # Countries (15)
-    "India", "UK", "Britain", "Germany", "France", "Japan", "Korea",
-    "Mexico", "Brazil", "Argentina", "Turkey", "Italy",
-    "Australia", "Nigeria", "South Africa",
-    # Tech Companies (6)
-    "TikTok", "Google", "Apple", "Microsoft", "Meta", "Amazon",
-    # Policy Areas (29)
-    "tax", "taxes", "crypto", "marijuana", "vaccine",
-    "concealed carry", "border", "deportations", "visa", "citizenship",
-    "climate", "carbon", "energy", "nuclear",
-    "artificial intelligence", "minimum wage", "child care",
-    "ban", "banned", "bans", "social media",
-    "rent", "healthcare", "Obamacare", "ACA",
-    "trade", "military", "war", "defense",
-    # Approval / Polling (2)
-    "approval rating", "favorability",
-    # Political Actions (11)
-    "resign", "leave office", "endorse", "referendum", "vote", "ballot",
-    "eliminated", "commissioner",
-    # General (2)
-    "political", "government",
-]
+RATE_LIMIT = 0.1
 
 
 def log(msg):
@@ -133,61 +55,104 @@ def log(msg):
 
 
 # =============================================================================
-# SEARCH-BASED MARKET FETCHING
+# SERIES FETCHING
 # =============================================================================
 
-def fetch_kalshi_markets_by_search(term, status="open"):
-    """Fetch Kalshi markets matching a search term via Dome API.
-
-    Uses offset-based pagination (the search endpoint returns offset/total,
-    not pagination_key). Each page fetches up to 100 markets.
+def fetch_all_series() -> list:
     """
-    markets = []
-    offset = 0
+    Fetch all series from Kalshi Series API.
+
+    The series endpoint returns all results in a single page (~8K series).
+    Each series has: ticker, title, category, tags, etc.
+    """
+    log("Fetching all Kalshi series...")
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(
+                f"{KALSHI_API_BASE}/series",
+                params={"limit": 10000},
+                headers={"Accept": "application/json"},
+                timeout=60,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                series = data.get("series", [])
+                log(f"  Fetched {len(series):,} series")
+                return series
+
+            elif response.status_code == 429:
+                wait = 10 * (2 ** attempt)
+                log(f"  Rate limited, waiting {wait}s...")
+                time.sleep(wait)
+            else:
+                log(f"  Error {response.status_code}: {response.text[:200]}")
+                if attempt == MAX_RETRIES - 1:
+                    return []
+                time.sleep(5)
+
+        except Exception as e:
+            log(f"  Exception: {e}")
+            if attempt == MAX_RETRIES - 1:
+                return []
+            time.sleep(5)
+
+    return []
+
+
+# =============================================================================
+# EVENT FETCHING (for political series only)
+# =============================================================================
+
+def fetch_events_for_series(series_ticker: str) -> list:
+    """Fetch all events for a given series ticker."""
+    all_events = []
+    cursor = None
 
     while True:
-        params = {"search": term, "status": status, "limit": 100, "offset": offset}
+        params = {"limit": 200, "series_ticker": series_ticker}
+        if cursor:
+            params["cursor"] = cursor
 
         for attempt in range(MAX_RETRIES):
             try:
                 response = requests.get(
-                    f"{DOME_KALSHI_BASE}/markets",
-                    headers={"Authorization": DOME_API_KEY},
+                    f"{KALSHI_API_BASE}/events",
                     params=params,
-                    timeout=30
+                    timeout=30,
                 )
 
                 if response.status_code == 200:
                     data = response.json()
-                    batch = data.get("markets", [])
-                    markets.extend(batch)
+                    events = data.get("events", [])
 
-                    pagination = data.get("pagination", {})
-                    if pagination.get("has_more") and len(batch) > 0:
-                        offset += len(batch)
-                    else:
-                        return markets
+                    if not events:
+                        return all_events
+
+                    all_events.extend(events)
+                    cursor = data.get("cursor")
+
+                    if not cursor or len(events) < 200:
+                        return all_events
+
+                    time.sleep(RATE_LIMIT)
                     break
 
                 elif response.status_code == 429:
-                    wait_time = 10 * (2 ** attempt)
-                    log(f"    Rate limited on '{term}', waiting {wait_time}s...")
-                    time.sleep(wait_time)
-                    continue
+                    wait = 10 * (2 ** attempt)
+                    time.sleep(wait)
                 else:
-                    log(f"    API error {response.status_code} for '{term}': {response.text[:200]}")
-                    return markets
+                    if attempt == MAX_RETRIES - 1:
+                        return all_events
+                    time.sleep(2)
 
-            except Exception as e:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(5)
-                    continue
-                log(f"    Error fetching '{term}': {e}")
-                return markets
+            except Exception:
+                if attempt == MAX_RETRIES - 1:
+                    return all_events
+                time.sleep(2)
 
-        time.sleep(RATE_LIMIT_DELAY)
-
-    return markets
+    return all_events
 
 
 # =============================================================================
@@ -196,159 +161,160 @@ def fetch_kalshi_markets_by_search(term, status="open"):
 
 def main():
     full_refresh = "--full-refresh" in sys.argv
-    statuses = ["open", "closed"] if full_refresh else ["open"]
+    test_mode = "--test" in sys.argv
 
     print("\n" + "=" * 70)
-    print("PIPELINE: SEARCH KALSHI POLITICAL MARKETS")
+    print("PIPELINE: CLASSIFY KALSHI POLITICAL EVENT TICKERS")
     print("=" * 70)
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Mode: {'FULL REFRESH (open + closed)' if full_refresh else 'INCREMENTAL (open only)'}")
-    print(f"Search terms: {len(KALSHI_SEARCH_TERMS)}")
+    print(f"Political categories: {', '.join(sorted(POLITICAL_CATEGORIES))}")
+    if full_refresh:
+        print("MODE: FULL REFRESH")
+    if test_mode:
+        print("MODE: TEST (10 series only)")
     print("=" * 70 + "\n")
 
     # ------------------------------------------------------------------
-    # Step 1: Search for political markets across all terms & statuses
+    # Step 1: Fetch all series (single API call)
     # ------------------------------------------------------------------
-    all_markets = {}  # market_ticker -> market dict (deduplicated)
-    total_api_calls = 0
+    all_series = fetch_all_series()
 
-    for status in statuses:
-        log(f"Searching {status} markets across {len(KALSHI_SEARCH_TERMS)} terms...")
-
-        for i, term in enumerate(KALSHI_SEARCH_TERMS):
-            markets = fetch_kalshi_markets_by_search(term, status=status)
-            pages = max(1, (len(markets) + 99) // 100)
-            total_api_calls += pages
-
-            new_count = 0
-            for m in markets:
-                ticker = m.get("market_ticker")
-                if ticker and ticker not in all_markets:
-                    all_markets[ticker] = m
-                    new_count += 1
-
-            log(f"  [{status}] {i+1}/{len(KALSHI_SEARCH_TERMS)} '{term}' → "
-                f"{len(markets)} results ({new_count} new, {pages} pages) | "
-                f"Total unique: {len(all_markets):,}")
-
-    log(f"\nSearch complete: {len(all_markets):,} unique markets from {total_api_calls} API calls")
-
-    if not all_markets:
-        log("No markets found!")
+    if not all_series:
+        log("ERROR: No series fetched. Aborting.")
         return 0
 
-    # ------------------------------------------------------------------
-    # Step 2: Extract unique event_tickers with sample titles
-    # ------------------------------------------------------------------
-    event_tickers_found = {}  # event_ticker -> sample_title
-    for m in all_markets.values():
-        et = m.get("event_ticker")
-        if et and et not in event_tickers_found:
-            event_tickers_found[et] = m.get("title", "")
-
-    log(f"Unique political event_tickers found: {len(event_tickers_found):,}")
+    # Category breakdown
+    from collections import Counter
+    categories = Counter(s.get("category", "None") for s in all_series)
+    log("Series by category:")
+    for cat, count in categories.most_common():
+        marker = " <-- POLITICAL" if cat in POLITICAL_CATEGORIES else ""
+        log(f"  {count:5,}  {cat}{marker}")
 
     # ------------------------------------------------------------------
-    # Step 3: Update the event_tickers JSON
+    # Step 2: Filter to political series
     # ------------------------------------------------------------------
-    existing_classifications = {}
-    if EVENT_TICKERS_FILE.exists():
+    political_series = [
+        s for s in all_series
+        if s.get("category") in POLITICAL_CATEGORIES
+    ]
+    log(f"\nPolitical series: {len(political_series):,}")
+
+    if test_mode:
+        political_series = political_series[:10]
+        log(f"  TEST MODE: limited to {len(political_series)} series")
+
+    # ------------------------------------------------------------------
+    # Step 3: Load existing classifications
+    # ------------------------------------------------------------------
+    existing = {}
+    if EVENT_TICKERS_FILE.exists() and not full_refresh:
         with open(EVENT_TICKERS_FILE, 'r') as f:
-            existing_classifications = json.load(f)
-        log(f"Loaded existing classifications: {len(existing_classifications):,}")
+            existing = json.load(f)
+        log(f"Loaded existing classifications: {len(existing):,}")
 
-    # Update: mark search-found tickers as political, revert stale search entries
-    now = datetime.now().isoformat()
+    # ------------------------------------------------------------------
+    # Step 4: Fetch events for political series (to get event_tickers)
+    # ------------------------------------------------------------------
+    log("\nFetching events for political series...")
+
     new_political = 0
-    upgraded_political = 0
-    reverted = 0
+    total_events = 0
+    series_checked = 0
 
-    # First: revert any entries that were previously set by search but aren't found now
-    for et, entry in existing_classifications.items():
-        if entry.get("source") == "search" and et not in event_tickers_found:
-            entry["is_political"] = False
-            entry["source"] = "search-reverted"
-            reverted += 1
-
-    # Then: mark search-found tickers as political
-    for et, sample_title in event_tickers_found.items():
-        if et in existing_classifications:
-            entry = existing_classifications[et]
-            if not entry.get("is_political"):
-                entry["is_political"] = True
-                entry["source"] = "search"
-                entry["classified_at"] = now
-                upgraded_political += 1
-            elif entry.get("source") not in ("search", "gpt"):
-                entry["source"] = "search"
-        else:
-            existing_classifications[et] = {
-                "is_political": True,
-                "sample_title": sample_title,
-                "classified_at": now,
-                "source": "search",
-                "votes": 3
-            }
-            new_political += 1
-
-    log(f"New political event_tickers: {new_political}")
-    log(f"Upgraded to political: {upgraded_political}")
-    log(f"Reverted (stale search): {reverted}")
-
-    # Save updated JSON
-    with open(EVENT_TICKERS_FILE, 'w') as f:
-        json.dump(existing_classifications, f, indent=2)
-    log(f"Saved event_tickers JSON: {EVENT_TICKERS_FILE}")
-
-    # ------------------------------------------------------------------
-    # Step 4: Save market cache for downstream pipeline steps
-    # ------------------------------------------------------------------
-    cache_data = {
-        "generated_at": now,
-        "search_terms_count": len(KALSHI_SEARCH_TERMS),
-        "statuses_searched": statuses,
-        "total_markets": len(all_markets),
-        "markets": {
-            ticker: {
-                "market_ticker": m.get("market_ticker"),
-                "event_ticker": m.get("event_ticker"),
-                "title": m.get("title"),
-                "subtitle": m.get("subtitle", ""),
-                "status": m.get("status"),
-                "yes_ask": m.get("yes_ask"),
-                "yes_bid": m.get("yes_bid"),
-                "no_ask": m.get("no_ask"),
-                "no_bid": m.get("no_bid"),
-                "volume": m.get("volume"),
-                "open_interest": m.get("open_interest"),
-                "close_time": m.get("close_time"),
-                "expiration_time": m.get("expiration_time"),
-                "category": m.get("category", ""),
-                "result": m.get("result", ""),
-            }
-            for ticker, m in all_markets.items()
-        }
+    # Build set of non-political series tickers (for marking non-political)
+    non_political_series_tickers = {
+        s.get("ticker") for s in all_series
+        if s.get("category") not in POLITICAL_CATEGORIES and s.get("ticker")
     }
 
-    with open(MARKET_CACHE_FILE, 'w') as f:
-        json.dump(cache_data, f, indent=2)
-    log(f"Saved market cache: {MARKET_CACHE_FILE} ({len(all_markets):,} markets)")
+    now = datetime.now().isoformat()
+
+    for series in political_series:
+        series_ticker = series.get("ticker", "")
+        series_category = series.get("category", "")
+        series_title = series.get("title", "")
+
+        if not series_ticker:
+            continue
+
+        # Fetch events for this series
+        events = fetch_events_for_series(series_ticker)
+        total_events += len(events)
+        series_checked += 1
+
+        for event in events:
+            event_ticker = event.get("event_ticker", "")
+            if not event_ticker:
+                continue
+
+            if event_ticker not in existing:
+                existing[event_ticker] = {
+                    "is_political": True,
+                    "sample_title": event.get("title", ""),
+                    "category": series_category,
+                    "series_ticker": series_ticker,
+                    "series_title": series_title,
+                    "classified_at": now,
+                    "source": "category",
+                    "votes": 3,
+                }
+                new_political += 1
+            else:
+                # Update existing entry to mark as political if it wasn't
+                entry = existing[event_ticker]
+                if not entry.get("is_political"):
+                    entry["is_political"] = True
+                    entry["source"] = "category"
+                    entry["classified_at"] = now
+                    new_political += 1
+
+        if series_checked % 100 == 0:
+            log(f"  Checked {series_checked:,}/{len(political_series):,} series "
+                f"({total_events:,} events, {new_political:,} new)")
+
+        time.sleep(RATE_LIMIT)
+
+    log(f"  Done: {series_checked:,} series, {total_events:,} events, {new_political:,} new political")
+
+    # ------------------------------------------------------------------
+    # Step 5: Mark non-political entries for events we already know about
+    # ------------------------------------------------------------------
+    # Any existing entry whose series_ticker is in non-political categories
+    # gets marked as non-political
+    reverted = 0
+    for ticker, entry in existing.items():
+        st = entry.get("series_ticker", "")
+        if st and st in non_political_series_tickers and entry.get("is_political"):
+            entry["is_political"] = False
+            entry["source"] = "category-reverted"
+            reverted += 1
+
+    if reverted:
+        log(f"  Reverted {reverted} entries (series moved to non-political category)")
+
+    # ------------------------------------------------------------------
+    # Step 6: Save
+    # ------------------------------------------------------------------
+    with open(EVENT_TICKERS_FILE, 'w') as f:
+        json.dump(existing, f, indent=2)
+    log(f"Saved: {EVENT_TICKERS_FILE}")
 
     # ------------------------------------------------------------------
     # Summary
     # ------------------------------------------------------------------
-    political_count = sum(1 for v in existing_classifications.values() if v.get("is_political"))
-    non_political_count = sum(1 for v in existing_classifications.values() if v.get("is_political") is False)
+    political_count = sum(1 for v in existing.values() if v.get("is_political"))
+    non_political_count = sum(1 for v in existing.values() if not v.get("is_political"))
 
     print("\n" + "=" * 70)
-    print("SEARCH DISCOVERY COMPLETE")
+    print("CLASSIFICATION COMPLETE")
     print("=" * 70)
-    print(f"API calls made: {total_api_calls}")
-    print(f"Unique markets found: {len(all_markets):,}")
-    print(f"Political event_tickers (total): {political_count:,}")
-    print(f"  - New this run: {new_political}")
-    print(f"  - Reclassified: {upgraded_political}")
-    print(f"Non-political event_tickers: {non_political_count:,}")
+    print(f"Total series:            {len(all_series):,}")
+    print(f"Political series:        {len(political_series):,}")
+    print(f"Events fetched:          {total_events:,}")
+    print(f"New political tickers:   {new_political:,}")
+    print(f"Total political:         {political_count:,}")
+    print(f"Total non-political:     {non_political_count:,}")
     print(f"Finished: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 70 + "\n")
 

@@ -6,7 +6,7 @@ Creates JSON data for the Market Monitor section.
 - Electoral markets: Grouped by election with cross-platform comparison (PM vs Kalshi)
 - Non-electoral markets: Individual entries per market/platform
 
-Fetches LIVE prices from Dome API for accurate current pricing.
+Fetches LIVE prices from native APIs (CLOB + Kalshi) for accurate current pricing.
 
 Usage:
     python generate_monitor_data.py [--skip-prices]
@@ -27,7 +27,7 @@ from pathlib import Path
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Rate limiter for Dome API (100 req/sec max)
+# Rate limiter for native APIs
 class RateLimiter:
     def __init__(self, calls_per_second=80):
         self.calls_per_second = calls_per_second
@@ -46,7 +46,7 @@ class RateLimiter:
 rate_limiter = RateLimiter(40)  # 40 req/sec to avoid rate limiting
 
 sys.path.insert(0, str(Path(__file__).parent))
-from config import DATA_DIR, WEBSITE_DIR, get_dome_api_key
+from config import DATA_DIR, WEBSITE_DIR
 from election_market_utils import (
     get_electoral_markets,
     is_likely_winner_market,
@@ -84,9 +84,9 @@ KALSHI_DAILY_PRICES_DIR = DATA_DIR / "kalshi_daily_prices"
 SLUG_MAPPING_FILE = DATA_DIR / "pm_event_slug_mapping.json"
 OUTPUT_FILE = WEBSITE_DIR / "data" / "active_markets.json"
 
-# Dome API config
-DOME_API_KEY = get_dome_api_key()
-DOME_RATE_LIMIT = 0.01  # 100 req/sec
+# Native API endpoints
+PM_CLOB_API = "https://clob.polymarket.com"
+KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2"
 
 # Category display names
 CATEGORY_DISPLAY = {
@@ -970,11 +970,10 @@ def load_slug_mapping():
 
 
 def fetch_pm_images_from_dome(condition_ids):
-    """Load PM image URLs from cached Dome API data.
+    """Load PM image URLs from cached data.
 
-    The cache is built by fetching all markets from the Dome API's /markets
-    endpoint (which includes image URLs). Individual market lookups by
-    condition_id are not supported by the API.
+    The cache file contains image URLs keyed by condition_id,
+    originally built from market data that includes image URLs.
     """
     images = {}
 
@@ -1002,40 +1001,38 @@ def fetch_pm_images_from_dome(condition_ids):
 
 
 def _fetch_single_price(platform, identifier):
-    """Fetch a single price from Dome API (for parallel execution)."""
+    """Fetch a single price from native APIs (for parallel execution)."""
     rate_limiter.wait()  # Respect rate limit
     try:
         if platform == 'pm':
-            url = f"https://api.domeapi.io/v1/polymarket/market-price/{identifier}"
-        else:
-            url = f"https://api.domeapi.io/v1/kalshi/market-price/{identifier}"
-
-        response = requests.get(
-            url,
-            headers={"Authorization": DOME_API_KEY},
-            timeout=10
-        )
-        if response.status_code == 200:
-            data = response.json()
-            if platform == 'pm':
+            # Polymarket CLOB API
+            url = f"{PM_CLOB_API}/price?token_id={identifier}&side=buy"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
                 price = data.get('price')
-            else:
-                price = data.get('yes', {}).get('price')
-            if price is not None:
-                return (platform, identifier, float(price), None)
+                if price is not None:
+                    return (platform, identifier, float(price), None)
+        else:
+            # Kalshi native API
+            url = f"{KALSHI_API_BASE}/markets/{identifier}"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                market = data.get('market', data)
+                price = market.get('last_price')
+                if price is not None:
+                    # Kalshi returns cents (0-100), convert to decimal
+                    return (platform, identifier, float(price) / 100, None)
         return (platform, identifier, None, f"status_{response.status_code}")
     except Exception as e:
         return (platform, identifier, None, str(e)[:50])
 
 
 def fetch_live_prices(pm_token_ids, kalshi_tickers, max_workers=20):
-    """Fetch live prices from Dome API for both platforms in parallel."""
+    """Fetch live prices from native APIs for both platforms in parallel."""
     pm_prices = {}
     kalshi_prices = {}
-
-    if not DOME_API_KEY:
-        log("  WARNING: No Dome API key, skipping live price fetch")
-        return pm_prices, kalshi_prices
 
     # Build combined task list
     tasks = [('pm', tid) for tid in pm_token_ids] + [('kalshi', ticker) for ticker in kalshi_tickers]
@@ -1076,13 +1073,13 @@ def fetch_live_prices(pm_token_ids, kalshi_tickers, max_workers=20):
 
 # Legacy wrappers for backward compatibility
 def fetch_live_pm_prices(token_ids, max_workers=50):
-    """Fetch live prices from Dome API for Polymarket tokens."""
+    """Fetch live prices for Polymarket tokens."""
     pm_prices, _ = fetch_live_prices(token_ids, [], max_workers)
     return pm_prices
 
 
 def fetch_live_kalshi_prices(market_tickers, max_workers=50):
-    """Fetch live prices from Dome API for Kalshi markets."""
+    """Fetch live prices for Kalshi markets."""
     _, kalshi_prices = fetch_live_prices([], market_tickers, max_workers)
     return kalshi_prices
 
@@ -1398,7 +1395,7 @@ def generate_monitor_data(skip_prices=False):
         save_today_kalshi_prices(live_k_prices)
         log(f"  Saved {len(live_k_prices):,} Kalshi prices for tomorrow")
 
-    # Collect all PM condition_ids for image fetching from Dome API
+    # Collect all PM condition_ids for image fetching from cache
     pm_condition_ids = set()
     for _, row in winner_markets.iterrows():
         if row.get('platform') == 'Polymarket':
@@ -1416,7 +1413,7 @@ def generate_monitor_data(skip_prices=False):
             if pd.notna(cid):
                 pm_condition_ids.add(str(cid))
 
-    # Fetch PM images from Dome API (keyed by condition_id)
+    # Fetch PM images from cache (keyed by condition_id)
     pm_images = fetch_pm_images_from_dome(pm_condition_ids)
 
     all_entries = []
@@ -1641,7 +1638,7 @@ def generate_monitor_data(skip_prices=False):
             election_type = 'primary'
         region = REGION_MAP.get(meta['country'], 'unknown')
 
-        # Get image from PM if available (using condition_id for Dome API cache)
+        # Get image from PM if available (using condition_id from image cache)
         pm_image = None
         if pm_winner:
             pm_cid = pm_winner.get('pm_condition_id')
@@ -2162,35 +2159,13 @@ def generate_monitor_data(skip_prices=False):
 
 
 def fetch_orderbook(platform, token_id):
-    """Fetch orderbook from Dome API, with fallback to native APIs."""
+    """Fetch orderbook from native APIs."""
     rate_limiter.wait()  # Respect rate limit
 
-    # Try Dome API first (if we have a key)
-    if DOME_API_KEY:
-        if platform == 'polymarket':
-            url = f"https://api.domeapi.io/v1/polymarket/orderbooks?token_id={token_id}"
-        else:
-            url = f"https://api.domeapi.io/v1/kalshi/orderbooks?ticker={token_id}"
-
-        try:
-            resp = requests.get(
-                url,
-                headers={'Authorization': DOME_API_KEY},
-                timeout=10
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                snapshots = data.get('snapshots', data.get('data', []))
-                if snapshots:
-                    return snapshots[0] if isinstance(snapshots, list) else snapshots
-        except Exception:
-            pass  # Fall through to native API
-
-    # Fallback to native APIs
     try:
         if platform == 'polymarket':
             # PM CLOB API - returns {"bids": [...], "asks": [...]}
-            url = f"https://clob.polymarket.com/book?token_id={token_id}"
+            url = f"{PM_CLOB_API}/book?token_id={token_id}"
             resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
@@ -2198,7 +2173,7 @@ def fetch_orderbook(platform, token_id):
                     return data
         else:
             # Kalshi API - returns {"orderbook": {"yes": [...], "no": [...]}}
-            url = f"https://api.elections.kalshi.com/trade-api/v2/markets/{token_id}/orderbook"
+            url = f"{KALSHI_API_BASE}/markets/{token_id}/orderbook"
             resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
@@ -2300,10 +2275,6 @@ def _assess_single_market(entry):
 
 def generate_monitor_summary(elections, max_workers=50):
     """Generate robustness summary for Finding 3 (parallel)."""
-    if not DOME_API_KEY:
-        log("  WARNING: No Dome API key, skipping monitor summary generation")
-        return None
-
     log(f"Generating market robustness summary ({max_workers} workers)...")
 
     total = 0

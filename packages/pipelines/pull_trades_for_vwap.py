@@ -2,16 +2,15 @@
 """
 Pull Trade-Level Data for VWAP Computation
 
-Fetches trade data from Dome API for all Polymarket political markets.
-Used for "Researcher Degrees of Freedom" paper VWAP analysis.
+Fetches trade data from the public Polymarket Data API for all resolved
+Polymarket political markets. Used for "Researcher Degrees of Freedom"
+paper VWAP analysis.
 
 Data needed per trade: price, size, timestamp, token_id
 We pull trades for a 24-hour window around the truncation point for each market.
 
 Usage:
     python pull_trades_for_vwap.py [--max-workers 50] [--cutoff-date 2026-02-10]
-
-Dev tier: 100 queries/sec → use 50 parallel workers with small delays
 """
 
 import argparse
@@ -29,10 +28,10 @@ import requests
 
 # Add scripts dir to path
 sys.path.insert(0, str(Path(__file__).parent))
-from config import BASE_DIR, DATA_DIR, get_dome_api_key
+from config import BASE_DIR, DATA_DIR
 
 # Constants
-DOME_API_BASE = "https://api.domeapi.io/v1"
+DATA_API_BASE = "https://data-api.polymarket.com"
 OUTPUT_FILE = DATA_DIR / "trades_for_vwap.json"
 CHECKPOINT_FILE = DATA_DIR / "trades_for_vwap_checkpoint.json"
 MASTER_CSV = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
@@ -41,9 +40,8 @@ ELECTION_DATES_CSV = DATA_DIR / "election_dates_lookup.csv"
 # VWAP window: pull trades from 24 hours before truncation to truncation time
 VWAP_WINDOW_HOURS = 24
 
-# Rate limiting for dev tier (100 req/sec)
-# With 50 workers, each worker needs ~0.5s between requests
-WORKER_DELAY = 0.5
+# Rate limiting
+RATE_LIMIT_DELAY = 0.1  # 100ms between requests
 MAX_RETRIES = 3
 
 # Progress tracking
@@ -51,6 +49,25 @@ progress_lock = Lock()
 completed_count = 0
 error_count = 0
 total_trades = 0
+
+
+class RateLimiter:
+    """Thread-safe rate limiter."""
+    def __init__(self, delay):
+        self._delay = delay
+        self._lock = Lock()
+        self._last = 0.0
+
+    def wait(self):
+        with self._lock:
+            now = time.monotonic()
+            elapsed = now - self._last
+            if elapsed < self._delay:
+                time.sleep(self._delay - elapsed)
+            self._last = time.monotonic()
+
+
+_rate_limiter = RateLimiter(RATE_LIMIT_DELAY)
 
 
 def log(msg):
@@ -95,65 +112,70 @@ def get_truncation_timestamp(row, election_dates_lookup):
     return None
 
 
-def fetch_trades_for_condition(condition_id, start_ts, end_ts, api_key):
+def fetch_trades_for_condition(condition_id, start_ts, end_ts):
     """
-    Fetch all trades for a condition ID within a time window.
+    Fetch all trades for a condition ID within a time window from the Data API.
 
-    Returns list of trades with: price, shares_normalized, timestamp, token_id
+    Returns list of trades with: price, shares (size), timestamp, token_id (asset), side
     """
-    headers = {"Authorization": api_key}
     all_trades = []
     offset = 0
-    limit = 100
-    max_pages = 500  # Safety limit
+    limit = 1000  # Data API caps at 1000 per page
+    max_offset = 10000  # Data API max offset
 
-    for page in range(max_pages):
-        url = f"{DOME_API_BASE}/polymarket/orders"
-        params = {
-            "condition_id": condition_id,
-            "limit": limit,
-            "offset": offset
-        }
-
+    while offset <= max_offset:
         for retry in range(MAX_RETRIES):
             try:
-                resp = requests.get(url, headers=headers, params=params, timeout=60)
+                _rate_limiter.wait()
+                resp = requests.get(
+                    f"{DATA_API_BASE}/trades",
+                    params={
+                        "market": condition_id,
+                        "limit": limit,
+                        "offset": offset
+                    },
+                    timeout=60
+                )
 
                 if resp.status_code == 429:
-                    # Rate limited - wait and retry
                     wait_time = 2 ** (retry + 1)
                     time.sleep(wait_time)
                     continue
 
                 resp.raise_for_status()
-                data = resp.json()
+                trades = resp.json()
 
-                orders = data if isinstance(data, list) else data.get('orders', data.get('data', []))
+                if not isinstance(trades, list):
+                    trades = trades.get('data', [])
 
-                # Filter to trades within our time window
-                window_trades = []
-                for order in orders:
-                    ts = order.get('timestamp')
-                    if ts and start_ts <= ts <= end_ts:
-                        window_trades.append({
-                            'price': order.get('price'),
-                            'shares': order.get('shares_normalized', order.get('shares', 0)),
-                            'timestamp': ts,
-                            'token_id': order.get('token_id'),
-                            'side': order.get('side')
-                        })
-                    elif ts and ts < start_ts:
-                        # Orders are returned newest-first, so if we hit timestamps before our window,
-                        # we've passed it and can stop
-                        return all_trades
-
-                all_trades.extend(window_trades)
-
-                if len(orders) < limit:
-                    # Reached end of data
+                if not trades:
                     return all_trades
 
-                offset += len(orders)
+                # Filter to trades within our time window and map fields
+                for trade in trades:
+                    ts = trade.get('timestamp')
+                    # Parse timestamp - Data API returns ISO string or unix
+                    if isinstance(ts, str):
+                        try:
+                            ts = int(datetime.fromisoformat(ts.replace('Z', '+00:00')).timestamp())
+                        except:
+                            continue
+                    elif ts is None:
+                        continue
+
+                    if start_ts <= ts <= end_ts:
+                        all_trades.append({
+                            'price': trade.get('price'),
+                            'shares': trade.get('size', 0),           # size -> shares
+                            'timestamp': ts,
+                            'token_id': trade.get('asset', ''),       # asset -> token_id
+                            'side': trade.get('side', '')
+                        })
+
+                if len(trades) < limit:
+                    return all_trades
+
+                offset += len(trades)
                 break
 
             except requests.exceptions.RequestException as e:
@@ -162,12 +184,10 @@ def fetch_trades_for_condition(condition_id, start_ts, end_ts, api_key):
                 else:
                     return all_trades
 
-        time.sleep(0.02)  # Small delay between pages
-
     return all_trades
 
 
-def process_market(market_row, truncation_ts, api_key, worker_id):
+def process_market(market_row, truncation_ts, worker_id):
     """Process a single market: fetch trades around truncation point."""
     global completed_count, error_count, total_trades
 
@@ -179,15 +199,13 @@ def process_market(market_row, truncation_ts, api_key, worker_id):
     end_ts = truncation_ts
 
     try:
-        trades = fetch_trades_for_condition(condition_id, start_ts, end_ts, api_key)
+        trades = fetch_trades_for_condition(condition_id, start_ts, end_ts)
 
         with progress_lock:
             completed_count += 1
             total_trades += len(trades)
             if completed_count % 100 == 0:
                 log(f"Progress: {completed_count} markets, {total_trades} trades")
-
-        time.sleep(WORKER_DELAY)  # Rate limit
 
         return {
             'market_id': str(market_id),
@@ -242,14 +260,10 @@ def main():
     cutoff_dt = pd.to_datetime(args.cutoff_date).tz_localize('UTC')
 
     log("=" * 70)
-    log("FETCHING TRADE DATA FOR VWAP COMPUTATION")
+    log("FETCHING TRADE DATA FOR VWAP COMPUTATION (Polymarket Data API)")
     log(f"Max workers: {args.max_workers}")
     log(f"Cutoff date: {args.cutoff_date}")
     log("=" * 70)
-
-    # Get API key
-    api_key = get_dome_api_key()
-    log("✓ API key loaded")
 
     # Load election dates
     log("Loading election dates...")
@@ -264,7 +278,7 @@ def main():
         )
         dt = pd.to_datetime(row['election_date'])
         election_dates_lookup[key] = dt.replace(hour=0, minute=0, second=0, tzinfo=timezone.utc)
-    log(f"✓ Loaded {len(election_dates_lookup)} election dates")
+    log(f"Loaded {len(election_dates_lookup)} election dates")
 
     # Load master data
     log("Loading master data...")
@@ -282,7 +296,7 @@ def main():
     pm_markets['close_dt'] = pd.to_datetime(pm_markets['trading_close_time'], errors='coerce')
     pm_markets = pm_markets[pm_markets['close_dt'] < cutoff_dt].copy()
 
-    log(f"✓ Found {len(pm_markets)} resolved Polymarket markets before {args.cutoff_date}")
+    log(f"Found {len(pm_markets)} resolved Polymarket markets before {args.cutoff_date}")
 
     # Compute truncation timestamps
     log("Computing truncation timestamps...")
@@ -295,7 +309,7 @@ def main():
                 'truncation_ts': trunc_ts
             })
 
-    log(f"✓ Computed truncation timestamps for {len(truncation_data)} markets")
+    log(f"Computed truncation timestamps for {len(truncation_data)} markets")
 
     # Load checkpoint if resuming
     processed_ids = set()
@@ -303,7 +317,7 @@ def main():
     if args.resume and CHECKPOINT_FILE.exists():
         checkpoint = load_checkpoint()
         processed_ids = set(checkpoint.get('processed_markets', []))
-        log(f"✓ Resuming from checkpoint: {len(processed_ids)} markets already processed")
+        log(f"Resuming from checkpoint: {len(processed_ids)} markets already processed")
 
         # Load existing results
         if OUTPUT_FILE.exists():
@@ -334,7 +348,6 @@ def main():
                 process_market,
                 item['row'],
                 item['truncation_ts'],
-                api_key,
                 i % args.max_workers
             )
             futures[future] = item['row']['market_id']
@@ -361,7 +374,7 @@ def main():
     log(f"Processed: {completed_count} markets")
     log(f"Total trades: {total_trades}")
     log(f"Errors: {error_count}")
-    log(f"Time: {elapsed:.1f}s ({completed_count/elapsed:.1f} markets/sec)")
+    log(f"Time: {elapsed:.1f}s ({completed_count/elapsed:.1f} markets/sec)" if elapsed > 0 else "Time: 0s")
     log("=" * 70)
 
     # Save final output
@@ -380,12 +393,12 @@ def main():
     with open(OUTPUT_FILE, 'w') as f:
         json.dump(output, f)
 
-    log(f"✓ Saved {len(all_results)} markets with trade data")
+    log(f"Saved {len(all_results)} markets with trade data")
 
     # Cleanup checkpoint
     if CHECKPOINT_FILE.exists():
         os.remove(CHECKPOINT_FILE)
-        log("✓ Removed checkpoint file")
+        log("Removed checkpoint file")
 
 
 if __name__ == '__main__':

@@ -26,9 +26,6 @@ DATA_DIR = BASE_DIR / "data"
 
 # Test configuration
 SAMPLE_SIZE = 50
-# Load API key from config
-from config import get_dome_api_key
-DOME_API_KEY = get_dome_api_key()
 
 results = {}
 
@@ -45,49 +42,49 @@ def test_failed(name, error):
     log(f"{name}: FAILED - {error}", "FAIL")
 
 # =============================================================================
-# TEST 1: Fetch sample from Dome API
+# TEST 1: Fetch sample from native APIs
 # =============================================================================
 
-def test_dome_api_sample():
-    """Fetch a small sample from Dome API."""
-    log("TEST 1: Fetching sample from Dome API...")
+def test_native_api_sample():
+    """Fetch a small sample from native APIs."""
+    log("TEST 1: Fetching sample from native APIs...")
 
     try:
-        # Polymarket - fetch 25 markets
+        # Polymarket - fetch from Gamma API
         pm_response = requests.get(
-            "https://api.domeapi.io/v1/polymarket/markets",
-            headers={"Authorization": DOME_API_KEY},
-            params={"limit": 25, "tags": "Politics"},
+            "https://gamma-api.polymarket.com/markets",
+            params={"limit": 25, "tag": "politics"},
+            headers={"Accept": "application/json"},
             timeout=30
         )
 
         if pm_response.status_code != 200:
-            test_failed("dome_api_sample", f"PM API returned {pm_response.status_code}")
+            test_failed("native_api_sample", f"PM Gamma API returned {pm_response.status_code}")
             return None
 
-        pm_markets = pm_response.json().get("markets", [])
-        log(f"  Polymarket: fetched {len(pm_markets)} markets", "OK")
+        pm_markets = pm_response.json()
+        log(f"  Polymarket (Gamma): fetched {len(pm_markets)} markets", "OK")
 
-        # Kalshi - fetch 25 markets
+        # Kalshi - fetch from native API
         kalshi_response = requests.get(
-            "https://api.domeapi.io/v1/kalshi/markets",
-            headers={"Authorization": DOME_API_KEY},
+            "https://api.elections.kalshi.com/trade-api/v2/markets",
             params={"limit": 25},
             timeout=30
         )
 
         if kalshi_response.status_code != 200:
-            test_failed("dome_api_sample", f"Kalshi API returned {kalshi_response.status_code}")
+            test_failed("native_api_sample", f"Kalshi API returned {kalshi_response.status_code}")
             return None
 
-        kalshi_markets = kalshi_response.json().get("markets", [])
-        log(f"  Kalshi: fetched {len(kalshi_markets)} markets", "OK")
+        kalshi_data = kalshi_response.json()
+        kalshi_markets = kalshi_data.get("markets", [])
+        log(f"  Kalshi (native): fetched {len(kalshi_markets)} markets", "OK")
 
-        test_passed("dome_api_sample")
+        test_passed("native_api_sample")
         return {"polymarket": pm_markets, "kalshi": kalshi_markets}
 
     except Exception as e:
-        test_failed("dome_api_sample", str(e))
+        test_failed("native_api_sample", str(e))
         return None
 
 # =============================================================================
@@ -105,25 +102,23 @@ def test_market_processing(sample_data):
     try:
         processed = []
 
-        # Process Polymarket
+        # Process Polymarket (Gamma API format)
         for m in sample_data["polymarket"][:10]:
             processed.append({
                 "platform": "Polymarket",
-                "market_id": m.get("market_slug"),
-                "pm_condition_id": m.get("condition_id"),
-                "question": m.get("title"),
+                "market_id": m.get("slug") or m.get("market_slug"),
+                "pm_condition_id": m.get("conditionId") or m.get("condition_id"),
+                "question": m.get("question") or m.get("title"),
                 "tags": json.dumps(m.get("tags", [])),
-                "dome_status": m.get("status"),
             })
 
-        # Process Kalshi
+        # Process Kalshi (native API format)
         for m in sample_data["kalshi"][:10]:
             processed.append({
                 "platform": "Kalshi",
-                "market_id": m.get("market_ticker"),
+                "market_id": m.get("ticker") or m.get("market_ticker"),
                 "k_event_ticker": m.get("event_ticker"),
                 "question": m.get("title"),
-                "dome_status": m.get("status"),
             })
 
         log(f"  Processed {len(processed)} markets", "OK")
@@ -336,7 +331,7 @@ def main():
     start_time = time.time()
 
     # Run tests
-    sample_data = test_dome_api_sample()
+    sample_data = test_native_api_sample()
     test_market_processing(sample_data)
     test_price_fetching()
     test_brier_calculation()

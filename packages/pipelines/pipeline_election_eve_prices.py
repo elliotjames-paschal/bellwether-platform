@@ -9,13 +9,13 @@ Part of the Bellwether Pipeline
 This script:
 1. Loads the master CSV and election_dates_lookup.csv
 2. Joins to find all electoral markets with a known election date
-3. For each market missing an election_eve_price, queries the Dome API
-   for the market price at UTC midnight on election day
+3. For each market missing an election_eve_price, looks up the last
+   daily close price before election day from local price JSON files
 4. Updates the master CSV with the new election_eve_price column
 
-The "election eve price" is the market's price at exactly 00:00 UTC on
-election day. For US elections on Nov 5, this corresponds to ~7-8 PM ET
-the night before — a natural "final forecast" cutoff.
+The "election eve price" is the market's last recorded price before
+00:00 UTC on election day. For US elections on Nov 5, this corresponds
+to ~7-8 PM ET the night before — a natural "final forecast" cutoff.
 
 This is the academically standard approach: UTC is unambiguous and
 reproducible without assumptions about local time zones.
@@ -28,6 +28,8 @@ Usage:
 Input:
     - data/combined_political_markets_with_electoral_details_UPDATED.csv
     - data/election_dates_lookup.csv
+    - data/polymarket_all_political_prices_DOMEAPI_CORRECTED.json
+    - data/kalshi_all_political_prices_CORRECTED_v3.json
 
 Output:
     - Updates master CSV with election_eve_price column
@@ -37,8 +39,7 @@ Output:
 
 import pandas as pd
 import numpy as np
-import requests
-import time
+import json
 import os
 import sys
 import argparse
@@ -50,18 +51,15 @@ from pathlib import Path
 # =============================================================================
 
 sys.path.insert(0, str(Path(__file__).parent))
-from config import BASE_DIR, DATA_DIR, get_dome_api_key, rotate_backups
+from config import BASE_DIR, DATA_DIR, rotate_backups
 
 BACKUP_DIR = DATA_DIR / "backups"
 MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 ELECTION_DATES_FILE = DATA_DIR / "election_dates_lookup.csv"
 
-DOME_API_KEY = get_dome_api_key()
-DOME_PM_BASE = "https://api.domeapi.io/v1/polymarket"
-DOME_KALSHI_BASE = "https://api.domeapi.io/v1/kalshi"
-
-RATE_LIMIT_DELAY = float(os.environ.get('DOME_RATE_LIMIT', '0.02'))  # 50 req/sec conservative
-MAX_RETRIES = 3
+# Local price files
+PM_PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
+KALSHI_PRICES_FILE = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
 
 
 def log(msg):
@@ -70,91 +68,8 @@ def log(msg):
 
 
 # =============================================================================
-# API FUNCTIONS
+# PRICE LOOKUP FUNCTIONS
 # =============================================================================
-
-def fetch_pm_price_at_time(token_id, unix_ts):
-    """Fetch Polymarket price at a specific Unix timestamp via Dome API."""
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = requests.get(
-                f"{DOME_PM_BASE}/market-price/{token_id}",
-                headers={"Authorization": DOME_API_KEY},
-                params={"at_time": int(unix_ts)},
-                timeout=15
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("price")
-            elif response.status_code == 404:
-                return None
-            elif response.status_code == 429:
-                wait_time = 10 * (2 ** attempt)
-                log(f"    Rate limited, waiting {wait_time}s...")
-                time.sleep(wait_time)
-                continue
-            elif response.status_code >= 500:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(5 * (2 ** attempt))
-                    continue
-                log(f"    PM API error: HTTP {response.status_code} for token {token_id} (after {MAX_RETRIES} retries)")
-                return None
-            else:
-                log(f"    PM API error: HTTP {response.status_code} for token {token_id}")
-                return None
-
-        except Exception as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(2 * (attempt + 1))
-                continue
-            log(f"    PM exception for token {token_id}: {e}")
-            return None
-
-    return None
-
-
-def fetch_kalshi_price_at_time(market_ticker, unix_ts):
-    """Fetch Kalshi YES price at a specific Unix timestamp via Dome API."""
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = requests.get(
-                f"{DOME_KALSHI_BASE}/market-price/{market_ticker}",
-                headers={"Authorization": DOME_API_KEY},
-                params={"at_time": int(unix_ts)},
-                timeout=15
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                yes_data = data.get("yes", {})
-                return yes_data.get("price")
-            elif response.status_code == 404:
-                return None
-            elif response.status_code == 429:
-                wait_time = 10 * (2 ** attempt)
-                log(f"    Rate limited, waiting {wait_time}s...")
-                time.sleep(wait_time)
-                continue
-            elif response.status_code >= 500:
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(5 * (2 ** attempt))
-                    continue
-                log(f"    Kalshi API error: HTTP {response.status_code} for {market_ticker} (after {MAX_RETRIES} retries)")
-                return None
-            else:
-                log(f"    Kalshi API error: HTTP {response.status_code} for {market_ticker}")
-                return None
-
-        except Exception as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(2 * (attempt + 1))
-                continue
-            log(f"    Kalshi exception for {market_ticker}: {e}")
-            return None
-
-    return None
-
 
 def election_date_to_unix(date_str):
     """Convert election date string (YYYY-MM-DD) to Unix timestamp at UTC midnight."""
@@ -162,12 +77,48 @@ def election_date_to_unix(date_str):
     return int(dt.timestamp())
 
 
+def lookup_pm_price(token_id, unix_ts, pm_local):
+    """Look up the last Polymarket price before the given timestamp from local data."""
+    token_str = str(token_id).split('.')[0]  # Remove .0 if float
+    if token_str not in pm_local:
+        return None
+
+    prices = pm_local[token_str]
+    best = None
+    for pt in prices:
+        if pt["t"] < unix_ts:
+            best = pt
+    if best is not None:
+        return best["p"]
+    return None
+
+
+def lookup_kalshi_price(market_ticker, unix_ts, kal_local):
+    """Look up the last Kalshi price before the given timestamp from local data."""
+    if market_ticker not in kal_local:
+        return None
+
+    candles = kal_local[market_ticker]
+    best = None
+    for c in candles:
+        if c.get("end_period_ts", c.get("t", 0)) <= unix_ts:
+            price_data = c.get("price", {})
+            close = price_data.get("close_dollars")
+            if close is not None:
+                best = float(close)
+            else:
+                bid = c.get("yes_bid", {}).get("close_dollars")
+                if bid is not None:
+                    best = float(bid)
+    return best
+
+
 # =============================================================================
 # MAIN
 # =============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="Fetch election eve prices from Dome API")
+    parser = argparse.ArgumentParser(description="Fetch election eve prices from local price files")
     parser.add_argument("--force", action="store_true", help="Re-fetch all prices, even existing ones")
     args = parser.parse_args()
 
@@ -201,7 +152,6 @@ def main():
     df["_orig_idx"] = df.index
 
     # Join election dates onto master CSV
-    # Match on country, office, location, election_year, is_primary
     join_cols = ["country", "office", "location", "election_year", "is_primary"]
     df_with_dates = df.merge(
         dates[join_cols + ["election_date"]],
@@ -235,17 +185,35 @@ def main():
     # Split by platform
     pm_markets = to_fetch[to_fetch["platform"] == "Polymarket"]
     kalshi_markets = to_fetch[to_fetch["platform"] == "Kalshi"]
-    log(f"\n  Polymarket to fetch: {len(pm_markets):,}")
-    log(f"  Kalshi to fetch: {len(kalshi_markets):,}")
+    log(f"\n  Polymarket to look up: {len(pm_markets):,}")
+    log(f"  Kalshi to look up: {len(kalshi_markets):,}")
 
     # =========================================================================
-    # Fetch Polymarket prices
+    # Load local price files
+    # =========================================================================
+    pm_local = {}
+    kal_local = {}
+
+    if len(pm_markets) > 0 and PM_PRICES_FILE.exists():
+        log(f"\nLoading Polymarket local prices...")
+        with open(PM_PRICES_FILE) as f:
+            pm_local = json.load(f)
+        log(f"  Loaded {len(pm_local):,} markets from local file")
+
+    if len(kalshi_markets) > 0 and KALSHI_PRICES_FILE.exists():
+        log(f"\nLoading Kalshi local prices...")
+        with open(KALSHI_PRICES_FILE) as f:
+            kal_local = json.load(f)
+        log(f"  Loaded {len(kal_local):,} markets from local file")
+
+    # =========================================================================
+    # Look up Polymarket prices
     # =========================================================================
     pm_success = 0
     pm_failed = 0
 
     if len(pm_markets) > 0:
-        log(f"\nFetching Polymarket prices...")
+        log(f"\nLooking up Polymarket prices...")
 
         for i, (idx, row) in enumerate(pm_markets.iterrows()):
             token_id = row.get("pm_token_id_yes")
@@ -256,7 +224,7 @@ def main():
                 continue
 
             unix_ts = election_date_to_unix(election_date)
-            price = fetch_pm_price_at_time(str(token_id), unix_ts)
+            price = lookup_pm_price(token_id, unix_ts, pm_local)
 
             if price is not None:
                 df.loc[row["_orig_idx"], "election_eve_price"] = price
@@ -264,21 +232,18 @@ def main():
             else:
                 pm_failed += 1
 
-            time.sleep(RATE_LIMIT_DELAY)
-
-            # Progress logging
-            if (i + 1) % 100 == 0 or (i + 1) == len(pm_markets):
+            if (i + 1) % 500 == 0 or (i + 1) == len(pm_markets):
                 log(f"  PM progress: {i + 1}/{len(pm_markets)} "
                     f"(success: {pm_success}, failed: {pm_failed})")
 
     # =========================================================================
-    # Fetch Kalshi prices
+    # Look up Kalshi prices
     # =========================================================================
     kalshi_success = 0
     kalshi_failed = 0
 
     if len(kalshi_markets) > 0:
-        log(f"\nFetching Kalshi prices...")
+        log(f"\nLooking up Kalshi prices...")
 
         for i, (idx, row) in enumerate(kalshi_markets.iterrows()):
             market_ticker = row["market_id"]
@@ -289,7 +254,7 @@ def main():
                 continue
 
             unix_ts = election_date_to_unix(election_date)
-            price = fetch_kalshi_price_at_time(str(market_ticker), unix_ts)
+            price = lookup_kalshi_price(str(market_ticker), unix_ts, kal_local)
 
             if price is not None:
                 df.loc[row["_orig_idx"], "election_eve_price"] = price
@@ -297,124 +262,22 @@ def main():
             else:
                 kalshi_failed += 1
 
-            time.sleep(RATE_LIMIT_DELAY)
-
-            # Progress logging
-            if (i + 1) % 100 == 0 or (i + 1) == len(kalshi_markets):
+            if (i + 1) % 500 == 0 or (i + 1) == len(kalshi_markets):
                 log(f"  Kalshi progress: {i + 1}/{len(kalshi_markets)} "
                     f"(success: {kalshi_success}, failed: {kalshi_failed})")
 
     # =========================================================================
-    # Dome API results
+    # Save results
     # =========================================================================
+    total_success = pm_success + kalshi_success
+    total_failed = pm_failed + kalshi_failed
+
     log(f"\n{'=' * 50}")
-    log(f"DOME API RESULTS")
+    log(f"RESULTS")
     log(f"{'=' * 50}")
     log(f"  Polymarket: {pm_success} success, {pm_failed} failed")
     log(f"  Kalshi:     {kalshi_success} success, {kalshi_failed} failed")
-
-    # =========================================================================
-    # Fallback: local candlestick data for markets Dome doesn't have
-    # =========================================================================
-    # Use the last daily close price before the election date
-    PM_PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
-    KALSHI_PRICES_FILE = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
-
-    # Re-check which markets in the original fetch set still need prices
-    # Use _orig_idx to correctly map between df_with_dates and df
-    still_missing_orig = set(df[df["election_eve_price"].isna()].index)
-    still_missing_markets = to_fetch[to_fetch["_orig_idx"].isin(still_missing_orig)]
-
-    pm_still = still_missing_markets[still_missing_markets["platform"] == "Polymarket"]
-    kal_still = still_missing_markets[still_missing_markets["platform"] == "Kalshi"]
-
-    log(f"\n  Still missing after Dome: {len(pm_still)} PM, {len(kal_still)} Kalshi")
-
-    fallback_pm = 0
-    fallback_kalshi = 0
-
-    # --- Polymarket fallback ---
-    if len(pm_still) > 0 and PM_PRICES_FILE.exists():
-        import json as _json
-        log(f"\nFallback: loading Polymarket local prices...")
-        with open(PM_PRICES_FILE) as f:
-            pm_local = _json.load(f)
-        log(f"  Loaded {len(pm_local):,} markets from local file")
-
-        for idx, row in pm_still.iterrows():
-            token_id = row.get("pm_token_id_yes")
-            election_date = row["election_date"]
-            if pd.isna(token_id):
-                continue
-
-            token_str = str(token_id).split('.')[0]  # Remove .0 if float
-            if token_str not in pm_local:
-                continue
-
-            unix_ts = election_date_to_unix(election_date)
-            prices = pm_local[token_str]
-            # Find last price point before election day
-            best = None
-            for pt in prices:
-                if pt["t"] < unix_ts:
-                    best = pt
-            if best is not None:
-                df.loc[row["_orig_idx"], "election_eve_price"] = best["p"]
-                fallback_pm += 1
-
-        log(f"  Polymarket fallback: {fallback_pm} prices recovered")
-
-    # --- Kalshi fallback ---
-    if len(kal_still) > 0 and KALSHI_PRICES_FILE.exists():
-        import json as _json
-        log(f"\nFallback: loading Kalshi local prices...")
-        with open(KALSHI_PRICES_FILE) as f:
-            kal_local = _json.load(f)
-        log(f"  Loaded {len(kal_local):,} markets from local file")
-
-        for idx, row in kal_still.iterrows():
-            market_ticker = str(row["market_id"])
-            election_date = row["election_date"]
-            if pd.isna(row["market_id"]):
-                continue
-
-            if market_ticker not in kal_local:
-                continue
-
-            unix_ts = election_date_to_unix(election_date)
-            candles = kal_local[market_ticker]
-            # Find last candlestick before election day with a usable price
-            best = None
-            for c in candles:
-                if c.get("end_period_ts", c.get("t", 0)) <= unix_ts:
-                    # Prefer close price, fall back to yes_bid close
-                    price_data = c.get("price", {})
-                    close = price_data.get("close_dollars")
-                    if close is not None:
-                        best = float(close)
-                    else:
-                        # Try yes_bid close
-                        bid = c.get("yes_bid", {}).get("close_dollars")
-                        if bid is not None:
-                            best = float(bid)
-            if best is not None:
-                df.loc[row["_orig_idx"], "election_eve_price"] = best
-                fallback_kalshi += 1
-
-        log(f"  Kalshi fallback: {fallback_kalshi} prices recovered")
-
-    # =========================================================================
-    # Save results
-    # =========================================================================
-    total_success = pm_success + kalshi_success + fallback_pm + fallback_kalshi
-    total_failed = (pm_failed + kalshi_failed) - fallback_pm - fallback_kalshi
-
-    log(f"\n{'=' * 50}")
-    log(f"FINAL RESULTS")
-    log(f"{'=' * 50}")
-    log(f"  Dome API:   {pm_success + kalshi_success} prices")
-    log(f"  Fallback:   {fallback_pm + fallback_kalshi} prices (local candlestick)")
-    log(f"  Total:      {total_success} success, {max(total_failed, 0)} still missing")
+    log(f"  Total:      {total_success} success, {total_failed} still missing")
 
     # Drop internal tracking column before saving
     df.drop(columns=["_orig_idx"], inplace=True, errors="ignore")
@@ -438,7 +301,7 @@ def main():
         filled = df["election_eve_price"].notna().sum()
         log(f"  Total markets with election_eve_price: {filled:,} / {len(df):,}")
     else:
-        log("\n  No prices fetched — master CSV not modified")
+        log("\n  No prices found — master CSV not modified")
 
     log(f"\n{'=' * 70}")
     log("DONE")

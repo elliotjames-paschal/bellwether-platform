@@ -19,25 +19,6 @@ SCRIPTS_DIR = PIPELINES_DIR  # Pipeline scripts are in packages/pipelines/
 WEBSITE_DIR = PACKAGES_DIR / "website"
 
 # API Keys - loaded from environment or local file
-def get_dome_api_key():
-    """Get Dome API key from environment or local file."""
-    # First try environment
-    key = os.environ.get('DOME_API_KEY')
-    if key:
-        return f"Bearer {key}" if not key.startswith('Bearer ') else key
-
-    # Then try local file
-    key_file = BASE_DIR / "dome_api_key.txt"
-    if key_file.exists():
-        key = key_file.read_text().strip()
-        return f"Bearer {key}" if not key.startswith('Bearer ') else key
-
-    raise ValueError(
-        "DOME_API_KEY not found. Set DOME_API_KEY environment variable "
-        "or create dome_api_key.txt in the project root."
-    )
-
-
 def get_openai_api_key():
     """Get OpenAI API key from environment or local file."""
     # First try environment

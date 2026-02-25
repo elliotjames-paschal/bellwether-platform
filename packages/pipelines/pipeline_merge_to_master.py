@@ -208,17 +208,17 @@ def main():
         new_to_add = new_to_add.drop(columns=['party'])
         log(f"  Mapped 'party' → 'party_affiliation'")
 
-    # Ensure columns match master (but preserve new columns from Dome API)
+    # Ensure columns match master (but preserve new columns)
     if len(master_df) > 0:
         # Add any missing columns from master to new data
         for col in master_df.columns:
             if col not in new_to_add.columns:
                 new_to_add[col] = None
 
-        # Check for new columns from Dome API that don't exist in master
+        # Check for new columns that don't exist in master
         new_cols = [col for col in new_to_add.columns if col not in master_df.columns]
         if new_cols:
-            log(f"  New columns from Dome API: {new_cols}")
+            log(f"  New columns: {new_cols}")
             # Add these columns to master_df so they're preserved
             for col in new_cols:
                 master_df[col] = None

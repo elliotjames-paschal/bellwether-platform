@@ -12,7 +12,7 @@ Usage:
 
 Options:
     --test-gpt   Test OpenAI API calls (costs money, but minimal)
-    --test-api   Test Dome API calls
+    --test-api   Test native API calls (Gamma, CLOB, Kalshi)
     --test-all   Run all tests including GPT
 
 ================================================================================
@@ -85,7 +85,7 @@ def test_pipeline_scripts():
 
     scripts = [
         "pipeline_classify_kalshi_events.py",
-        "pipeline_discover_markets.py",
+        "pipeline_discover_markets_v2.py",
         "pipeline_check_resolutions.py",
         "pipeline_classify_categories.py",
         "pipeline_classify_electoral.py",
@@ -123,42 +123,35 @@ def test_pipeline_scripts():
         test_failed("pipeline_scripts", "Some scripts invalid")
 
 # =============================================================================
-# TEST 3: Test Dome API connection
+# TEST 3: Test native API connections
 # =============================================================================
 
-def test_dome_api():
-    """Test Dome API connection and authentication."""
-    log("Testing Dome API connection...")
+def test_native_apis():
+    """Test native API connections (Gamma, CLOB, Kalshi)."""
+    log("Testing native API connections...")
 
     try:
         import requests
 
-        from config import get_dome_api_key
-        api_key = get_dome_api_key().replace('Bearer ', '')
-        if not api_key.startswith('Bearer '):
-            api_key = f"Bearer {api_key}"
-
-        # Test Polymarket endpoint
+        # Test Polymarket Gamma API (public, no auth)
         response = requests.get(
-            "https://api.domeapi.io/v1/polymarket/markets",
-            headers={"Authorization": api_key},
+            "https://gamma-api.polymarket.com/markets",
             params={"limit": 1},
+            headers={"Accept": "application/json"},
             timeout=10
         )
 
         if response.status_code == 200:
-            data = response.json()
-            markets = data.get("markets", [])
-            log(f"  Polymarket API: OK (got {len(markets)} market)", "OK")
+            markets = response.json()
+            log(f"  Polymarket Gamma API: OK (got {len(markets)} market)", "OK")
         else:
-            log(f"  Polymarket API: HTTP {response.status_code}", "FAIL")
-            test_failed("dome_api", f"HTTP {response.status_code}")
+            log(f"  Polymarket Gamma API: HTTP {response.status_code}", "FAIL")
+            test_failed("native_apis", f"Gamma API HTTP {response.status_code}")
             return
 
-        # Test Kalshi endpoint
+        # Test Kalshi native API
         response = requests.get(
-            "https://api.domeapi.io/v1/kalshi/markets",
-            headers={"Authorization": api_key},
+            "https://api.elections.kalshi.com/trade-api/v2/markets",
             params={"limit": 1},
             timeout=10
         )
@@ -166,14 +159,14 @@ def test_dome_api():
         if response.status_code == 200:
             data = response.json()
             markets = data.get("markets", [])
-            log(f"  Kalshi API: OK (got {len(markets)} market)", "OK")
-            test_passed("dome_api")
+            log(f"  Kalshi native API: OK (got {len(markets)} market)", "OK")
+            test_passed("native_apis")
         else:
-            log(f"  Kalshi API: HTTP {response.status_code}", "FAIL")
-            test_failed("dome_api", f"HTTP {response.status_code}")
+            log(f"  Kalshi native API: HTTP {response.status_code}", "FAIL")
+            test_failed("native_apis", f"Kalshi API HTTP {response.status_code}")
 
     except Exception as e:
-        test_failed("dome_api", str(e))
+        test_failed("native_apis", str(e))
 
 # =============================================================================
 # TEST 4: Test OpenAI API connection
@@ -462,9 +455,9 @@ def main():
 
     # Optional API tests
     if test_api:
-        test_dome_api()
+        test_native_apis()
     else:
-        log("Skipping Dome API test (use --test-api to enable)", "WARN")
+        log("Skipping native API tests (use --test-api to enable)", "WARN")
 
     if test_gpt:
         test_openai_api()

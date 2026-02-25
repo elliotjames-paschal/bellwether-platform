@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-Dome API Price Fetcher for Kalshi
+Incremental Price Fetcher for Kalshi (Native Candlestick API)
 
 Part of the NEW Bellwether Pipeline (January 2026+)
 
-Fetches Kalshi price data via Dome API.
+Fetches Kalshi price data via the native series candlestick endpoint
+(no Dome API dependency). Falls back to the Kalshi /markets/trades
+endpoint for markets where candlesticks are unavailable.
+
 Writes directly to CORRECTED_v3.json.
 
 Usage:
@@ -20,46 +23,119 @@ import json
 import time
 import os
 import sys
+import threading
 from datetime import datetime, timedelta
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config import BASE_DIR, DATA_DIR, get_dome_api_key
+from config import BASE_DIR, DATA_DIR
 MASTER_FILE = str(DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv")
 PRICES_FILE = str(DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json")
 
-# Dome API Configuration (Dev tier: 100 queries/sec)
-DOME_API_BASE = "https://api.domeapi.io/v1/kalshi"
-DOME_API_KEY = get_dome_api_key()
+# Kalshi Native API
+KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2"
 
-# Kalshi Direct API (fallback when Dome is stale)
-KALSHI_DIRECT_BASE = "https://api.elections.kalshi.com/trade-api/v2"
-
-# Rate limit: 0.01s = 100 req/sec (dev tier)
-RATE_LIMIT_DELAY = float(os.environ.get('DOME_RATE_LIMIT', '0.01'))
+# Rate limiting & parallelism
+NUM_WORKERS = 10
+RATE_LIMIT_DELAY = 0.15  # ~65 req/sec across all workers (conservative for Kalshi)
 MAX_RETRIES = 3
+RETRY_DELAY = 5
 
-# Track fallback usage
-_kalshi_fallback_count = 0
+# Thread-safe state
+_lock = threading.Lock()
+_fallback_count = 0
+
 
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
 
+class RateLimiter:
+    """Thread-safe rate limiter."""
+    def __init__(self, delay):
+        self._delay = delay
+        self._lock = threading.Lock()
+        self._last = 0.0
+
+    def wait(self):
+        with self._lock:
+            now = time.monotonic()
+            elapsed = now - self._last
+            if elapsed < self._delay:
+                time.sleep(self._delay - elapsed)
+            self._last = time.monotonic()
+
+
+_rate_limiter = RateLimiter(RATE_LIMIT_DELAY)
+
+
+def derive_series_ticker(ticker):
+    """Derive series ticker from market ticker (everything before last hyphen).
+
+    e.g. PRES-2024-DT -> PRES-2024, KXSENATE-26-GA-R -> KXSENATE-26-GA
+    """
+    parts = ticker.split('-')
+    if len(parts) > 1:
+        return '-'.join(parts[:-1])
+    return ticker
+
+
+def fetch_kalshi_candlesticks(ticker, start_ts, end_ts):
+    """Fetch candlestick data from Kalshi native series endpoint."""
+    series_ticker = derive_series_ticker(ticker)
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            _rate_limiter.wait()
+
+            response = requests.get(
+                f"{KALSHI_API_BASE}/series/{series_ticker}/markets/{ticker}/candlesticks",
+                params={
+                    'period_interval': 1440,  # Daily candles
+                    'start_ts': start_ts,
+                    'end_ts': end_ts
+                },
+                timeout=15
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('candlesticks', [])
+            elif response.status_code == 429:
+                wait_time = 10 * (2 ** attempt)
+                time.sleep(wait_time)
+                continue
+            elif response.status_code == 404:
+                return []
+            else:
+                return None
+
+        except Exception as e:
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_DELAY)
+                continue
+            return None
+
+    return None
+
+
 def fetch_kalshi_trades_direct(ticker, start_ts, end_ts):
     """
     Fetch trades directly from Kalshi API and convert to daily candlesticks.
-    This is a fallback when Dome API data is stale.
+    Fallback when the candlestick endpoint returns no data.
     """
-    global _kalshi_fallback_count
+    global _fallback_count
 
     all_trades = []
     cursor = None
 
     for attempt in range(MAX_RETRIES):
         try:
-            # Paginate through all trades
             while True:
+                _rate_limiter.wait()
+
                 params = {
                     'ticker': ticker,
                     'min_ts': start_ts,
@@ -70,7 +146,7 @@ def fetch_kalshi_trades_direct(ticker, start_ts, end_ts):
                     params['cursor'] = cursor
 
                 response = requests.get(
-                    f"{KALSHI_DIRECT_BASE}/markets/trades",
+                    f"{KALSHI_API_BASE}/markets/trades",
                     params=params,
                     timeout=30
                 )
@@ -83,11 +159,9 @@ def fetch_kalshi_trades_direct(ticker, start_ts, end_ts):
                     cursor = data.get('cursor')
                     if not cursor or not trades:
                         break
-
-                    time.sleep(0.05)  # Rate limit
                 elif response.status_code == 429:
                     time.sleep(10 * (2 ** attempt))
-                    break  # Will retry outer loop
+                    break
                 else:
                     return None
 
@@ -96,25 +170,23 @@ def fetch_kalshi_trades_direct(ticker, start_ts, end_ts):
 
         except Exception as e:
             if attempt < MAX_RETRIES - 1:
-                time.sleep(5)
+                time.sleep(RETRY_DELAY)
                 continue
             return None
 
     if not all_trades:
         return []
 
-    _kalshi_fallback_count += 1
+    with _lock:
+        _fallback_count += 1
 
     # Convert trades to daily candlesticks
-    from collections import defaultdict
     daily_trades = defaultdict(list)
 
     for trade in all_trades:
         created_time = trade.get('created_time', '')
         if not created_time:
             continue
-
-        # Parse ISO timestamp and get day
         try:
             dt = datetime.fromisoformat(created_time.replace('Z', '+00:00'))
             day_key = dt.strftime('%Y-%m-%d')
@@ -122,20 +194,17 @@ def fetch_kalshi_trades_direct(ticker, start_ts, end_ts):
         except:
             continue
 
-    # Build candlesticks from daily trades
     candlesticks = []
     for day, trades in sorted(daily_trades.items()):
         if not trades:
             continue
 
-        # Extract prices (yes_price is in cents)
         prices = [t.get('yes_price', 0) for t in trades if t.get('yes_price') is not None]
         volumes = [t.get('count', 0) for t in trades]
 
         if not prices:
             continue
 
-        # Calculate end_period_ts (end of day UTC)
         day_dt = datetime.strptime(day, '%Y-%m-%d')
         end_period_ts = int((day_dt + timedelta(days=1)).timestamp())
 
@@ -148,89 +217,54 @@ def fetch_kalshi_trades_direct(ticker, start_ts, end_ts):
                 'close': prices[-1],
             },
             'volume': sum(volumes),
-            '_source': 'kalshi_direct'  # Mark as from fallback
+            '_source': 'kalshi_direct'
         }
         candlesticks.append(candlestick)
 
     return candlesticks
 
 
-def is_dome_data_stale(candlesticks, close_time_ts):
-    """
-    Check if Dome data is stale for a market that should have recent data.
-    Returns True if market closed recently but Dome has no data after Nov 2025.
-    """
-    if not candlesticks:
-        return True
+def process_market(ticker, existing_prices, start_ts, end_ts, full_history_start_ts):
+    """Process a single Kalshi market: fetch candlesticks, fall back to trades if empty."""
+    # Determine actual start timestamp based on existing data
+    if ticker in existing_prices and existing_prices[ticker]:
+        last_ts = max(p.get('end_period_ts', p.get('t', 0)) for p in existing_prices[ticker])
+        actual_start = last_ts + 1
+    else:
+        actual_start = full_history_start_ts
 
-    # Find latest timestamp in Dome data
-    latest_ts = max(c.get('end_period_ts', 0) for c in candlesticks)
+    # Try native candlestick endpoint first
+    prices = fetch_kalshi_candlesticks(ticker, actual_start, end_ts)
 
-    # If market closed after Dec 1, 2025 but Dome data ends before then, it's stale
-    dec_2025_ts = int(datetime(2025, 12, 1).timestamp())
+    # If candlesticks returned nothing, try trades fallback
+    if prices is not None and len(prices) == 0:
+        fallback = fetch_kalshi_trades_direct(ticker, actual_start, end_ts)
+        if fallback:
+            prices = fallback
 
-    if close_time_ts > dec_2025_ts and latest_ts < dec_2025_ts:
-        return True
+    if prices:
+        return ticker, "updated", prices
+    elif prices is None:
+        return ticker, "error", None
+    else:
+        return ticker, "empty", None
 
-    return False
-
-def fetch_kalshi_prices(ticker, start_time, end_time):
-    """Fetch price data for a Kalshi market from Dome API."""
-    for attempt in range(MAX_RETRIES):
-        try:
-            # TODO: Confirm exact endpoint structure
-            response = requests.get(
-                f"{DOME_API_BASE}/candlesticks/{ticker}",
-                headers={"Authorization": DOME_API_KEY},
-                params={
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'interval': 1440  # Daily candles
-                },
-                timeout=15
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                candlesticks = data.get('candlesticks', [])
-                # Return the full candlestick data (includes yes_bid, yes_ask, price, etc.)
-                return candlesticks
-
-            elif response.status_code == 429:
-                wait_time = 10 * (2 ** attempt)
-                time.sleep(wait_time)
-                continue
-            elif response.status_code == 404:
-                # Endpoint might not exist yet
-                return []
-            else:
-                log(f"  API error: HTTP {response.status_code} for {ticker}")
-                return None
-
-        except Exception as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(5)
-                continue
-            log(f"  Exception fetching {ticker}: {str(e)[:100]}")
-            return None
-
-    return None
 
 def main():
+    global _fallback_count
     full_refresh = "--full-refresh" in sys.argv
 
-    log("="*60)
-    log("KALSHI PRICE FETCH VIA DOME API")
+    log("=" * 60)
+    log("KALSHI PRICE FETCH (NATIVE API)")
     log(f"Mode: {'FULL REFRESH' if full_refresh else 'INCREMENTAL'}")
-    log("="*60)
+    log(f"Workers: {NUM_WORKERS}")
+    log("=" * 60)
 
     # Get date range
-    # For full refresh: fetch ALL historical prices (from 2020)
-    # For incremental: fetch from recent date
     if full_refresh:
-        default_start = '2020-01-01'  # Fetch all historical data
+        default_start = '2020-01-01'
     else:
-        default_start = '2024-11-10'  # Recent data only
+        default_start = '2024-11-10'
 
     start_date = os.environ.get('FETCH_START_DATE', default_start)
     end_date = os.environ.get('FETCH_END_DATE', datetime.now().strftime('%Y-%m-%d'))
@@ -240,9 +274,9 @@ def main():
 
     default_start_ts = int(start_dt.timestamp())
     end_ts = int(end_dt.timestamp())
+    full_history_start_ts = int(datetime(2020, 1, 1).timestamp())
 
     log(f"Date range: {start_date} to {end_date}")
-    log(f"Full refresh will fetch complete price history for new markets")
 
     # Load master data
     log("Loading master data...")
@@ -261,85 +295,66 @@ def main():
             existing_prices = json.load(f)
         log(f"Loaded {len(existing_prices)} existing price records")
 
-    # Fetch prices
-    updated = 0
-    errors = 0
+    # Filter out old closed markets in incremental mode
     skipped = 0
-
-    # Early start timestamp for fetching full history of new markets
-    full_history_start_ts = int(datetime(2020, 1, 1).timestamp())
+    work_items = []
 
     for idx, row in kalshi_markets.iterrows():
         ticker = str(row['market_id'])
 
-        # Skip old closed markets unless --full-refresh is set
         if not full_refresh:
             close_time = pd.to_datetime(row.get('k_expiration_time'), errors='coerce')
             if pd.notna(close_time):
-                # Make comparison timezone-naive to avoid comparison errors
                 close_time_naive = close_time.tz_localize(None) if close_time.tzinfo else close_time
                 if close_time_naive < start_dt - timedelta(days=7):
                     skipped += 1
                     continue
 
-        # Determine start timestamp:
-        # - If we already have prices: fetch from last known timestamp (truly incremental)
-        # - If this is a new market: fetch full history from 2020
-        if ticker in existing_prices and existing_prices[ticker]:
-            # Find the most recent timestamp we have (Kalshi uses 'end_period_ts' not 't')
-            last_ts = max(p.get('end_period_ts', p.get('t', 0)) for p in existing_prices[ticker])
-            start_ts = last_ts + 1  # Start from 1 second after our last data point
-        else:
-            start_ts = full_history_start_ts
-            log(f"  New market {ticker} - fetching full history")
+        work_items.append((ticker, existing_prices, default_start_ts, end_ts, full_history_start_ts))
 
-        # Get close time for staleness check
-        close_time = pd.to_datetime(row.get('trading_close_time'), errors='coerce')
-        close_time_ts = int(close_time.timestamp()) if pd.notna(close_time) else 0
+    log(f"Skipped {skipped} old closed markets")
+    log(f"Submitting {len(work_items)} markets to {NUM_WORKERS} workers...")
 
-        prices = fetch_kalshi_prices(ticker, start_ts, end_ts)
+    # Process in parallel
+    updated = 0
+    errors = 0
 
-        # Check if Dome data is stale and we need to use fallback
-        use_fallback = False
-        if prices is not None:
-            existing_data = existing_prices.get(ticker, [])
-            combined_data = existing_data + prices
-            if is_dome_data_stale(combined_data, close_time_ts):
-                use_fallback = True
+    with ThreadPoolExecutor(max_workers=NUM_WORKERS) as executor:
+        futures = {
+            executor.submit(process_market, *item): item[0]
+            for item in work_items
+        }
 
-        if use_fallback:
-            # Try Kalshi direct API fallback
-            fallback_prices = fetch_kalshi_trades_direct(ticker, full_history_start_ts, end_ts)
-            if fallback_prices:
-                prices = fallback_prices
+        completed = 0
+        for future in as_completed(futures):
+            ticker, status, prices = future.result()
 
-        if prices:
-            # Append new prices (no dedup needed since we fetched from after our last timestamp)
-            if ticker in existing_prices:
-                existing_prices[ticker].extend(prices)
-                # Sort just in case (Kalshi uses 'end_period_ts' not 't')
-                existing_prices[ticker].sort(key=lambda x: x.get('end_period_ts', x.get('t', 0)))
-            else:
-                existing_prices[ticker] = prices
-            updated += 1
-        elif prices is None:
-            errors += 1
+            if status == "updated" and prices:
+                with _lock:
+                    if ticker in existing_prices:
+                        existing_prices[ticker].extend(prices)
+                        existing_prices[ticker].sort(key=lambda x: x.get('end_period_ts', x.get('t', 0)))
+                    else:
+                        existing_prices[ticker] = prices
+                    updated += 1
+            elif status == "error":
+                errors += 1
 
-        if (updated + errors) % 50 == 0:
-            log(f"Progress: {updated} updated, {errors} errors, {skipped} skipped")
-
-        time.sleep(RATE_LIMIT_DELAY)
+            completed += 1
+            if completed % 200 == 0:
+                log(f"Progress: {completed}/{len(work_items)} "
+                    f"({updated} updated, {errors} errors)")
 
     # Save
     with open(PRICES_FILE, 'w') as f:
         json.dump(existing_prices, f)
 
-    log("="*60)
+    log("=" * 60)
     log(f"COMPLETE: {updated} updated, {errors} errors, {skipped} skipped")
     log(f"Total price records: {len(existing_prices)}")
-    if _kalshi_fallback_count > 0:
-        log(f"Used Kalshi direct API fallback for {_kalshi_fallback_count} stale Dome responses")
-    log("="*60)
+    if _fallback_count > 0:
+        log(f"Used Kalshi trades API fallback for {_fallback_count} markets")
+    log("=" * 60)
 
 if __name__ == "__main__":
     main()

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 ================================================================================
-Backfill PM Event Slugs from Dome API
+Backfill PM Event Slugs from Gamma API
 ================================================================================
 
-Fetches event_slug for Polymarket markets by downloading all events.
+Fetches event_slug for Polymarket markets by downloading all events from
+the public Gamma API.
 
 Strategy:
-- Fetch ALL events from Dome API's /events endpoint with include_markets=true
-- Each event contains markets with condition_id
+- Fetch ALL events from Gamma API's /events endpoint (public, no auth)
+- Each event contains markets with conditionId
 - Build condition_id → event_slug mapping
 - Save for use in generate_monitor_data.py
 
@@ -26,20 +27,38 @@ import json
 import time
 import sys
 import os
+import threading
 from datetime import datetime
 from pathlib import Path
 
 # Configuration
-from config import DATA_DIR, get_dome_api_key
+from config import DATA_DIR
 
 OUTPUT_FILE = DATA_DIR / "pm_event_slug_mapping.json"
 
-DOME_API_KEY = get_dome_api_key()
-DOME_PM_BASE = "https://api.domeapi.io/v1/polymarket"
+# Gamma API (public, no auth required)
+GAMMA_API_BASE = "https://gamma-api.polymarket.com"
 
-# Rate limiting (dev tier: 100 req/sec)
-RATE_LIMIT_DELAY = float(os.environ.get('DOME_RATE_LIMIT', '0.05'))
 MAX_RETRIES = 3
+
+
+class RateLimiter:
+    """Thread-safe rate limiter."""
+    def __init__(self, calls_per_second=10):
+        self.min_interval = 1.0 / calls_per_second
+        self.last_call = 0
+        self.lock = threading.Lock()
+
+    def wait(self):
+        with self.lock:
+            now = time.time()
+            elapsed = now - self.last_call
+            if elapsed < self.min_interval:
+                time.sleep(self.min_interval - elapsed)
+            self.last_call = time.time()
+
+
+rate_limiter = RateLimiter(10)  # 10 req/sec for Gamma API
 
 
 def log(msg):
@@ -48,49 +67,51 @@ def log(msg):
 
 
 def fetch_all_events(limit_pages=None):
-    """Fetch all events from Dome API with their markets.
+    """Fetch all events from Gamma API with their markets.
 
     Returns:
         List of events with markets included
     """
     all_events = []
-    pagination_key = None
+    offset = 0
     page = 0
+    limit = 100
 
     while True:
         if limit_pages and page >= limit_pages:
             break
 
         params = {
-            "limit": 100,
-            "include_markets": "true",
+            "limit": limit,
+            "offset": offset,
         }
-        if pagination_key:
-            params["pagination_key"] = pagination_key
 
         for attempt in range(MAX_RETRIES):
             try:
+                rate_limiter.wait()
                 response = requests.get(
-                    f"{DOME_PM_BASE}/events",
-                    headers={"Authorization": DOME_API_KEY},
+                    f"{GAMMA_API_BASE}/events",
                     params=params,
+                    headers={"Accept": "application/json"},
                     timeout=60
                 )
 
                 if response.status_code == 200:
-                    data = response.json()
-                    events = data.get("events", [])
+                    events = response.json()
+
+                    if not events:
+                        return all_events
+
                     all_events.extend(events)
                     page += 1
 
                     if page % 10 == 0:
                         log(f"  Fetched {page} pages, {len(all_events)} events...")
 
-                    pagination = data.get("pagination", {})
-                    if pagination.get("has_more"):
-                        pagination_key = pagination.get("pagination_key")
-                    else:
+                    if len(events) < limit:
                         return all_events
+
+                    offset += limit
                     break
 
                 elif response.status_code == 429:
@@ -110,8 +131,6 @@ def fetch_all_events(limit_pages=None):
                 log(f"  Error: {e}")
                 return all_events
 
-        time.sleep(RATE_LIMIT_DELAY)
-
     return all_events
 
 
@@ -124,13 +143,13 @@ def build_mapping(events):
     mapping = {}
 
     for event in events:
-        event_slug = event.get("event_slug")
+        event_slug = event.get("slug")
         if not event_slug:
             continue
 
         markets = event.get("markets", [])
         for market in markets:
-            condition_id = market.get("condition_id")
+            condition_id = market.get("conditionId") or market.get("condition_id")
             if condition_id:
                 mapping[condition_id] = event_slug
 
@@ -145,7 +164,7 @@ def main():
         if idx + 1 < len(sys.argv):
             limit_pages = int(sys.argv[idx + 1])
 
-    log("Fetching all events from Dome API...")
+    log("Fetching all events from Gamma API...")
 
     events = fetch_all_events(limit_pages)
     log(f"  Total events: {len(events):,}")

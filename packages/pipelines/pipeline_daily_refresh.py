@@ -12,7 +12,7 @@ Designed for daily GitHub Actions runs but can also be run locally.
 PIPELINE STEPS:
   Phase 1: Discovery & Classification
     1. CLASSIFY KALSHI EVENTS - GPT classify Kalshi event_tickers
-    2. DISCOVER - Find new political markets from Dome API
+    2. DISCOVER - Find new political markets (native Kalshi + Polymarket APIs)
     3. CHECK RESOLUTIONS - Update outcomes for closed markets
     4. CLASSIFY CATEGORIES - GPT classify into 15 political categories
     5. CLASSIFY ELECTORAL - Extract electoral details for electoral markets
@@ -22,7 +22,7 @@ PIPELINE STEPS:
     8. GET ELECTION DATES - Lookup dates (after merge+reclassify sees all markets)
     9. SELECT ELECTION WINNERS - GPT web search: vote shares + winner selection
   Phase 3: Price Data
-    10. FETCH PRICES - Get price history from Dome API
+    10. FETCH PRICES - Get price history from native APIs
     11. TRUNCATE PRICES - Apply election date truncation
     12. ELECTION EVE PRICES - Fetch election eve prices
   Phase 4: Analysis
@@ -40,7 +40,6 @@ Options:
     --start-phase N    Start from phase N (1-6), skipping earlier phases
 
 Environment Variables:
-    DOME_API_KEY    - Dome API key (has default)
     OPENAI_API_KEY  - OpenAI API key (required for classification)
 
 ================================================================================
@@ -76,10 +75,6 @@ except ImportError:
 # =============================================================================
 
 from config import BASE_DIR, DATA_DIR, WEBSITE_DIR, SCRIPTS_DIR
-
-# Additional script directories for V2 pipeline
-ENRICHMENT_DIR = BASE_DIR / "scripts"
-MATCHER_DIR = BASE_DIR / "bellwether-matcher" / "pipeline"
 
 
 def run_script(script_name, description, args=None, required=True, script_dir=None):
@@ -230,22 +225,36 @@ def main():
     if start_phase <= 1:
         log_phase(1, "MARKET DISCOVERY & CLASSIFICATION")
 
-        # Step 0: Search Kalshi political markets (Dome API keyword search)
+        # Step 0a: Refresh Polymarket political tags (GPT classifies new tags)
+        if has_openai:
+            success = run_script(
+                "pipeline_refresh_political_tags.py",
+                "Refresh Polymarket political tags (GPT)",
+                required=False
+            )
+            results["refresh_political_tags"] = success
+            step_results["refresh_political_tags"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+        else:
+            logger.info("Skipping political tag refresh (no OpenAI API key)")
+            results["refresh_political_tags"] = None
+            step_results["refresh_political_tags"] = "SKIP"
+
+        # Step 0b: Classify Kalshi political event tickers (native API + keywords)
         kalshi_classify_args = ["--full-refresh"] if full_refresh else []
         success = run_script(
             "pipeline_classify_kalshi_events.py",
-            "Search Kalshi political markets (Dome API)",
+            "Classify Kalshi political event tickers (native API)",
             args=kalshi_classify_args,
             required=True
         )
         results["classify_kalshi_events"] = success
         step_results["classify_kalshi_events"] = "OK" if success else "FAIL"
 
-        # Step 1: Discover new markets
-        discover_args = ["--full-refresh"] if full_refresh else []
+        # Step 1: Discover new political markets (native APIs)
+        discover_args = ["--active-only"] if not full_refresh else []
         success = run_script(
-            "pipeline_discover_markets.py",
-            "Discover new political markets (Dome API)",
+            "pipeline_discover_markets_v2.py",
+            "Discover new political markets (native APIs)",
             args=discover_args,
             required=True
         )
@@ -349,12 +358,12 @@ def main():
     if start_phase <= 3:
         log_phase(3, "PRICE DATA")
 
-        # Fetch prices from Dome API
+        # Fetch prices from native APIs
         price_args = ["--full-refresh"] if full_refresh else []
 
         success = run_script(
             "pull_domeapi_prices_incremental.py",
-            "Fetch Polymarket prices (Dome API)",
+            "Fetch Polymarket prices (CLOB API)",
             args=price_args,
             required=False
         )
@@ -363,7 +372,7 @@ def main():
 
         success = run_script(
             "pull_domeapi_prices_kalshi.py",
-            "Fetch Kalshi prices (Dome API)",
+            "Fetch Kalshi prices (native API)",
             args=price_args,
             required=False
         )
@@ -390,16 +399,16 @@ def main():
         # Fetch election eve prices (UTC midnight on election day)
         success = run_script(
             "pipeline_election_eve_prices.py",
-            "Fetch election eve prices from Dome API",
+            "Fetch election eve prices from local price data",
             required=False
         )
         results["election_eve_prices"] = success
         step_results["election_eve_prices"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
-        # Fetch orderbook history for liquidity analysis
+        # Fetch orderbook snapshots for liquidity analysis
         success = run_script(
             "fetch_dome_orderbooks.py",
-            "Fetch orderbook history for liquidity analysis",
+            "Fetch orderbook snapshots (native APIs)",
             required=False
         )
         results["fetch_orderbooks"] = success
@@ -444,7 +453,7 @@ def main():
             ("calculate_liquidity_metrics.py", "Calculate liquidity metrics"),
             ("generate_liquidity_analysis.py", "Generate liquidity analysis"),
             # Trader-level partisanship analysis
-            ("fetch_panel_a_trades.py", "Fetch Panel A trades from Dome API"),
+            ("fetch_panel_a_trades.py", "Fetch Panel A trades (Data API)"),
             ("aggregate_trader_partisanship.py", "Aggregate trader partisanship"),
         ]
 
@@ -488,7 +497,6 @@ def main():
         success = run_script(
             "enrich_markets_with_api_data.py",
             "Enrich markets with API data",
-            script_dir=ENRICHMENT_DIR,
             required=False
         )
         results["enrich_markets"] = success
@@ -499,7 +507,6 @@ def main():
             success = run_script(
                 "create_tickers.py",
                 "Generate canonical BWR tickers (GPT-4o)",
-                script_dir=MATCHER_DIR,
                 required=False
             )
             results["create_tickers"] = success
