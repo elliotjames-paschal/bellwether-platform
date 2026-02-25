@@ -11,7 +11,7 @@ endpoint for markets where candlesticks are unavailable.
 Writes directly to CORRECTED_v3.json.
 
 Usage:
-    python pull_domeapi_prices_kalshi.py [--full-refresh]
+    python pull_kalshi_prices.py [--full-refresh]
 
 Options:
     --full-refresh  Fetch ALL markets regardless of close date (for initial run)

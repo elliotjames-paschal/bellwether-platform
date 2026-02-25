@@ -78,7 +78,7 @@ if CAPITAL_COORDS_FILE.exists():
 
 # Paths
 MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
-PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
+PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
 KALSHI_PRICES_FILE = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
 KALSHI_DAILY_PRICES_DIR = DATA_DIR / "kalshi_daily_prices"
 SLUG_MAPPING_FILE = DATA_DIR / "pm_event_slug_mapping.json"

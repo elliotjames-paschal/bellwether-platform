@@ -21,8 +21,7 @@ import pandas as pd
 from datetime import datetime
 from pathlib import Path
 
-BASE_DIR = Path("/Users/paschal/Hall Research Dropbox/Elliot Paschal/Polymarket:Kalshi")
-DATA_DIR = BASE_DIR / "data"
+from config import BASE_DIR, DATA_DIR, WEBSITE_DIR
 
 # Test configuration
 SAMPLE_SIZE = 50
@@ -150,7 +149,7 @@ def test_price_fetching():
 
     try:
         # Get a sample token from existing prices
-        pm_prices_file = DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
+        pm_prices_file = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
 
         with open(pm_prices_file, 'r') as f:
             prices = json.load(f)
@@ -242,7 +241,7 @@ def test_truncation():
         ]
         cutoff_ts = 1731000000
 
-        # Apply truncation (same logic as truncate_domeapi_prices.py)
+        # Apply truncation (same logic as truncate_polymarket_prices.py)
         truncated = [p for p in sample_prices if p["t"] <= cutoff_ts]
 
         assert len(truncated) == 2, f"Expected 2 prices, got {len(truncated)}"
@@ -250,7 +249,7 @@ def test_truncation():
         log(f"  Truncation filter: {len(sample_prices)} → {len(truncated)} prices", "OK")
 
         # Part C: Test on real price data (verify structure)
-        pm_prices_file = DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
+        pm_prices_file = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
         with open(pm_prices_file, 'r') as f:
             prices = json.load(f)
 
@@ -287,7 +286,7 @@ def test_web_data_structure():
     log("TEST 6: Testing web data structure...")
 
     try:
-        web_data_dir = BASE_DIR / "website" / "data"
+        web_data_dir = WEBSITE_DIR / "data"
 
         expected_files = [
             ("summary.json", ["total_markets", "us_elections"]),

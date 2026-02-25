@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Truncate Dome API Price Data
+Truncate Polymarket Price Data
 
 Part of the NEW Bellwether Pipeline (January 2026+)
 
-This script truncates the Dome API price data appropriately:
+This script truncates the Polymarket price data appropriately:
 - For elections: Truncate at end of election day (23:59:59)
 - For non-elections: Truncate at trading_close_time - 24 hours (final prediction before event)
 
-Input: polymarket_all_political_prices_DOMEAPI_CORRECTED.json (in-place truncation)
-Output: polymarket_all_political_prices_DOMEAPI_CORRECTED.json
+Input: polymarket_all_political_prices_CORRECTED.json (in-place truncation)
+Output: polymarket_all_political_prices_CORRECTED.json
 
 NOTE: Polymarket's trading_close_time is typically event + 24 hours, so we subtract 24 hours
 to get the final prediction price before the event actually occurs.
@@ -21,12 +21,13 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 # Paths
-BASE_DIR = Path("/Users/paschal/Hall Research Dropbox/Elliot Paschal/Polymarket:Kalshi")
-DATA_DIR = BASE_DIR / "data"
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from config import DATA_DIR
 
 # Input/Output files - IMPORTANT: Read from CORRECTED to preserve repulled data
-INPUT_PRICES = DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
-OUTPUT_PRICES = DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
+INPUT_PRICES = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
+OUTPUT_PRICES = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
 MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 ELECTION_DATES = DATA_DIR / "election_dates_lookup.csv"
 

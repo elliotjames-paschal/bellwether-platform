@@ -580,7 +580,7 @@ def generate_summary_stats():
 
     # Price observations (count across both price history files)
     price_obs = 0
-    pm_prices_file = f"{DATA_DIR}/polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
+    pm_prices_file = f"{DATA_DIR}/polymarket_all_political_prices_CORRECTED.json"
     kalshi_prices_file = f"{DATA_DIR}/kalshi_all_political_prices_CORRECTED_v3.json"
     for pf in [pm_prices_file, kalshi_prices_file]:
         if os.path.exists(pf):

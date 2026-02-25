@@ -65,9 +65,9 @@ def export_prices():
 
     rows = []
 
-    # Load PM prices (daily-updated DOMEAPI file)
+    # Load PM prices (daily-updated CLOB prices file)
     print("  Loading Polymarket prices...")
-    with open(DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json", 'r') as f:
+    with open(DATA_DIR / "polymarket_all_political_prices_CORRECTED.json", 'r') as f:
         pm_prices = json.load(f)
 
     for token_id, price_list in pm_prices.items():

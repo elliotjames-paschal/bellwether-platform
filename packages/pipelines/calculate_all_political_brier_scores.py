@@ -114,25 +114,25 @@ print(f"   ✓ {len(kalshi_markets_df):,} Kalshi markets")
 print("\n3. Loading CORRECTED historical price data (contamination adjustments applied)...")
 
 # Polymarket - load both price files and merge
-# DOMEAPI is preferred when non-empty, fall back to v3 for empty/missing entries
-with open(DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json", 'r') as f:
-    pm_prices_dome = json.load(f)
+# CORRECTED is preferred when non-empty, fall back to v3 for empty/missing entries
+with open(DATA_DIR / "polymarket_all_political_prices_CORRECTED.json", 'r') as f:
+    pm_prices_main = json.load(f)
 with open(DATA_DIR / "polymarket_all_political_prices_CORRECTED_v3.json", 'r') as f:
     pm_prices_v3 = json.load(f)
 
-# Merge: use DOMEAPI data if non-empty, otherwise use v3
+# Merge: use CORRECTED data if non-empty, otherwise use v3
 pm_prices = {}
-all_tokens = set(pm_prices_dome.keys()) | set(pm_prices_v3.keys())
+all_tokens = set(pm_prices_main.keys()) | set(pm_prices_v3.keys())
 for token in all_tokens:
-    dome_data = pm_prices_dome.get(token, [])
+    main_data = pm_prices_main.get(token, [])
     v3_data = pm_prices_v3.get(token, [])
-    # Prefer DOMEAPI if it has data, otherwise use v3
-    pm_prices[token] = dome_data if dome_data else v3_data
+    # Prefer CORRECTED if it has data, otherwise use v3
+    pm_prices[token] = main_data if main_data else v3_data
 
-dome_only = sum(1 for t in pm_prices if pm_prices[t] == pm_prices_dome.get(t, []) and pm_prices_dome.get(t))
-v3_fallback = sum(1 for t in pm_prices if pm_prices[t] == pm_prices_v3.get(t, []) and not pm_prices_dome.get(t))
-print(f"   ✓ Loaded {len(pm_prices):,} Polymarket tokens (merged DOMEAPI + v3)")
-print(f"     - {dome_only:,} from DOMEAPI, {v3_fallback:,} from v3 fallback")
+main_only = sum(1 for t in pm_prices if pm_prices[t] == pm_prices_main.get(t, []) and pm_prices_main.get(t))
+v3_fallback = sum(1 for t in pm_prices if pm_prices[t] == pm_prices_v3.get(t, []) and not pm_prices_main.get(t))
+print(f"   ✓ Loaded {len(pm_prices):,} Polymarket tokens (merged CORRECTED + v3)")
+print(f"     - {main_only:,} from CORRECTED, {v3_fallback:,} from v3 fallback")
 
 # Kalshi - load corrected all-political prices (v3: truncated at actual trading_close_time)
 with open(DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json", 'r') as f:

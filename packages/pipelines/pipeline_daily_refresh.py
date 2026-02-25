@@ -362,7 +362,7 @@ def main():
         price_args = ["--full-refresh"] if full_refresh else []
 
         success = run_script(
-            "pull_domeapi_prices_incremental.py",
+            "pull_polymarket_prices.py",
             "Fetch Polymarket prices (CLOB API)",
             args=price_args,
             required=False
@@ -371,7 +371,7 @@ def main():
         step_results["fetch_pm_prices"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
         success = run_script(
-            "pull_domeapi_prices_kalshi.py",
+            "pull_kalshi_prices.py",
             "Fetch Kalshi prices (native API)",
             args=price_args,
             required=False
@@ -381,7 +381,7 @@ def main():
 
         # Truncate prices at election dates / trading_close_time
         success = run_script(
-            "truncate_domeapi_prices.py",
+            "truncate_polymarket_prices.py",
             "Truncate Polymarket prices at election dates",
             required=False
         )
@@ -407,7 +407,7 @@ def main():
 
         # Fetch orderbook snapshots for liquidity analysis
         success = run_script(
-            "fetch_dome_orderbooks.py",
+            "fetch_orderbooks.py",
             "Fetch orderbook snapshots (native APIs)",
             required=False
         )

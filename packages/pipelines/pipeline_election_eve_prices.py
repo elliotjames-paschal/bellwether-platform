@@ -28,7 +28,7 @@ Usage:
 Input:
     - data/combined_political_markets_with_electoral_details_UPDATED.csv
     - data/election_dates_lookup.csv
-    - data/polymarket_all_political_prices_DOMEAPI_CORRECTED.json
+    - data/polymarket_all_political_prices_CORRECTED.json
     - data/kalshi_all_political_prices_CORRECTED_v3.json
 
 Output:
@@ -58,7 +58,7 @@ MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDA
 ELECTION_DATES_FILE = DATA_DIR / "election_dates_lookup.csv"
 
 # Local price files
-PM_PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
+PM_PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
 KALSHI_PRICES_FILE = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
 
 

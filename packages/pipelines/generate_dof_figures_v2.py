@@ -42,7 +42,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 MASTER_CSV = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 PM_PRED_FILE = DATA_DIR / "polymarket_prediction_accuracy_all_political.csv"
 KALSHI_PRED_FILE = DATA_DIR / "kalshi_prediction_accuracy_all_political.csv"
-PM_PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
+PM_PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
 PM_PRICES_V3_FILE = DATA_DIR / "polymarket_all_political_prices_CORRECTED_v3.json"
 KALSHI_PRICES_FILE = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
 

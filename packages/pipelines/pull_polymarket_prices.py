@@ -11,7 +11,7 @@ Writes directly to CORRECTED.json (v1.json preserved as raw backup).
 Used by pipeline_daily_refresh.py for incremental updates.
 
 Usage:
-    python pull_domeapi_prices_incremental.py [--full-refresh]
+    python pull_polymarket_prices.py [--full-refresh]
 
 Options:
     --full-refresh  Fetch ALL markets regardless of close date (for initial run)
@@ -31,7 +31,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import BASE_DIR, DATA_DIR
 MASTER_FILE = str(DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv")
-PRICES_FILE = str(DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json")
+PRICES_FILE = str(DATA_DIR / "polymarket_all_political_prices_CORRECTED.json")
 
 # Polymarket CLOB API
 CLOB_API_URL = "https://clob.polymarket.com/prices-history"

@@ -25,10 +25,8 @@ import time
 from pathlib import Path
 from datetime import datetime
 
-# Add scripts directory to path
-BASE_DIR = Path("/Users/paschal/Hall Research Dropbox/Elliot Paschal/Polymarket:Kalshi")
-DATA_DIR = BASE_DIR / "data"
-SCRIPTS_DIR = BASE_DIR / "scripts"
+# Use centralized config paths
+from config import BASE_DIR, DATA_DIR, SCRIPTS_DIR
 
 # Test results
 results = {}
@@ -57,7 +55,7 @@ def test_required_files():
     required_files = [
         ("Master CSV", DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"),
         ("Election dates", DATA_DIR / "election_dates_lookup.csv"),
-        ("PM prices", DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"),
+        ("PM prices", DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"),
         ("Kalshi prices", DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"),
     ]
 
@@ -91,9 +89,9 @@ def test_pipeline_scripts():
         "pipeline_classify_electoral.py",
         "pipeline_get_election_dates.py",
         "pipeline_merge_to_master.py",
-        "pull_domeapi_prices_incremental.py",
-        "pull_domeapi_prices_kalshi.py",
-        "truncate_domeapi_prices.py",
+        "pull_polymarket_prices.py",
+        "pull_kalshi_prices.py",
+        "truncate_polymarket_prices.py",
         "truncate_kalshi_prices.py",
         "calculate_all_political_brier_scores.py",
         "generate_web_data.py",
@@ -306,7 +304,7 @@ def test_data_loading():
             return
 
         # Test price JSON
-        pm_prices_file = DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
+        pm_prices_file = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
         with open(pm_prices_file, 'r') as f:
             pm_prices = json.load(f)
         log(f"  PM prices: {len(pm_prices):,} tokens", "OK")

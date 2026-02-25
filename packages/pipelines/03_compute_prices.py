@@ -35,7 +35,7 @@ OUTPUT_FILE = OUTPUT_DIR / "computed_prices.csv"
 MASTER_CSV = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 PM_PRED_FILE = DATA_DIR / "polymarket_prediction_accuracy_all_political.csv"
 KALSHI_PRED_FILE = DATA_DIR / "kalshi_prediction_accuracy_all_political.csv"
-PM_PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_DOMEAPI_CORRECTED.json"
+PM_PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
 PM_PRICES_V3_FILE = DATA_DIR / "polymarket_all_political_prices_CORRECTED_v3.json"
 KALSHI_PRICES_FILE = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
 PM_ORDERBOOK_FILE = DATA_DIR / "orderbook_history_polymarket.json"
@@ -175,10 +175,10 @@ def load_prices():
     pm_prices = {}
     if PM_PRICES_FILE.exists():
         with open(PM_PRICES_FILE, 'r') as f:
-            pm_dome = json.load(f)
-        log(f"  Loaded {len(pm_dome):,} Polymarket tokens from DOMEAPI")
+            pm_main = json.load(f)
+        log(f"  Loaded {len(pm_main):,} Polymarket tokens from CORRECTED")
     else:
-        pm_dome = {}
+        pm_main = {}
 
     if PM_PRICES_V3_FILE.exists():
         with open(PM_PRICES_V3_FILE, 'r') as f:
@@ -187,12 +187,12 @@ def load_prices():
     else:
         pm_v3 = {}
 
-    # Merge: prefer DOMEAPI if available
-    all_tokens = set(pm_dome.keys()) | set(pm_v3.keys())
+    # Merge: prefer CORRECTED if available
+    all_tokens = set(pm_main.keys()) | set(pm_v3.keys())
     for token in all_tokens:
-        dome_data = pm_dome.get(token, [])
+        main_data = pm_main.get(token, [])
         v3_data = pm_v3.get(token, [])
-        pm_prices[token] = dome_data if dome_data else v3_data
+        pm_prices[token] = main_data if main_data else v3_data
 
     log(f"  Total Polymarket tokens: {len(pm_prices):,}")
 
