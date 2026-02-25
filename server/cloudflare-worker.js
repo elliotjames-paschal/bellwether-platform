@@ -13,7 +13,9 @@
 // CONFIGURATION
 // =============================================================================
 
-const DOME_REST_BASE = "https://api.domeapi.io/v1";
+// Native APIs - no authentication required for public data
+const KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2";
+const POLYMARKET_CLOB_BASE = "https://clob.polymarket.com";
 
 const CONFIG = {
   cache_ttl_ms: 30000, // 30 seconds cache TTL
@@ -22,96 +24,39 @@ const CONFIG = {
 };
 
 // =============================================================================
-// DOME API FUNCTIONS
+// NATIVE API FUNCTIONS (Kalshi Elections API + Polymarket CLOB)
 // =============================================================================
 
-async function fetchOrderbook(platform, tokenId, apiKey) {
-  if (!apiKey) {
-    console.error("No DOME_API_KEY set");
-    return null;
-  }
-
-  const params = new URLSearchParams();
-
-  if (platform === "kalshi") {
-    params.set("ticker", tokenId);
-  } else {
-    params.set("token_id", tokenId);
-  }
-
-  const endpoint = platform === "kalshi"
-    ? `${DOME_REST_BASE}/kalshi/orderbooks?${params}`
-    : `${DOME_REST_BASE}/polymarket/orderbooks?${params}`;
+async function fetchKalshiOrderbook(ticker) {
+  const url = `${KALSHI_API_BASE}/markets/${ticker}/orderbook`;
 
   try {
-    const response = await fetch(endpoint, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error(`Orderbook fetch failed: ${response.status} - ${text}`);
-      return null;
-    }
+    const response = await fetch(url, { headers: { "Accept": "application/json" } });
+    if (!response.ok) return null;
 
     const data = await response.json();
-
-    const snapshots = data.snapshots || data.data || (Array.isArray(data) ? data : []);
-    if (snapshots.length === 0) {
-      console.error("No orderbook snapshots returned");
-      return null;
-    }
-
-    const latestSnapshot = snapshots[0];
-
+    const orderbook = data.orderbook || data;
     const bids = [];
     const asks = [];
 
-    if (platform === "kalshi" && latestSnapshot.orderbook) {
-      // Kalshi format: yes/no arrays with [price_in_cents, quantity]
-      // yes = bids to buy Yes tokens
-      // no = bids to buy No tokens (= asks to sell Yes tokens when converted)
-      const yesOrders = latestSnapshot.orderbook.yes_dollars || latestSnapshot.orderbook.yes || [];
-      const noOrders = latestSnapshot.orderbook.no_dollars || latestSnapshot.orderbook.no || [];
+    // Kalshi returns yes/no arrays of [price, quantity] pairs
+    // Price is in cents (0-100)
+    const yesOrders = orderbook.yes || [];
+    const noOrders = orderbook.no || [];
 
-      // Yes orders are BIDS (people wanting to buy Yes)
-      for (const [priceVal, qty] of yesOrders) {
-        // Convert cents to dollars if needed (cents if < 1, dollars if >= 1)
-        const price = Number(priceVal) < 1 ? Number(priceVal) : Number(priceVal) / 100;
-        const size = Number(qty);
-        if (price > 0 && size > 0) {
-          bids.push({ price, size });
-        }
-      }
+    // YES bids = people willing to buy YES at this price
+    for (const [priceVal, qty] of yesOrders) {
+      const price = Number(priceVal) / 100; // Convert cents to decimal
+      const size = Number(qty);
+      if (price > 0 && size > 0) bids.push({ price, size });
+    }
 
-      // No orders become ASKS (buying No at X = selling Yes at 1-X)
-      for (const [priceVal, qty] of noOrders) {
-        const noPrice = Number(priceVal) < 1 ? Number(priceVal) : Number(priceVal) / 100;
-        const price = 1 - noPrice; // Convert No price to Yes price
-        const size = Number(qty);
-        if (price > 0 && price < 1 && size > 0) {
-          asks.push({ price, size });
-        }
-      }
-    } else {
-      const rawBids = latestSnapshot.bids || [];
-      const rawAsks = latestSnapshot.asks || [];
-
-      for (const bid of rawBids) {
-        const price = Number(bid.price || bid.p);
-        const size = Number(bid.size || bid.s);
-        if (price > 0 && size > 0) {
-          bids.push({ price, size });
-        }
-      }
-
-      for (const ask of rawAsks) {
-        const price = Number(ask.price || ask.p);
-        const size = Number(ask.size || ask.s);
-        if (price > 0 && size > 0) {
-          asks.push({ price, size });
-        }
-      }
+    // NO orders convert to YES asks: ask price = 1 - no_price
+    for (const [priceVal, qty] of noOrders) {
+      const noPrice = Number(priceVal) / 100;
+      const price = 1 - noPrice;
+      const size = Number(qty);
+      if (price > 0 && price < 1 && size > 0) asks.push({ price, size });
     }
 
     bids.sort((a, b) => b.price - a.price);
@@ -119,67 +64,155 @@ async function fetchOrderbook(platform, tokenId, apiKey) {
 
     return [bids, asks];
   } catch (err) {
-    console.error(`Orderbook fetch error: ${err}`);
+    console.error(`Kalshi orderbook fetch error: ${err}`);
     return null;
   }
 }
 
-async function fetchTrades(platform, tokenId, windowHours, apiKey) {
-  if (!apiKey) return [];
+async function fetchPolymarketOrderbook(tokenId) {
+  const url = `${POLYMARKET_CLOB_BASE}/book?token_id=${tokenId}`;
 
+  try {
+    const response = await fetch(url, { headers: { "Accept": "application/json" } });
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const bids = [];
+    const asks = [];
+
+    for (const bid of (data.bids || [])) {
+      const price = Number(bid.price || bid.p);
+      const size = Number(bid.size || bid.s);
+      if (price > 0 && size > 0) bids.push({ price, size });
+    }
+    for (const ask of (data.asks || [])) {
+      const price = Number(ask.price || ask.p);
+      const size = Number(ask.size || ask.s);
+      if (price > 0 && size > 0) asks.push({ price, size });
+    }
+
+    bids.sort((a, b) => b.price - a.price);
+    asks.sort((a, b) => a.price - b.price);
+
+    return [bids, asks];
+  } catch (err) {
+    console.error(`Polymarket orderbook fetch error: ${err}`);
+    return null;
+  }
+}
+
+async function fetchOrderbook(platform, tokenId) {
+  if (platform === "kalshi") {
+    return fetchKalshiOrderbook(tokenId);
+  } else {
+    return fetchPolymarketOrderbook(tokenId);
+  }
+}
+
+async function fetchKalshiTrades(ticker, windowHours) {
   const nowSec = Math.floor(Date.now() / 1000);
   const startSec = nowSec - (windowHours * 60 * 60);
 
-  let endpoint;
-  const params = new URLSearchParams();
+  const allTrades = [];
+  let cursor = null;
+  const limit = 1000;
+  const maxPages = 10;
 
-  if (platform === "kalshi") {
-    params.set("ticker", tokenId);
-    params.set("start_time", startSec.toString());
-    params.set("end_time", nowSec.toString());
-    endpoint = `${DOME_REST_BASE}/kalshi/trades?${params}`;
-  } else {
-    params.set("token_id", tokenId);
-    params.set("start_time", startSec.toString());
-    params.set("end_time", nowSec.toString());
-    endpoint = `${DOME_REST_BASE}/polymarket/orders?${params}`;
+  for (let page = 0; page < maxPages; page++) {
+    const params = new URLSearchParams({
+      ticker: ticker,
+      limit: limit.toString(),
+      min_ts: startSec.toString(),
+      max_ts: (nowSec + 1).toString(),
+    });
+    if (cursor) params.set("cursor", cursor);
+
+    const url = `${KALSHI_API_BASE}/markets/trades?${params}`;
+
+    try {
+      const response = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!response.ok) break;
+
+      const data = await response.json();
+      const tradeList = data.trades || [];
+
+      for (const trade of tradeList) {
+        const price = Number(trade.yes_price) / 100;
+        const size = Number(trade.count || 1);
+        let timestamp = trade.created_time;
+
+        if (typeof timestamp === "string") {
+          timestamp = new Date(timestamp).getTime();
+        } else if (timestamp < 1e12) {
+          timestamp = timestamp * 1000;
+        }
+
+        if (price > 0 && price <= 1) {
+          allTrades.push({ price, size, timestamp });
+        }
+      }
+
+      cursor = data.cursor;
+      if (!cursor || tradeList.length < limit) break;
+
+    } catch (err) {
+      console.error(`Kalshi trades fetch error: ${err}`);
+      break;
+    }
   }
 
-  try {
-    const response = await fetch(endpoint, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
+  return allTrades;
+}
 
-    if (!response.ok) {
-      console.log(`Trades fetch returned ${response.status}, using empty trades`);
-      return [];
-    }
+async function fetchPolymarketTrades(tokenId, windowHours) {
+  const nowMs = Date.now();
+  const startMs = nowMs - (windowHours * 60 * 60 * 1000);
 
-    const data = await response.json();
-    const trades = [];
+  const allTrades = [];
+  let cursor = null;
+  const maxPages = 10;
 
-    const tradeList = Array.isArray(data) ? data : (data.trades || data.orders || data.data || []);
+  for (let page = 0; page < maxPages; page++) {
+    const params = new URLSearchParams({ asset_id: tokenId });
+    if (cursor) params.set("next_cursor", cursor);
 
-    const startMs = startSec * 1000;
+    const url = `${POLYMARKET_CLOB_BASE}/trades?${params}`;
 
-    for (const trade of tradeList) {
-      const price = Number(trade.price || trade.p || trade.yes_price_dollars);
-      const size = Number(trade.shares_normalized || trade.shares || trade.size || trade.amount || trade.s || trade.count || 1);
-      let timestamp = Number(trade.timestamp || trade.t || trade.time || trade.created_at || trade.created_time);
+    try {
+      const response = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!response.ok) break;
 
-      if (timestamp < 1e12) {
-        timestamp = timestamp * 1000;
+      const data = await response.json();
+      const tradeList = Array.isArray(data) ? data : (data.trades || data.data || []);
+
+      for (const trade of tradeList) {
+        const price = Number(trade.price || trade.p);
+        const size = Number(trade.size || trade.s || trade.amount || 1);
+        let timestamp = Number(trade.timestamp || trade.t || trade.time || trade.created_at);
+        if (timestamp < 1e12) timestamp = timestamp * 1000;
+
+        if (price > 0 && price <= 1 && timestamp >= startMs) {
+          allTrades.push({ price, size, timestamp });
+        }
       }
 
-      if (price > 0 && timestamp >= startMs) {
-        trades.push({ price, size, timestamp });
-      }
-    }
+      cursor = data.next_cursor;
+      if (!cursor || tradeList.length === 0) break;
 
-    return trades;
-  } catch (err) {
-    console.error(`Trades fetch error: ${err}`);
-    return [];
+    } catch (err) {
+      console.error(`Polymarket trades fetch error: ${err}`);
+      break;
+    }
+  }
+
+  return allTrades;
+}
+
+async function fetchTrades(platform, tokenId, windowHours) {
+  if (platform === "kalshi") {
+    return fetchKalshiTrades(tokenId, windowHours);
+  } else {
+    return fetchPolymarketTrades(tokenId, windowHours);
   }
 }
 
@@ -289,11 +322,11 @@ function capReportability(r, maxLevel) {
 // CACHE FUNCTIONS (using Cloudflare KV)
 // =============================================================================
 
-async function getCachedMetrics(kv, tokenId) {
+async function getCachedMetrics(kv, platform, tokenId) {
   if (!kv) return null;
 
   try {
-    const cached = await kv.get(tokenId, { type: "json" });
+    const cached = await kv.get(`${platform}:${tokenId}`, { type: "json" });
     if (!cached) return null;
 
     const fetchedAt = new Date(cached.fetched_at).getTime();
@@ -308,11 +341,11 @@ async function getCachedMetrics(kv, tokenId) {
   }
 }
 
-async function cacheMetrics(kv, tokenId, metrics) {
+async function cacheMetrics(kv, platform, tokenId, metrics) {
   if (!kv) return;
 
   try {
-    await kv.put(tokenId, JSON.stringify(metrics), {
+    await kv.put(`${platform}:${tokenId}`, JSON.stringify(metrics), {
       expirationTtl: Math.ceil(CONFIG.cache_ttl_ms / 1000),
     });
   } catch (err) {
@@ -320,17 +353,17 @@ async function cacheMetrics(kv, tokenId, metrics) {
   }
 }
 
-async function getStaleVWAP(kv, key) {
+async function getStaleVWAP(kv, prefix, key) {
   if (!kv) return null;
 
   try {
-    return await kv.get(`stale_${key}`, { type: "json" });
+    return await kv.get(`stale:${prefix}:${key}`, { type: "json" });
   } catch (err) {
     return null;
   }
 }
 
-async function storeStaleVWAP(kv, key, price, windowHours, tradeCount) {
+async function storeStaleVWAP(kv, prefix, key, price, windowHours, tradeCount) {
   if (!kv) return;
 
   try {
@@ -341,7 +374,7 @@ async function storeStaleVWAP(kv, key, price, windowHours, tradeCount) {
       stored_at: new Date().toISOString(),
     };
     // Store for 7 days
-    await kv.put(`stale_${key}`, JSON.stringify(stale), { expirationTtl: 604800 });
+    await kv.put(`stale:${prefix}:${key}`, JSON.stringify(stale), { expirationTtl: 604800 });
   } catch (err) {
     console.error("Stale VWAP store error:", err);
   }
@@ -351,9 +384,9 @@ async function storeStaleVWAP(kv, key, price, windowHours, tradeCount) {
 // TIERED PRICE CALCULATION
 // =============================================================================
 
-async function computeTieredPrice(platform, tokenId, bids, asks, apiKey, kv) {
+async function computeTieredPrice(platform, tokenId, bids, asks, kv) {
   // Fetch 24h trades once, then filter for smaller windows in memory
-  const allTrades = await fetchTrades(platform, tokenId, 24, apiKey);
+  const allTrades = await fetchTrades(platform, tokenId, 24);
   const now = Date.now();
 
   // Try progressively larger windows by filtering the same trade data
@@ -364,7 +397,7 @@ async function computeTieredPrice(platform, tokenId, bids, asks, apiKey, kv) {
 
     if (vwapResult.trade_count >= CONFIG.min_trades_for_vwap) {
       // Success! Store this as the last known good VWAP
-      await storeStaleVWAP(kv, tokenId, vwapResult.vwap, windowHours, vwapResult.trade_count);
+      await storeStaleVWAP(kv, platform, tokenId, vwapResult.vwap, windowHours, vwapResult.trade_count);
 
       const tier = windowHours === 6 ? 1 : 2;
       const source = windowHours === 6 ? "6h_vwap" : (windowHours === 12 ? "12h_vwap" : "24h_vwap");
@@ -383,7 +416,7 @@ async function computeTieredPrice(platform, tokenId, bids, asks, apiKey, kv) {
   }
 
   // No sufficient trades - try stale VWAP
-  const stale = await getStaleVWAP(kv, tokenId);
+  const stale = await getStaleVWAP(kv, platform, tokenId);
   if (stale) {
     return {
       tier: 3,
@@ -408,7 +441,7 @@ async function computeTieredPrice(platform, tokenId, bids, asks, apiKey, kv) {
   };
 }
 
-async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks, kBids, kAsks, apiKey, kv) {
+async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks, kBids, kAsks, kv) {
   // Combine orderbooks for midpoint calculation
   const allBids = [...pmBids, ...kBids].sort((a, b) => b.price - a.price);
   const allAsks = [...pmAsks, ...kAsks].sort((a, b) => a.price - b.price);
@@ -418,11 +451,11 @@ async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks,
   // Fetch 24h trades once from each platform, then filter for smaller windows
   const allTrades = [];
   if (pmToken) {
-    const pmTrades = await fetchTrades("polymarket", pmToken, 24, apiKey);
+    const pmTrades = await fetchTrades("polymarket", pmToken, 24);
     allTrades.push(...pmTrades);
   }
   if (kTicker) {
-    const kTrades = await fetchTrades("kalshi", kTicker, 24, apiKey);
+    const kTrades = await fetchTrades("kalshi", kTicker, 24);
     allTrades.push(...kTrades);
   }
 
@@ -435,7 +468,7 @@ async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks,
     const vwapResult = computeVWAP(windowTrades);
 
     if (vwapResult.trade_count >= CONFIG.min_trades_for_vwap) {
-      await storeStaleVWAP(kv, cacheKey, vwapResult.vwap, windowHours, vwapResult.trade_count);
+      await storeStaleVWAP(kv, "combined", cacheKey, vwapResult.vwap, windowHours, vwapResult.trade_count);
 
       const tier = windowHours === 6 ? 1 : 2;
       const source = windowHours === 6 ? "6h_vwap" : (windowHours === 12 ? "12h_vwap" : "24h_vwap");
@@ -454,7 +487,7 @@ async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks,
   }
 
   // No sufficient trades - try stale VWAP
-  const stale = await getStaleVWAP(kv, cacheKey);
+  const stale = await getStaleVWAP(kv, "combined", cacheKey);
   if (stale) {
     return {
       tier: 3,
@@ -483,13 +516,13 @@ async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks,
 // MAIN FETCH FUNCTION
 // =============================================================================
 
-async function getMarketMetrics(platform, tokenId, apiKey, kv) {
-  const cached = await getCachedMetrics(kv, tokenId);
+async function getMarketMetrics(platform, tokenId, kv) {
+  const cached = await getCachedMetrics(kv, platform, tokenId);
   if (cached) {
     return cached;
   }
 
-  const orderbook = await fetchOrderbook(platform, tokenId, apiKey);
+  const orderbook = await fetchOrderbook(platform, tokenId);
   if (!orderbook) {
     return null;
   }
@@ -497,7 +530,7 @@ async function getMarketMetrics(platform, tokenId, apiKey, kv) {
   const [bids, asks] = orderbook;
 
   // Compute tiered price
-  const tieredPrice = await computeTieredPrice(platform, tokenId, bids, asks, apiKey, kv);
+  const tieredPrice = await computeTieredPrice(platform, tokenId, bids, asks, kv);
 
   // Compute robustness (min of up and down directions)
   const costToMove5c = computeCostToMove5Cents(bids, asks);
@@ -515,7 +548,7 @@ async function getMarketMetrics(platform, tokenId, apiKey, kv) {
   }
 
   // Get current price (most recent trade in any window)
-  const recentTrades = await fetchTrades(platform, tokenId, 24, apiKey);
+  const recentTrades = await fetchTrades(platform, tokenId, 24);
   let currentPrice = null;
   if (recentTrades.length > 0) {
     const sortedTrades = [...recentTrades].sort((a, b) => b.timestamp - a.timestamp);
@@ -561,7 +594,7 @@ async function getMarketMetrics(platform, tokenId, apiKey, kv) {
     cached: false,
   };
 
-  await cacheMetrics(kv, tokenId, metrics);
+  await cacheMetrics(kv, platform, tokenId, metrics);
 
   return metrics;
 }
@@ -573,7 +606,6 @@ async function getMarketMetrics(platform, tokenId, apiKey, kv) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const apiKey = env.DOME_API_KEY || "";
     const kv = env.BELLWETHER_KV || null;
 
     const corsHeaders = {
@@ -594,7 +626,6 @@ export default {
           status: "ok",
           mode: "cloudflare-workers",
           cache_ttl_seconds: CONFIG.cache_ttl_ms / 1000,
-          dome_api_configured: !!apiKey,
           kv_configured: !!kv,
           min_trades_for_vwap: CONFIG.min_trades_for_vwap,
           vwap_windows: CONFIG.vwap_windows,
@@ -631,7 +662,7 @@ export default {
       const platform = metricsMatch[1];
       const tokenId = metricsMatch[2];
 
-      const metrics = await getMarketMetrics(platform, tokenId, apiKey, kv);
+      const metrics = await getMarketMetrics(platform, tokenId, kv);
 
       if (!metrics) {
         return new Response(
@@ -663,8 +694,8 @@ export default {
 
       // Fetch orderbooks from both platforms in parallel
       const [pmOrderbook, kOrderbook] = await Promise.all([
-        pmToken ? fetchOrderbook("polymarket", pmToken, apiKey) : null,
-        kTicker ? fetchOrderbook("kalshi", kTicker, apiKey) : null,
+        pmToken ? fetchOrderbook("polymarket", pmToken) : null,
+        kTicker ? fetchOrderbook("kalshi", kTicker) : null,
       ]);
 
       const pmBids = pmOrderbook?.[0] || [];
@@ -674,7 +705,7 @@ export default {
 
       // Compute tiered price across platforms
       const tieredPrice = await computeCrossplatformTieredPrice(
-        pmToken, kTicker, pmBids, pmAsks, kBids, kAsks, apiKey, kv
+        pmToken, kTicker, pmBids, pmAsks, kBids, kAsks, kv
       );
 
       // Use minimum robustness (weakest link across platforms AND directions)
@@ -713,13 +744,13 @@ export default {
       let kCurrentPrice = null;
 
       if (pmToken) {
-        const pmTrades = await fetchTrades("polymarket", pmToken, 24, apiKey);
+        const pmTrades = await fetchTrades("polymarket", pmToken, 24);
         if (pmTrades.length > 0) {
           pmCurrentPrice = [...pmTrades].sort((a, b) => b.timestamp - a.timestamp)[0].price;
         }
       }
       if (kTicker) {
-        const kTrades = await fetchTrades("kalshi", kTicker, 24, apiKey);
+        const kTrades = await fetchTrades("kalshi", kTicker, 24);
         if (kTrades.length > 0) {
           kCurrentPrice = [...kTrades].sort((a, b) => b.timestamp - a.timestamp)[0].price;
         }
@@ -759,7 +790,7 @@ export default {
     const legacyMatch = url.pathname.match(/^\/metrics\/(.+)$/);
     if (legacyMatch) {
       const tokenId = legacyMatch[1];
-      const metrics = await getMarketMetrics("polymarket", tokenId, apiKey, kv);
+      const metrics = await getMarketMetrics("polymarket", tokenId, kv);
 
       if (!metrics) {
         return new Response(
