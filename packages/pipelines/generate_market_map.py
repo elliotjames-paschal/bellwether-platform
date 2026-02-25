@@ -2,14 +2,14 @@
 """
 Generate market_map.json from the ticker-based matching system.
 
-This uses canonical BWR tickers from bellwether-matcher to match markets
-across Kalshi and Polymarket. Two markets match if they have the same ticker.
+This uses canonical BWR tickers to match markets across Kalshi and Polymarket.
+Two markets match if they have the same ticker.
 
 Usage:
     python packages/pipelines/generate_market_map.py
 
 Input:
-    bellwether-matcher/data/tickers.json - Tickers from create_tickers.py
+    data/tickers.json - Tickers from create_tickers.py
     data/enriched_political_markets.json.gz - Enriched market data (for volume)
 
 Output:
@@ -25,16 +25,12 @@ from datetime import datetime
 from collections import defaultdict
 
 # Paths
-SCRIPT_DIR = Path(__file__).parent
-PROJECT_ROOT = SCRIPT_DIR.parent  # bellwether-platform/packages
-BELLWETHER_PLATFORM = PROJECT_ROOT.parent  # bellwether-platform
-MATCHER_DIR = BELLWETHER_PLATFORM / "bellwether-matcher"
-DATA_DIR = BELLWETHER_PLATFORM / "data"
+from config import DATA_DIR, PACKAGES_DIR
 
-TICKERS_FILE = MATCHER_DIR / "data" / "tickers.json"
+TICKERS_FILE = DATA_DIR / "tickers.json"
 ENRICHED_FILE = DATA_DIR / "enriched_political_markets.json.gz"
-OUTPUT_FILE = PROJECT_ROOT / "api" / "market_map.json"
-WEBSITE_OUTPUT = PROJECT_ROOT / "website" / "data" / "market_map.json"
+OUTPUT_FILE = PACKAGES_DIR / "api" / "market_map.json"
+WEBSITE_OUTPUT = PACKAGES_DIR / "website" / "data" / "market_map.json"
 
 
 def slugify(text: str) -> str:
@@ -89,6 +85,25 @@ def load_enriched_markets() -> dict:
     return indexed
 
 
+def load_pm_token_lookup() -> dict:
+    """Load pm_token_id_yes indexed by market_id from master CSV."""
+    csv_file = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
+    if not csv_file.exists():
+        print(f"Warning: {csv_file} not found, pm_token_id will be missing")
+        return {}
+
+    import pandas as pd
+    df = pd.read_csv(csv_file, usecols=['market_id', 'pm_token_id_yes'], dtype=str, low_memory=False)
+    df = df[df['pm_token_id_yes'].notna()]
+    # market_id can be float-like ("559671.0"), clean it
+    lookup = {}
+    for _, row in df.iterrows():
+        mid = str(row['market_id']).split('.')[0]
+        token = str(row['pm_token_id_yes']).split('.')[0]
+        lookup[mid] = token
+    return lookup
+
+
 def _infer_category(ticker: str) -> str:
     """Infer category from ticker."""
     ticker_upper = ticker.upper()
@@ -113,7 +128,7 @@ def generate_market_map():
     print(f"Loading tickers from {TICKERS_FILE}...")
     if not TICKERS_FILE.exists():
         print(f"ERROR: Tickers file not found: {TICKERS_FILE}")
-        print("Run bellwether-matcher/pipeline/create_tickers.py first")
+        print("Run packages/pipelines/create_tickers.py first")
         return []
 
     with open(TICKERS_FILE, 'r') as f:
@@ -121,6 +136,10 @@ def generate_market_map():
 
     print(f"Loading enriched markets for volume data...")
     enriched = load_enriched_markets()
+
+    print(f"Loading Polymarket token ID lookup from master CSV...")
+    pm_token_lookup = load_pm_token_lookup()
+    print(f"  Found {len(pm_token_lookup)} market_id → pm_token_id_yes mappings")
 
     # Group tickers by ticker string
     by_ticker = defaultdict(list)
@@ -165,12 +184,16 @@ def generate_market_map():
         # Use Kalshi question as title (usually cleaner)
         title = k_market.get('original_question', ticker)
 
+        # Look up the actual CLOB API token for Polymarket
+        pm_token_id = pm_token_lookup.get(str(pm_token))
+
         matched_markets.append({
             'slug': slug,
             'title': title,
             'ticker': ticker,  # Our canonical BWR ticker
             'k_ticker': k_ticker,
-            'pm_token': pm_token,
+            'pm_token': pm_token,          # Short market_id (for URLs/display)
+            'pm_token_id': pm_token_id,    # CLOB API token (77-digit)
             'category': category or _infer_category(ticker),
             'country': country,
             'total_volume': total_volume,
@@ -200,10 +223,17 @@ def generate_market_map():
     with open(WEBSITE_OUTPUT, 'w') as f:
         json.dump(output, f, indent=2)
 
+    # Count pm_token_id coverage
+    with_token_id = sum(1 for m in matched_markets if m.get('pm_token_id'))
+    without_token_id = len(matched_markets) - with_token_id
+
     print(f"\n=== RESULTS ===")
     print(f"Total tickers: {len(tickers_data['tickers'])}")
     print(f"Unique tickers: {len(by_ticker)}")
     print(f"Cross-platform matches: {len(matched_markets)}")
+    print(f"With pm_token_id: {with_token_id}/{len(matched_markets)} ({100*with_token_id/max(len(matched_markets),1):.1f}%)")
+    if without_token_id:
+        print(f"  Missing pm_token_id: {without_token_id} markets")
     print(f"Output: {OUTPUT_FILE}")
     print(f"Website: {WEBSITE_OUTPUT}")
 

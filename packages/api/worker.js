@@ -718,7 +718,7 @@ export default {
         }), { status: 404, headers: corsHeaders });
       }
 
-      const data = await getCombinedMarketData(market.pm_token, market.k_ticker, env);
+      const data = await getCombinedMarketData(market.pm_token_id || market.pm_token, market.k_ticker, env);
       if (!data) {
         return new Response(JSON.stringify({
           error: "Market data unavailable",
