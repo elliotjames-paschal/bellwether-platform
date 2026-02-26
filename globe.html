@@ -13,7 +13,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Globe - Bellwether</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css?v=20260211a">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://unpkg.com/topojson-client@3"></script>
@@ -890,6 +890,161 @@
 
         .globe-elections::-webkit-scrollbar-thumb:hover {
             background: #6b7280;
+        }
+
+        /* ── V2 TYPOGRAPHY OVERRIDES ── */
+        :root {
+          --font-serif: 'Source Serif 4', Georgia, serif;
+          --font-sans: 'DM Sans', -apple-system, sans-serif;
+          --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        /* Nav logo */
+        .nav-logo,
+        nav .logo,
+        [class*="nav"] [class*="logo"] {
+          font-family: var(--font-serif);
+          font-weight: 600;
+          font-size: 18px;
+          letter-spacing: 0;
+        }
+
+        /* Nav links */
+        nav a {
+          font-family: var(--font-sans);
+          font-size: 14px;
+          font-weight: 400;
+        }
+        nav a.active,
+        nav a[aria-current="page"] {
+          font-weight: 500;
+        }
+
+        /* Sidebar section labels */
+        .sidebar-label,
+        [class*="section-label"],
+        [class*="sidebar"] h3,
+        [class*="sidebar"] h4,
+        [class*="panel"] h3,
+        [class*="panel"] h4 {
+          font-family: var(--font-sans);
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        /* Filter pills / chips */
+        .filter-pill,
+        .chip,
+        [class*="filter"] button,
+        [class*="category"] button,
+        [class*="region"] button,
+        [class*="tag"] {
+          font-family: var(--font-sans);
+          font-size: 13px;
+          font-weight: 400;
+        }
+        .filter-pill.active,
+        .chip.active,
+        [class*="filter"] button.active,
+        [class*="category"] button.active,
+        [class*="region"] button.active {
+          font-weight: 500;
+        }
+
+        /* Toggle labels */
+        .toggle-label,
+        [class*="layer"] label,
+        [class*="toggle"] span {
+          font-family: var(--font-sans);
+          font-size: 14px;
+          font-weight: 400;
+        }
+
+        /* "(coming soon)" hint text */
+        .coming-soon,
+        [class*="coming"],
+        [class*="soon"] {
+          font-family: var(--font-sans);
+          font-size: 12px;
+          font-weight: 300;
+          font-style: italic;
+        }
+
+        /* Market list items */
+        .market-title,
+        .market-name,
+        .market-question,
+        [class*="market"] [class*="title"],
+        [class*="market"] [class*="name"],
+        [class*="market"] [class*="question"] {
+          font-family: var(--font-sans);
+          font-size: 14px;
+          font-weight: 500;
+          line-height: 1.4;
+        }
+
+        /* Market metadata */
+        .market-meta,
+        .market-subtitle,
+        [class*="market"] [class*="meta"],
+        [class*="market"] [class*="sub"] {
+          font-family: var(--font-sans);
+          font-size: 12px;
+          font-weight: 400;
+        }
+
+        /* All numbers: monospace */
+        .market-price,
+        .price,
+        .volume,
+        .market-count,
+        [class*="price"],
+        [class*="vol"],
+        [class*="percent"],
+        [class*="count"],
+        [class*="market"] [class*="number"] {
+          font-family: var(--font-mono);
+          font-weight: 500;
+        }
+
+        /* Active markets count */
+        .active-count,
+        [class*="active-market"],
+        [class*="total"] {
+          font-family: var(--font-mono);
+          font-weight: 500;
+        }
+
+        /* Buttons / links */
+        .market-link,
+        [class*="market"] a,
+        [class*="market"] button {
+          font-family: var(--font-sans);
+          font-size: 13px;
+          font-weight: 500;
+          border-radius: 6px;
+        }
+
+        /* Search input */
+        input[type="text"],
+        input[type="search"],
+        [class*="search"] input {
+          font-family: var(--font-sans);
+          font-size: 13px;
+          font-weight: 400;
+        }
+        input::placeholder {
+          font-family: var(--font-sans);
+        }
+
+        /* Sort controls */
+        .sort-label,
+        [class*="sort"] {
+          font-family: var(--font-mono);
+          font-size: 11px;
+          font-weight: 400;
         }
     </style>
 </head>
