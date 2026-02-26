@@ -503,6 +503,7 @@
                     <div class="card-market-img">${imageHtml}</div>
                     <div class="card-question">${truncate(title, 100)}</div>
                 </div>
+                ${e.ticker ? `<div class="card-ticker"><code>${e.ticker}</code></div>` : ''}
                 <div class="card-price-row" title="Volume-weighted average price across platforms, resistant to manipulation">
                     <span class="bw-price">${bwPrice}</span>
                     <span class="bw-label">Bellwether</span>
@@ -616,6 +617,7 @@
                     <div class="card-market-img">${imageHtml}</div>
                     <div class="card-question">${truncate(m.label, 100)}</div>
                 </div>
+                ${m.ticker ? `<div class="card-ticker"><code>${m.ticker}</code></div>` : ''}
                 <div class="card-price-row" title="Volume-weighted average price across platforms, resistant to manipulation">
                     <span class="bw-price">${bwPrice}</span>
                     <span class="bw-label">Bellwether</span>
@@ -644,10 +646,10 @@
 
     // Render card based on entry type
     function renderCard(entry, index) {
-        if (entry.entry_type === 'market') {
-            return renderMarketCard(entry, index);
+        if (entry.entry_type === 'cross_platform' || entry.has_both) {
+            return renderElectionCard(entry, index);
         }
-        return renderElectionCard(entry, index);
+        return renderMarketCard(entry, index);
     }
 
     // =========================================================================
@@ -845,9 +847,9 @@
         const modalContent = document.getElementById('election-modal-content');
         if (!modal || !modalContent) return;
 
-        modalContent.innerHTML = entry.entry_type === 'market'
-            ? renderMarketModal(entry)
-            : renderElectionModal(entry);
+        modalContent.innerHTML = (entry.entry_type === 'cross_platform' || entry.has_both)
+            ? renderElectionModal(entry)
+            : renderMarketModal(entry);
 
         modal.classList.add('visible');
         document.body.style.overflow = 'hidden';
@@ -914,8 +916,8 @@
 
             // Platform filter
             if (filters.platform !== 'all') {
-                if (m.entry_type === 'election') {
-                    // For elections, filter by which platforms are available
+                if (m.entry_type === 'election' || m.entry_type === 'cross_platform') {
+                    // For cross-platform entries, filter by which platforms are available
                     if (filters.platform === 'polymarket' && !m.has_pm) return false;
                     if (filters.platform === 'kalshi' && !m.has_k) return false;
                 } else {
@@ -932,13 +934,12 @@
                     m.label || '',
                     m.pm_question || '',
                     m.k_question || '',
+                    m.ticker || '',
                     m.location || '',
                     m.country || '',
                     m.office || '',
                     m.party || '',
-                    m.type || '',
-                    m.pm_candidate || '',
-                    m.k_candidate || ''
+                    m.type || ''
                 ].join(' ').toLowerCase();
 
                 // All search words must be found somewhere
@@ -992,8 +993,8 @@
                 // Only elections with both platforms and spread > 5%
                 // Check for entry_type === 'election' OR old format (has_both with pm_price/k_price)
                 sorted = sorted.filter(m => {
-                    const isElection = m.entry_type === 'election' || (m.has_both && m.pm_price !== undefined);
-                    return isElection && m.has_both && m.spread !== null && m.spread > 0.05;
+                    const isCrossPlatform = m.entry_type === 'election' || m.entry_type === 'cross_platform' || (m.has_both && m.pm_price !== undefined);
+                    return isCrossPlatform && m.has_both && m.spread !== null && m.spread > 0.05;
                 });
                 sorted.sort((a, b) => (b.spread || 0) - (a.spread || 0));
                 break;

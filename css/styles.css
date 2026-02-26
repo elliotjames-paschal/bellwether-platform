@@ -2469,6 +2469,18 @@ a.price-box.clickable:hover {
     margin-bottom: 18px;
 }
 
+.card-ticker {
+    padding: 0 16px;
+    margin-top: -14px;
+    margin-bottom: 14px;
+}
+.card-ticker code {
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 10px;
+    color: #888;
+    letter-spacing: 0.3px;
+}
+
 .card-market-img {
     width: 44px;
     height: 44px;
