@@ -107,6 +107,7 @@ def is_elected_office(target: str) -> bool:
         r'^GOV',   # Any governorship
         r'^SENATE', # Any senate
         r'^HOUSE', # Any house
+        r'^MAYOR', # Any mayoral race
         r'_NOM$',  # Nominations
         r'NOMINATION',
     ]
@@ -392,15 +393,16 @@ def postprocess(
     print(f"Built description lookup for {len(descriptions)} markets")
 
     # Build AAT -> timeframe lookup from Kalshi (for UNKNOWN backfill)
+    # Uses agent-action-target tuple to match across platforms
     kalshi_aat_timeframes = defaultdict(set)
     for ticker in tickers:
         if ticker.get('platform') == 'Kalshi':
-            parts = ticker.get('ticker', '').split('-')
-            if len(parts) >= 6:
-                aat = (parts[0], parts[1], parts[2])
-                tf = '-'.join(parts[5:])
-                if tf and tf != 'UNKNOWN':
-                    kalshi_aat_timeframes[aat].add(tf)
+            agent = ticker.get('agent', '')
+            action = ticker.get('action', '')
+            target = ticker.get('target', '')
+            tf = ticker.get('timeframe', '')
+            if agent and action and target and tf and tf != 'UNKNOWN':
+                kalshi_aat_timeframes[(agent, action, target)].add(tf)
 
     # Apply fixes
     stats = defaultdict(int)
@@ -456,14 +458,12 @@ def postprocess(
 
         # Fix 11: UNKNOWN timeframe backfill from Kalshi
         if ticker.get('timeframe') == 'UNKNOWN' and ticker.get('platform') == 'Polymarket':
-            parts = ticker.get('ticker', '').split('-')
-            if len(parts) >= 6:
-                aat = (parts[0], parts[1], parts[2])
-                kalshi_tfs = kalshi_aat_timeframes.get(aat, set())
-                if len(kalshi_tfs) == 1:
-                    # Exactly one Kalshi family - inherit timeframe
-                    ticker['timeframe'] = list(kalshi_tfs)[0]
-                    stats['timeframe_backfilled'] += 1
+            aat = (ticker.get('agent', ''), ticker.get('action', ''), ticker.get('target', ''))
+            kalshi_tfs = kalshi_aat_timeframes.get(aat, set())
+            if len(kalshi_tfs) == 1:
+                # Exactly one Kalshi family - inherit timeframe
+                ticker['timeframe'] = list(kalshi_tfs)[0]
+                stats['timeframe_backfilled'] += 1
 
         # Fix 12: Final fallback - UNKNOWN -> current year
         if ticker.get('timeframe') == 'UNKNOWN':

@@ -297,8 +297,38 @@ def pre_extract_fields(market: Dict[str, Any]) -> Dict[str, str]:
 
 
 # ============================================================
-# GPT-4o CALL
+# GPT CALL (with web search)
 # ============================================================
+
+def extract_json_from_response(text: str) -> str:
+    """Extract JSON from GPT response that may include markdown fences."""
+    if "```json" in text:
+        start = text.find("```json") + 7
+        end = text.find("```", start)
+        if end > start:
+            return text[start:end].strip()
+
+    if "```" in text:
+        start = text.find("```") + 3
+        if text[start:start + 1] == "\n":
+            start += 1
+        end = text.find("```", start)
+        if end > start:
+            return text[start:end].strip()
+
+    brace_start = text.find("{")
+    if brace_start >= 0:
+        depth = 0
+        for i, c in enumerate(text[brace_start:]):
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[brace_start:brace_start + i + 1]
+
+    return text
+
 
 def create_batch_prompt(markets: List[Dict[str, str]]) -> str:
     """Create prompt for GPT-4o batch."""
@@ -321,8 +351,9 @@ def create_batch_prompt(markets: List[Dict[str, str]]) -> str:
 
 
 def parse_response(text: str, markets: List[Dict[str, str]]) -> List[Dict[str, Any]]:
-    """Parse GPT-4o response."""
-    parsed = json.loads(text)
+    """Parse GPT response (may include markdown fences from search model)."""
+    json_str = extract_json_from_response(text)
+    parsed = json.loads(json_str)
 
     if isinstance(parsed, list):
         results = parsed
@@ -364,8 +395,6 @@ async def process_batch_async(
                     {"role": "system", "content": TICKER_PROMPT},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.0,
-                response_format={"type": "json_object"}
             )
 
             if pbar:
@@ -837,8 +866,8 @@ def main():
     parser.add_argument(
         "--model", "-m",
         type=str,
-        default="gpt-4o",
-        help="OpenAI model"
+        default="gpt-4o-search-preview",
+        help="OpenAI model (gpt-4o-search-preview for web search)"
     )
     parser.add_argument(
         "--workers", "-w",
