@@ -47,11 +47,6 @@ rate_limiter = RateLimiter(40)  # 40 req/sec to avoid rate limiting
 
 sys.path.insert(0, str(Path(__file__).parent))
 from config import DATA_DIR, WEBSITE_DIR
-from election_market_utils import (
-    get_electoral_markets,
-    is_likely_winner_market,
-    make_election_key,
-)
 from generate_web_data import LOCATION_COORDS  # Granular coords with (country, location) keys
 
 import pandas as pd
@@ -78,6 +73,7 @@ if CAPITAL_COORDS_FILE.exists():
 
 # Paths
 MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
+TICKERS_FILE = DATA_DIR / "tickers_postprocessed.json"
 PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
 KALSHI_PRICES_FILE = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
 KALSHI_DAILY_PRICES_DIR = DATA_DIR / "kalshi_daily_prices"
@@ -1251,73 +1247,37 @@ def build_pm_embed_url(row):
     return None
 
 
-def extract_candidate_from_question(question):
-    """Extract candidate name from market question."""
-    if not question or not isinstance(question, str):
-        return None
-
-    if re.search(r'who\s+will\s+(run|enter|announce)', question, re.IGNORECASE):
-        return None
-
-    match = re.search(r'Will\s+(.+?)\s+win', question, re.IGNORECASE)
-    if match:
-        name = match.group(1).strip()
-        name = re.sub(r'\s+(the|a|an)\s*$', '', name, flags=re.IGNORECASE)
-        return name
-
-    match = re.search(r'Wil[l]?\s+(.+?)\s+be\s+the\s+(?:Democratic|Republican|GOP)\s+nominee', question, re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-
-    match = re.search(r'^(.+?)\s+to\s+win', question, re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-
-    match = re.search(r'-\s*([A-Za-z][A-Za-z\s]+?)\s*\??$', question)
-    if match:
-        name = match.group(1).strip()
-        if len(name) < 50:
-            return name
-
-    return None
-
-
-def extract_party_from_question(question):
-    """Extract party affiliation from market question."""
-    if not question or not isinstance(question, str):
-        return None
-
-    q = question.lower()
-
-    if any(p in q for p in ['democratic', 'democrat ', 'dem primary', 'dem nominee']):
-        return 'Democratic'
-
-    if any(p in q for p in ['republican', 'gop', 'rep primary', 'rep nominee']):
-        return 'Republican'
-
-    return None
-
-
-def normalize_candidate_name(name):
-    """Normalize candidate name for matching."""
-    if not name:
-        return None
-    normalized = name.lower().replace('.', '').replace(',', '')
-    normalized = ' '.join(normalized.split())
-    return normalized
-
-
 def generate_monitor_data(skip_prices=False):
     """Generate monitor data for all active political markets.
+
+    Uses BWR tickers from tickers_postprocessed.json as the canonical grouping system.
+    Same ticker = same event. Cross-platform when both PM and K share a ticker.
 
     Args:
         skip_prices: If True, skip live price fetching and use cached historical prices
     """
-    log("Generating monitor data (elections + all categories)...")
+    log("Generating monitor data (ticker-based grouping)...")
 
     # Load data
     df = pd.read_csv(MASTER_FILE, low_memory=False)
     log(f"  Loaded {len(df):,} markets from master CSV")
+
+    # Load tickers
+    if not TICKERS_FILE.exists():
+        log(f"  ERROR: Tickers file not found: {TICKERS_FILE}")
+        log("  Run create_tickers.py + postprocess_tickers.py first")
+        return None
+
+    with open(TICKERS_FILE, 'r') as f:
+        tickers_data = json.load(f)
+    ticker_entries = tickers_data.get('tickers', [])
+    log(f"  Loaded {len(ticker_entries):,} ticker entries")
+
+    # Build market_id -> ticker_entry lookup
+    mid_to_ticker = {}
+    for t in ticker_entries:
+        mid = str(t['market_id'])
+        mid_to_ticker[mid] = t
 
     candlesticks = load_candlestick_prices()
     log(f"  Loaded {len(candlesticks):,} tokens with price history")
@@ -1332,56 +1292,37 @@ def generate_monitor_data(skip_prices=False):
     log(f"  Loaded {len(yesterday_kalshi_prices):,} Kalshi prices from yesterday")
 
     # Filter to active markets
-    active = df[df['is_closed'] != True].copy()
-    log(f"  Active markets: {len(active):,}")
+    # is_closed works for Polymarket; for Kalshi, use k_status since is_closed can be stale
+    pm_active = df[(df['platform'] == 'Polymarket') & (df['is_closed'] != True)]
+    k_active = df[(df['platform'] == 'Kalshi') & (df['k_status'].isin(['active', 'open']))]
+    active = pd.concat([pm_active, k_active]).copy()
+    log(f"  Active markets: {len(active):,} ({len(pm_active):,} PM + {len(k_active):,} Kalshi)")
 
-    # Split into electoral and non-electoral
-    electoral = get_electoral_markets(active)
-    electoral['is_winner_market'] = electoral['question'].apply(is_likely_winner_market)
-    winner_markets = electoral[electoral['is_winner_market']].copy()
+    # Build market_id -> row lookup from active markets
+    mid_to_row = {}
+    for _, row in active.iterrows():
+        mid = str(row.get('market_id', '')).split('.')[0]
+        if mid:
+            mid_to_row[mid] = row
 
-    non_electoral = active[active['political_category'] != '1. ELECTORAL'].copy()
-    non_winner_electoral = electoral[~electoral['is_winner_market']].copy()
-    log(f"  Electoral winner markets: {len(winner_markets):,}")
-    log(f"  Non-winner electoral markets: {len(non_winner_electoral):,}")
-    log(f"  Non-electoral markets: {len(non_electoral):,}")
-
-    # Collect all token IDs for live price fetch
+    # Collect all token IDs for live price fetch (single pass over active markets)
     pm_token_ids = set()
     k_market_tickers = set()
+    pm_condition_ids = set()
 
-    # From electoral
-    for _, row in winner_markets.iterrows():
-        token_id = row.get('pm_token_id_yes')
-        if pd.notna(token_id):
-            pm_token_ids.add(str(token_id).split('.')[0])
-        market_id = row.get('market_id')
-        if row.get('platform') == 'Kalshi' and pd.notna(market_id):
-            k_market_tickers.add(str(market_id))
-
-    # From non-electoral
-    for _, row in non_electoral.iterrows():
-        if row.get('platform') == 'Polymarket':
+    for _, row in active.iterrows():
+        platform = row.get('platform')
+        if platform == 'Polymarket':
             token_id = row.get('pm_token_id_yes')
             if pd.notna(token_id):
                 pm_token_ids.add(str(token_id).split('.')[0])
-        elif row.get('platform') == 'Kalshi':
+            cid = row.get('pm_condition_id')
+            if pd.notna(cid):
+                pm_condition_ids.add(str(cid))
+        elif platform == 'Kalshi':
             market_id = row.get('market_id')
             if pd.notna(market_id):
                 k_market_tickers.add(str(market_id))
-
-    # From non-winner electoral (individual electoral markets)
-    for _, row in non_winner_electoral.iterrows():
-        if row.get('platform') == 'Polymarket':
-            token_id = row.get('pm_token_id_yes')
-            if pd.notna(token_id):
-                pm_token_ids.add(str(token_id).split('.')[0])
-        elif row.get('platform') == 'Kalshi':
-            market_id = row.get('market_id')
-            if pd.notna(market_id):
-                k_market_tickers.add(str(market_id))
-
-    # Note: ungrouped_winner_markets tokens are already collected in winner_markets loop above
 
     # Fetch live prices (or skip if using cached data)
     if skip_prices:
@@ -1395,287 +1336,176 @@ def generate_monitor_data(skip_prices=False):
         save_today_kalshi_prices(live_k_prices)
         log(f"  Saved {len(live_k_prices):,} Kalshi prices for tomorrow")
 
-    # Collect all PM condition_ids for image fetching from cache
-    pm_condition_ids = set()
-    for _, row in winner_markets.iterrows():
-        if row.get('platform') == 'Polymarket':
-            cid = row.get('pm_condition_id')
-            if pd.notna(cid):
-                pm_condition_ids.add(str(cid))
-    for _, row in non_electoral.iterrows():
-        if row.get('platform') == 'Polymarket':
-            cid = row.get('pm_condition_id')
-            if pd.notna(cid):
-                pm_condition_ids.add(str(cid))
-    for _, row in non_winner_electoral.iterrows():
-        if row.get('platform') == 'Polymarket':
-            cid = row.get('pm_condition_id')
-            if pd.notna(cid):
-                pm_condition_ids.add(str(cid))
-
     # Fetch PM images from cache (keyed by condition_id)
     pm_images = fetch_pm_images_from_dome(pm_condition_ids)
 
-    all_entries = []
-    current_year = datetime.now().year
-
     # =========================================================================
-    # PROCESS ELECTORAL MARKETS (grouped by election, cross-platform comparison)
+    # GROUP ACTIVE MARKETS BY BWR TICKER
     # =========================================================================
-    elections = defaultdict(lambda: {'pm_markets': [], 'k_markets': [], 'metadata': None})
-    ungrouped_winner_markets = []  # Winner markets missing metadata for grouping
-    grouped_winner_markets = []  # Winner markets that CAN be grouped (also added individually)
+    # For each active market, look up its ticker and group
+    ticker_groups = defaultdict(lambda: {'pm_markets': [], 'k_markets': []})
+    no_ticker_markets = []  # Markets without tickers -> individual fallback
 
-    for _, row in winner_markets.iterrows():
-        key = make_election_key(row)
-        if key is None:
-            # Can't group - will add as individual market later
-            ungrouped_winner_markets.append(row)
+    for _, row in active.iterrows():
+        market_id = str(row.get('market_id', '')).split('.')[0]
+        if not market_id:
             continue
 
-        # Track for individual entry (in addition to grouping)
-        grouped_winner_markets.append(row)
-
-        is_primary = str(row.get('is_primary', '')).lower() == 'true'
-        if is_primary:
-            question = row.get('question', '')
-            party = extract_party_from_question(question)
-            if party:
-                key = f"{key}|{party}"
+        question = row.get('question', '')
+        if not question or pd.isna(question):
+            continue
 
         platform = row.get('platform')
-        row_dict = row.to_dict()
+        ticker_entry = mid_to_ticker.get(market_id)
+
+        if ticker_entry:
+            ticker_str = ticker_entry['ticker']
+            if platform == 'Polymarket':
+                ticker_groups[ticker_str]['pm_markets'].append(row)
+            elif platform == 'Kalshi':
+                ticker_groups[ticker_str]['k_markets'].append(row)
+        else:
+            no_ticker_markets.append(row)
+
+    log(f"  Unique tickers with active markets: {len(ticker_groups):,}")
+    log(f"  Markets without tickers: {len(no_ticker_markets):,}")
+
+    # =========================================================================
+    # HELPER: Get price/change for a market row
+    # =========================================================================
+    def get_market_price(row):
+        """Get current price and 24h change for a market row."""
+        platform = row.get('platform')
+        price = None
+        price_change_24h = None
 
         if platform == 'Polymarket':
-            elections[key]['pm_markets'].append(row_dict)
-        elif platform == 'Kalshi':
-            elections[key]['k_markets'].append(row_dict)
+            token_id = row.get('pm_token_id_yes')
+            if pd.notna(token_id):
+                token_str = str(token_id).split('.')[0]
+                if token_str in live_pm_prices:
+                    price = live_pm_prices[token_str]
+                else:
+                    price = get_current_price(token_str, candlesticks)
+                price_change_24h = calculate_24h_change(token_str, candlesticks)
+            if price is None and pd.notna(row.get('last_price')):
+                price = float(row.get('last_price'))
+        else:  # Kalshi
+            market_ticker = str(row.get('market_id', ''))
+            if market_ticker in live_k_prices:
+                price = live_k_prices[market_ticker]
+            else:
+                fallback = get_kalshi_fallback_price(row)
+                if fallback is not None:
+                    price = fallback
+            price_change_24h = calculate_kalshi_24h_change_from_snapshot(market_ticker, price, yesterday_kalshi_prices)
 
-        if elections[key]['metadata'] is None:
-            question = row.get('question', '')
-            party = extract_party_from_question(question) if is_primary else None
+        return price, price_change_24h
 
-            elections[key]['metadata'] = {
-                'country': str(row.get('country', '')).strip() if pd.notna(row.get('country')) else '',
-                'office': str(row.get('office', '')).strip() if pd.notna(row.get('office')) else '',
-                'location': str(row.get('location', '')).strip() if pd.notna(row.get('location')) else '',
-                'year': row.get('election_year'),
-                'is_primary': is_primary,
-                'party': party,
-            }
+    def get_row_volume(row):
+        """Get volume_usd from a row."""
+        vol = row.get('volume_usd', 0)
+        return float(vol) if pd.notna(vol) else 0
 
-    log(f"  Unique elections: {len(elections):,}")
-    log(f"  Ungrouped winner markets (missing metadata): {len(ungrouped_winner_markets):,}")
+    # =========================================================================
+    # BUILD ENTRIES FROM TICKER GROUPS
+    # =========================================================================
+    all_entries = []
 
-    # Build election entries
-    for key, data in elections.items():
-        pm_markets = data['pm_markets']
-        k_markets = data['k_markets']
-        meta = data['metadata']
+    for ticker_str, group in ticker_groups.items():
+        pm_markets = group['pm_markets']
+        k_markets = group['k_markets']
 
         if not pm_markets and not k_markets:
             continue
 
-        def get_pm_price(market):
-            token_id = market.get('pm_token_id_yes')
-            if pd.notna(token_id):
-                token_str = str(token_id).split('.')[0]
-                if token_str in live_pm_prices:
-                    return live_pm_prices[token_str]
-                price = get_current_price(token_str, candlesticks)
-                if price is not None:
-                    return price
-            return 0
+        # Pick best market per platform by volume
+        pm_best = max(pm_markets, key=get_row_volume) if pm_markets else None
+        k_best = max(k_markets, key=get_row_volume) if k_markets else None
 
-        def get_k_price(market):
-            market_ticker = market.get('market_id')
-            if market_ticker and market_ticker in live_k_prices:
-                return live_k_prices[market_ticker]
-            # Prefer bid/ask midpoint over potentially stale last_price
-            yes_bid = market.get('k_yes_bid')
-            yes_ask = market.get('k_yes_ask')
-            if pd.notna(yes_bid) and pd.notna(yes_ask) and yes_bid > 0:
-                return (float(yes_bid) + float(yes_ask)) / 200.0  # midpoint, convert from cents
-            price = market.get('k_last_price')
-            if pd.notna(price):
-                return float(price) / 100.0
-            return 0
-
-        # Find best candidate across platforms
-        all_candidates = []
-        for m in pm_markets:
-            candidate = extract_candidate_from_question(m.get('question'))
-            if candidate:
-                all_candidates.append((candidate, get_pm_price(m), m, 'pm'))
-        for m in k_markets:
-            candidate = extract_candidate_from_question(m.get('question'))
-            if candidate:
-                all_candidates.append((candidate, get_k_price(m), m, 'kalshi'))
-
-        pm_winner = None
-        k_winner = None
-
-        if all_candidates:
-            all_candidates.sort(key=lambda x: x[1], reverse=True)
-            best_candidate = all_candidates[0][0]
-            best_norm = normalize_candidate_name(best_candidate)
-
-            for candidate, price, market, platform in all_candidates:
-                if normalize_candidate_name(candidate) == best_norm:
-                    if platform == 'pm' and pm_winner is None:
-                        pm_winner = market
-                    elif platform == 'kalshi' and k_winner is None:
-                        k_winner = market
-
-        if pm_winner is None and pm_markets:
-            pm_winner = max(pm_markets, key=get_pm_price)
-        if k_winner is None and k_markets:
-            k_winner = max(k_markets, key=get_k_price)
-
-        # Build label
-        year = None
-        if meta['year']:
-            try:
-                year = int(float(meta['year']))
-            except:
-                pass
-
-        if meta['location'] and meta['location'] != meta['country']:
-            label = f"{meta['location']} {meta['office']}"
-        elif meta['country']:
-            label = f"{meta['country']} {meta['office']}"
-        else:
-            label = key[:60]
-
-        if year:
-            label = f"{year} {label}"
-        if meta['is_primary']:
-            party = meta.get('party')
-            if party:
-                label += f" {party} Primary"
-            else:
-                label += " Primary"
+        has_pm = pm_best is not None
+        has_k = k_best is not None
+        has_both = has_pm and has_k
 
         # Get prices
-        pm_price = None
-        k_price = None
-        pm_change_24h = None
-        k_change_24h = None
+        pm_price, pm_change_24h = get_market_price(pm_best) if has_pm else (None, None)
+        k_price, k_change_24h = get_market_price(k_best) if has_k else (None, None)
 
-        if pm_winner:
-            token_id = pm_winner.get('pm_token_id_yes')
-            if pd.notna(token_id):
-                token_id = str(token_id).split('.')[0]
-                if token_id in live_pm_prices:
-                    pm_price = live_pm_prices[token_id]
-                else:
-                    pm_price = get_current_price(token_id, candlesticks)
-                pm_change_24h = calculate_24h_change(token_id, candlesticks)
-            if pm_price is None and pd.notna(pm_winner.get('last_price')):
-                pm_price = float(pm_winner.get('last_price'))
+        # Calculate spread (only when both platforms present)
+        spread = abs(pm_price - k_price) if (has_both and pm_price is not None and k_price is not None) else None
 
-        if k_winner:
-            k_price = get_k_price(k_winner)
-            if k_price == 0:
-                k_price = None
-            market_ticker = k_winner.get('market_id')
-            if market_ticker:
-                market_ticker_str = str(market_ticker)
-                # Try live price first, then use k_price
-                current_k_price = live_k_prices.get(market_ticker_str, k_price)
-                k_change_24h = calculate_kalshi_24h_change_from_snapshot(market_ticker_str, current_k_price, yesterday_kalshi_prices)
-
-        # Calculate spread
-        spread = None
-        if pm_price is not None and k_price is not None:
-            pm_candidate = extract_candidate_from_question(pm_winner.get('question') if pm_winner else None)
-            k_candidate = extract_candidate_from_question(k_winner.get('question') if k_winner else None)
-            if pm_candidate and k_candidate:
-                if normalize_candidate_name(pm_candidate) == normalize_candidate_name(k_candidate):
-                    spread = abs(pm_price - k_price)
-
-        # Volumes - use only the matched markets, not all candidate markets
-        pm_volume = float(pm_winner.get('volume_usd', 0)) if pm_winner and pd.notna(pm_winner.get('volume_usd')) else 0
-        k_volume = float(k_winner.get('volume_usd', 0)) if k_winner and pd.notna(k_winner.get('volume_usd')) else 0
+        # Volumes
+        pm_volume = get_row_volume(pm_best) if has_pm else 0
+        k_volume = get_row_volume(k_best) if has_k else 0
         total_volume = pm_volume + k_volume
 
-        is_past = year is not None and year < current_year
+        # Label: prefer K question (usually cleaner), fall back to PM
+        k_question = str(k_best.get('question', '')) if has_k else None
+        pm_question = str(pm_best.get('question', '')) if has_pm else None
+        label = k_question or pm_question or ticker_str
+
+        # Category from best available market
+        ref_row = k_best if has_k else pm_best
+        category = ref_row.get('political_category', '15. OTHER')
+        if pd.isna(category):
+            category = '15. OTHER'
+
+        # Entry type
+        entry_type = 'cross_platform' if has_both else 'market'
 
         # URLs
-        pm_url = build_pm_url(pm_winner, slug_mapping) if pm_winner else None
-        k_url = build_kalshi_url(k_winner) if k_winner else None
-        pm_embed_url = build_pm_embed_url(pm_winner) if pm_winner else None
+        pm_url = build_pm_url(pm_best, slug_mapping) if has_pm else None
+        k_url = build_kalshi_url(k_best) if has_k else None
+        pm_embed_url = build_pm_embed_url(pm_best) if has_pm else None
 
-        # Coords for globe - use granular LOCATION_COORDS when location is available
-        lat = None
-        lng = None
-        country = meta['country']
-        location = meta['location']
-        # Try (country, location) first for state/city level coords
-        coord_key = (country, location) if location else (country, country)
-        if coord_key in LOCATION_COORDS:
-            lat, lng = LOCATION_COORDS[coord_key]
-        elif location and country == 'United States':
-            # Try parsing congressional district (GA-14, NY-12, etc.)
-            district_match = parse_congressional_district(location)
-            if district_match:
-                _, lat, lng = district_match
-            elif (country, country) in LOCATION_COORDS:
-                lat, lng = LOCATION_COORDS[(country, country)]
-            elif country in COUNTRY_COORDS:
-                lat = COUNTRY_COORDS[country]['lat']
-                lng = COUNTRY_COORDS[country]['lng']
-        elif (country, country) in LOCATION_COORDS:
-            # Fall back to country center
-            lat, lng = LOCATION_COORDS[(country, country)]
-        elif country in COUNTRY_COORDS:
-            # Fall back to old COUNTRY_COORDS dict
-            lat = COUNTRY_COORDS[country]['lat']
-            lng = COUNTRY_COORDS[country]['lng']
-
-        election_type = ELECTION_TYPE_MAP.get(meta['office'], 'other')
-        if meta['is_primary']:
-            election_type = 'primary'
-        region = REGION_MAP.get(meta['country'], 'unknown')
-
-        # Get image from PM if available (using condition_id from image cache)
-        pm_image = None
-        if pm_winner:
-            pm_cid = pm_winner.get('pm_condition_id')
+        # Image: prefer PM image, fallback to category image
+        image = None
+        if has_pm:
+            pm_cid = pm_best.get('pm_condition_id')
             if pd.notna(pm_cid) and str(pm_cid) in pm_images:
-                pm_image = pm_images[str(pm_cid)]
+                image = pm_images[str(pm_cid)]
+        if image is None and has_k:
+            image = CATEGORY_IMAGES.get(category, CATEGORY_IMAGES.get('15. OTHER'))
 
+        # Location for globe display
+        loc_data = extract_location(ref_row)
 
         # Extract token IDs for live data lookup
-        pm_token = pm_winner.get('pm_token_id_yes') if pm_winner else None
+        pm_token = pm_best.get('pm_token_id_yes') if has_pm else None
         pm_token_str = str(pm_token).split('.')[0] if pm_token and pd.notna(pm_token) else None
 
+        # Electoral metadata (preserved for electoral markets)
+        country = loc_data['country']
+        location_str = loc_data['location']
+        office = str(ref_row.get('office', '')).strip() if pd.notna(ref_row.get('office')) else None
+        year = None
+        election_year = ref_row.get('election_year')
+        if pd.notna(election_year):
+            try:
+                year = int(float(election_year))
+            except (ValueError, TypeError):
+                pass
+
+        region = REGION_MAP.get(country, 'unknown') if country else None
+
+        # Price change: prefer PM (more liquid), fall back to K
+        price_change_24h = pm_change_24h if pm_change_24h is not None else k_change_24h
+
         entry = {
-            'key': key,
+            'key': ticker_str,
+            'ticker': ticker_str,
             'label': label,
-            'entry_type': 'election',  # Mark as election entry
-            'category': '1. ELECTORAL',
-            'category_display': 'Electoral',
-            # Election info
-            'country': meta['country'],
-            'office': meta['office'],
-            'location': meta['location'],
-            'year': year,
-            'is_primary': meta['is_primary'],
-            'party': meta.get('party'),
-            'type': election_type,
-            'region': region,
-            'is_completed': is_past,
+            'entry_type': entry_type,
+            'category': category,
+            'category_display': CATEGORY_DISPLAY.get(category, 'Other'),
             # Prices
             'pm_price': pm_price,
             'k_price': k_price,
             'spread': spread,
-            'price_change_24h': pm_change_24h if pm_change_24h is not None else k_change_24h,
+            'price_change_24h': price_change_24h,
             # Questions
-            'pm_question': pm_winner.get('question') if pm_winner else None,
-            'k_question': k_winner.get('question') if k_winner else None,
-            'pm_candidate': extract_candidate_from_question(pm_winner.get('question')) if pm_winner else None,
-            'k_candidate': extract_candidate_from_question(k_winner.get('question')) if k_winner else None,
+            'pm_question': pm_question,
+            'k_question': k_question,
             # Volume
             'pm_volume': pm_volume,
             'k_volume': k_volume,
@@ -1688,32 +1518,44 @@ def generate_monitor_data(skip_prices=False):
             'k_url': k_url,
             'pm_embed_url': pm_embed_url,
             # Platform availability
-            'has_pm': len(pm_markets) > 0,
-            'has_k': len(k_markets) > 0,
-            'has_both': len(pm_markets) > 0 and len(k_markets) > 0,
+            'has_pm': has_pm,
+            'has_k': has_k,
+            'has_both': has_both,
             # Market identifiers for live data
-            'pm_market_id': str(pm_winner.get('market_id')) if pm_winner and pm_winner.get('market_id') else None,
+            'pm_market_id': str(pm_best.get('market_id')) if has_pm else None,
             'pm_token_id': pm_token_str,
-            'k_ticker': str(k_winner.get('market_id')) if k_winner and k_winner.get('market_id') else None,
+            'k_ticker': str(k_best.get('market_id')) if has_k else None,
             # Globe coords
-            'lat': lat,
-            'lng': lng,
+            'country': country,
+            'location': location_str,
+            'lat': loc_data['lat'],
+            'lng': loc_data['lng'],
+            'region': region,
+            # Electoral metadata
+            'office': office,
+            'year': year,
             # Image
-            'image': pm_image,
+            'image': image,
         }
 
-        if not is_past:
-            all_entries.append(entry)
+        # For single-platform entries, also set 'price' and 'platform' for backward compat
+        if not has_both:
+            entry['platform'] = 'Polymarket' if has_pm else 'Kalshi'
+            entry['price'] = pm_price if has_pm else k_price
+            entry['volume'] = total_volume
 
-    electoral_count = len(all_entries)
-    log(f"  Live election entries: {electoral_count}")
+        all_entries.append(entry)
+
+    ticker_count = len(all_entries)
+    cross_platform_count = sum(1 for e in all_entries if e['entry_type'] == 'cross_platform')
+    log(f"  Ticker-grouped entries: {ticker_count:,} ({cross_platform_count} cross-platform)")
 
     # =========================================================================
-    # PROCESS NON-ELECTORAL MARKETS (individual entries per market)
+    # PROCESS MARKETS WITHOUT TICKERS (fallback individual entries)
     # =========================================================================
-    for _, row in non_electoral.iterrows():
-        market_id = row.get('market_id')
-        if not market_id or pd.isna(market_id):
+    for row in no_ticker_markets:
+        market_id = str(row.get('market_id', '')).split('.')[0]
+        if not market_id:
             continue
 
         question = row.get('question', '')
@@ -1725,33 +1567,8 @@ def generate_monitor_data(skip_prices=False):
         if pd.isna(category):
             category = '15. OTHER'
 
-        # Get price
-        price = None
-        price_change_24h = None
-
-        if platform == 'Polymarket':
-            token_id = row.get('pm_token_id_yes')
-            if pd.notna(token_id):
-                token_str = str(token_id).split('.')[0]
-                if token_str in live_pm_prices:
-                    price = live_pm_prices[token_str]
-                else:
-                    price = get_current_price(token_str, candlesticks)
-                price_change_24h = calculate_24h_change(token_str, candlesticks)
-            if price is None and pd.notna(row.get('last_price')):
-                price = float(row.get('last_price'))
-        else:  # Kalshi
-            market_ticker = str(market_id)
-            if market_ticker in live_k_prices:
-                price = live_k_prices[market_ticker]
-            else:
-                fallback = get_kalshi_fallback_price(row)
-                if fallback is not None:
-                    price = fallback
-            price_change_24h = calculate_kalshi_24h_change_from_snapshot(market_ticker, price, yesterday_kalshi_prices)
-
-        # Volume
-        volume = float(row.get('volume_usd', 0)) if pd.notna(row.get('volume_usd')) else 0
+        price, price_change_24h = get_market_price(row)
+        volume = get_row_volume(row)
 
         # URL
         if platform == 'Polymarket':
@@ -1761,7 +1578,7 @@ def generate_monitor_data(skip_prices=False):
             url = build_kalshi_url(row)
             embed_url = None
 
-        # Get image for PM markets, fallback to category image for Kalshi
+        # Image
         image = None
         if platform == 'Polymarket':
             pm_cid = row.get('pm_condition_id')
@@ -1770,17 +1587,17 @@ def generate_monitor_data(skip_prices=False):
         elif platform == 'Kalshi':
             image = CATEGORY_IMAGES.get(category, CATEGORY_IMAGES.get('15. OTHER'))
 
-        # Extract location for globe display
+        # Location for globe display
         loc_data = extract_location(row)
 
-        # Extract token ID for live data lookup
+        # Token ID for live data
         pm_token = row.get('pm_token_id_yes')
         pm_token_str = str(pm_token).split('.')[0] if pd.notna(pm_token) else None
 
         entry = {
             'key': f"{platform.lower()}_{market_id}",
             'label': str(question),
-            'entry_type': 'market',  # Mark as individual market
+            'entry_type': 'market',
             'platform': platform,
             'category': category,
             'category_display': CATEGORY_DISPLAY.get(category, 'Other'),
@@ -1791,17 +1608,13 @@ def generate_monitor_data(skip_prices=False):
             'pm_url': url if platform == 'Polymarket' else None,
             'k_url': url if platform == 'Kalshi' else None,
             'embed_url': embed_url,
-            # For compatibility with election entries
             'has_pm': platform == 'Polymarket',
             'has_k': platform == 'Kalshi',
             'has_both': False,
-            # Market identifiers for live data
             'pm_market_id': str(market_id) if platform == 'Polymarket' else None,
             'pm_token_id': pm_token_str if platform == 'Polymarket' else None,
             'k_ticker': str(market_id) if platform == 'Kalshi' else None,
-            # Image
             'image': image,
-            # Location for globe display
             'country': loc_data['country'],
             'location': loc_data['location'],
             'lat': loc_data['lat'],
@@ -1810,315 +1623,8 @@ def generate_monitor_data(skip_prices=False):
         }
         all_entries.append(entry)
 
-    non_electoral_count = len(all_entries) - electoral_count
-    log(f"  Non-electoral entries: {non_electoral_count}")
-
-    # =========================================================================
-    # PROCESS NON-WINNER ELECTORAL MARKETS (individual entries, kept as Electoral)
-    # =========================================================================
-    for _, row in non_winner_electoral.iterrows():
-        market_id = row.get('market_id')
-        if not market_id or pd.isna(market_id):
-            continue
-
-        question = row.get('question', '')
-        if not question or pd.isna(question):
-            continue
-
-        platform = row.get('platform')
-
-        # Get price
-        price = None
-        price_change_24h = None
-
-        if platform == 'Polymarket':
-            token_id = row.get('pm_token_id_yes')
-            if pd.notna(token_id):
-                token_str = str(token_id).split('.')[0]
-                if token_str in live_pm_prices:
-                    price = live_pm_prices[token_str]
-                else:
-                    price = get_current_price(token_str, candlesticks)
-                price_change_24h = calculate_24h_change(token_str, candlesticks)
-            if price is None and pd.notna(row.get('last_price')):
-                price = float(row.get('last_price'))
-        else:  # Kalshi
-            market_ticker = str(market_id)
-            if market_ticker in live_k_prices:
-                price = live_k_prices[market_ticker]
-            else:
-                fallback = get_kalshi_fallback_price(row)
-                if fallback is not None:
-                    price = fallback
-            price_change_24h = calculate_kalshi_24h_change_from_snapshot(market_ticker, price, yesterday_kalshi_prices)
-
-        # Volume
-        volume = float(row.get('volume_usd', 0)) if pd.notna(row.get('volume_usd')) else 0
-
-        # URL
-        if platform == 'Polymarket':
-            url = build_pm_url(row, slug_mapping)
-            embed_url = build_pm_embed_url(row)
-        else:
-            url = build_kalshi_url(row)
-            embed_url = None
-
-        # Get image for PM markets, fallback to category image for Kalshi
-        image = None
-        if platform == 'Polymarket':
-            pm_cid = row.get('pm_condition_id')
-            if pd.notna(pm_cid) and str(pm_cid) in pm_images:
-                image = pm_images[str(pm_cid)]
-        elif platform == 'Kalshi':
-            image = CATEGORY_IMAGES.get('1. ELECTORAL')
-
-        # Extract location for globe display
-        loc_data = extract_location(row)
-
-        # Extract token ID for live data lookup
-        pm_token = row.get('pm_token_id_yes')
-        pm_token_str = str(pm_token).split('.')[0] if pd.notna(pm_token) else None
-
-        entry = {
-            'key': f"{platform.lower()}_{market_id}",
-            'label': str(question),
-            'entry_type': 'market',  # Individual market, not grouped election
-            'platform': platform,
-            'category': '1. ELECTORAL',  # Keep as electoral
-            'category_display': 'Electoral',
-            'price': price,
-            'price_change_24h': price_change_24h,
-            'volume': volume,
-            'total_volume': volume,
-            'pm_url': url if platform == 'Polymarket' else None,
-            'k_url': url if platform == 'Kalshi' else None,
-            'embed_url': embed_url,
-            # For compatibility with election entries
-            'has_pm': platform == 'Polymarket',
-            'has_k': platform == 'Kalshi',
-            'has_both': False,
-            # Market identifiers for live data
-            'pm_market_id': str(market_id) if platform == 'Polymarket' else None,
-            'pm_token_id': pm_token_str if platform == 'Polymarket' else None,
-            'k_ticker': str(market_id) if platform == 'Kalshi' else None,
-            # Image
-            'image': image,
-            # Location for globe display
-            'country': loc_data['country'],
-            'location': loc_data['location'],
-            'lat': loc_data['lat'],
-            'lng': loc_data['lng'],
-            'region': REGION_MAP.get(loc_data['country'], 'unknown') if loc_data['country'] else None,
-        }
-        all_entries.append(entry)
-
-    non_winner_electoral_count = len(all_entries) - electoral_count - non_electoral_count
-    log(f"  Non-winner electoral entries: {non_winner_electoral_count}")
-
-    # =========================================================================
-    # PROCESS UNGROUPED WINNER MARKETS (missing metadata for election grouping)
-    # =========================================================================
-    for row in ungrouped_winner_markets:
-        market_id = row.get('market_id')
-        if not market_id or pd.isna(market_id):
-            continue
-
-        question = row.get('question', '')
-        if not question or pd.isna(question):
-            continue
-
-        platform = row.get('platform')
-
-        # Get price
-        price = None
-        price_change_24h = None
-
-        if platform == 'Polymarket':
-            token_id = row.get('pm_token_id_yes')
-            if pd.notna(token_id):
-                token_str = str(token_id).split('.')[0]
-                if token_str in live_pm_prices:
-                    price = live_pm_prices[token_str]
-                else:
-                    price = get_current_price(token_str, candlesticks)
-                price_change_24h = calculate_24h_change(token_str, candlesticks)
-            if price is None and pd.notna(row.get('last_price')):
-                price = float(row.get('last_price'))
-        else:  # Kalshi
-            market_ticker = str(market_id)
-            if market_ticker in live_k_prices:
-                price = live_k_prices[market_ticker]
-            else:
-                fallback = get_kalshi_fallback_price(row)
-                if fallback is not None:
-                    price = fallback
-            price_change_24h = calculate_kalshi_24h_change_from_snapshot(market_ticker, price, yesterday_kalshi_prices)
-
-        # Volume
-        volume = float(row.get('volume_usd', 0)) if pd.notna(row.get('volume_usd')) else 0
-
-        # URL
-        if platform == 'Polymarket':
-            url = build_pm_url(row, slug_mapping)
-            embed_url = build_pm_embed_url(row)
-        else:
-            url = build_kalshi_url(row)
-            embed_url = None
-
-        # Get image for PM markets, fallback to category image for Kalshi
-        image = None
-        if platform == 'Polymarket':
-            pm_cid = row.get('pm_condition_id')
-            if pd.notna(pm_cid) and str(pm_cid) in pm_images:
-                image = pm_images[str(pm_cid)]
-        elif platform == 'Kalshi':
-            image = CATEGORY_IMAGES.get('1. ELECTORAL')
-
-        # Extract location for globe display
-        loc_data = extract_location(row)
-
-        # Extract token ID for live data lookup
-        pm_token = row.get('pm_token_id_yes')
-        pm_token_str = str(pm_token).split('.')[0] if pd.notna(pm_token) else None
-
-        entry = {
-            'key': f"{platform.lower()}_{market_id}",
-            'label': str(question),
-            'entry_type': 'market',  # Individual market, not grouped election
-            'platform': platform,
-            'category': '1. ELECTORAL',  # Keep as electoral
-            'category_display': 'Electoral',
-            'price': price,
-            'price_change_24h': price_change_24h,
-            'volume': volume,
-            'total_volume': volume,
-            'pm_url': url if platform == 'Polymarket' else None,
-            'k_url': url if platform == 'Kalshi' else None,
-            'embed_url': embed_url,
-            # For compatibility with election entries
-            'has_pm': platform == 'Polymarket',
-            'has_k': platform == 'Kalshi',
-            'has_both': False,
-            # Market identifiers for live data
-            'pm_market_id': str(market_id) if platform == 'Polymarket' else None,
-            'pm_token_id': pm_token_str if platform == 'Polymarket' else None,
-            'k_ticker': str(market_id) if platform == 'Kalshi' else None,
-            # Image
-            'image': image,
-            # Location for globe display
-            'country': loc_data['country'],
-            'location': loc_data['location'],
-            'lat': loc_data['lat'],
-            'lng': loc_data['lng'],
-            'region': REGION_MAP.get(loc_data['country'], 'unknown') if loc_data['country'] else None,
-        }
-        all_entries.append(entry)
-
-    ungrouped_winner_count = len(all_entries) - electoral_count - non_electoral_count - non_winner_electoral_count
-    log(f"  Ungrouped winner entries: {ungrouped_winner_count}")
-
-    # =========================================================================
-    # PROCESS GROUPED WINNER MARKETS AS INDIVIDUAL ENTRIES
-    # (These are already in grouped elections, but also shown individually)
-    # =========================================================================
-    for row in grouped_winner_markets:
-        market_id = row.get('market_id')
-        if not market_id or pd.isna(market_id):
-            continue
-
-        question = row.get('question', '')
-        if not question or pd.isna(question):
-            continue
-
-        platform = row.get('platform')
-
-        # Get price
-        price = None
-        price_change_24h = None
-
-        if platform == 'Polymarket':
-            token_id = row.get('pm_token_id_yes')
-            if pd.notna(token_id):
-                token_str = str(token_id).split('.')[0]
-                if token_str in live_pm_prices:
-                    price = live_pm_prices[token_str]
-                else:
-                    price = get_current_price(token_str, candlesticks)
-                price_change_24h = calculate_24h_change(token_str, candlesticks)
-            if price is None and pd.notna(row.get('last_price')):
-                price = float(row.get('last_price'))
-        else:  # Kalshi
-            market_ticker = str(market_id)
-            if market_ticker in live_k_prices:
-                price = live_k_prices[market_ticker]
-            else:
-                fallback = get_kalshi_fallback_price(row)
-                if fallback is not None:
-                    price = fallback
-            price_change_24h = calculate_kalshi_24h_change_from_snapshot(market_ticker, price, yesterday_kalshi_prices)
-
-        # Volume
-        volume = float(row.get('volume_usd', 0)) if pd.notna(row.get('volume_usd')) else 0
-
-        # URL
-        if platform == 'Polymarket':
-            url = build_pm_url(row, slug_mapping)
-            embed_url = build_pm_embed_url(row)
-        else:
-            url = build_kalshi_url(row)
-            embed_url = None
-
-        # Get image for PM markets, fallback to category image for Kalshi
-        image = None
-        if platform == 'Polymarket':
-            pm_cid = row.get('pm_condition_id')
-            if pd.notna(pm_cid) and str(pm_cid) in pm_images:
-                image = pm_images[str(pm_cid)]
-        elif platform == 'Kalshi':
-            image = CATEGORY_IMAGES.get('1. ELECTORAL')
-
-        # Extract location for globe display
-        loc_data = extract_location(row)
-
-        # Extract token ID for live data lookup
-        pm_token = row.get('pm_token_id_yes')
-        pm_token_str = str(pm_token).split('.')[0] if pd.notna(pm_token) else None
-
-        entry = {
-            'key': f"{platform.lower()}_{market_id}",
-            'label': str(question),
-            'entry_type': 'market',  # Individual market entry
-            'platform': platform,
-            'category': '1. ELECTORAL',  # Keep as electoral
-            'category_display': 'Electoral',
-            'price': price,
-            'price_change_24h': price_change_24h,
-            'volume': volume,
-            'total_volume': volume,
-            'pm_url': url if platform == 'Polymarket' else None,
-            'k_url': url if platform == 'Kalshi' else None,
-            'embed_url': embed_url,
-            # For compatibility with election entries
-            'has_pm': platform == 'Polymarket',
-            'has_k': platform == 'Kalshi',
-            'has_both': False,
-            # Market identifiers for live data
-            'pm_market_id': str(market_id) if platform == 'Polymarket' else None,
-            'pm_token_id': pm_token_str if platform == 'Polymarket' else None,
-            'k_ticker': str(market_id) if platform == 'Kalshi' else None,
-            # Image
-            'image': image,
-            # Location for globe display
-            'country': loc_data['country'],
-            'location': loc_data['location'],
-            'lat': loc_data['lat'],
-            'lng': loc_data['lng'],
-            'region': REGION_MAP.get(loc_data['country'], 'unknown') if loc_data['country'] else None,
-        }
-        all_entries.append(entry)
-
-    grouped_winner_count = len(all_entries) - electoral_count - non_electoral_count - non_winner_electoral_count - ungrouped_winner_count
-    log(f"  Grouped winner individual entries: {grouped_winner_count}")
+    no_ticker_count = len(all_entries) - ticker_count
+    log(f"  No-ticker fallback entries: {no_ticker_count:,}")
     log(f"  Total entries: {len(all_entries):,}")
 
     # Count location coverage
@@ -2136,11 +1642,9 @@ def generate_monitor_data(skip_prices=False):
         'generated_at': datetime.now().isoformat(),
         'counts': {
             'total': len(all_entries),
-            'elections': electoral_count,
-            'grouped_winner_individual': grouped_winner_count,
-            'ungrouped_winner': ungrouped_winner_count,
-            'non_winner_electoral': non_winner_electoral_count,
-            'non_electoral': non_electoral_count,
+            'ticker_grouped': ticker_count,
+            'cross_platform': cross_platform_count,
+            'no_ticker_fallback': no_ticker_count,
         },
         'category_counts': category_counts,
         'markets': all_entries,

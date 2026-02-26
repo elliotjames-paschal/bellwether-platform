@@ -27,7 +27,7 @@ from collections import defaultdict
 # Paths
 from config import DATA_DIR, PACKAGES_DIR
 
-TICKERS_FILE = DATA_DIR / "tickers.json"
+TICKERS_FILE = DATA_DIR / "tickers_postprocessed.json"
 ENRICHED_FILE = DATA_DIR / "enriched_political_markets.json.gz"
 OUTPUT_FILE = PACKAGES_DIR / "api" / "market_map.json"
 WEBSITE_OUTPUT = PACKAGES_DIR / "website" / "data" / "market_map.json"
@@ -146,60 +146,79 @@ def generate_market_map():
     for t in tickers_data['tickers']:
         by_ticker[t['ticker']].append(t)
 
-    # Find cross-platform matches
+    # Build all market entries (not just cross-platform)
     matched_markets = []
+    seen_slugs = set()
 
     for ticker, markets in by_ticker.items():
         platforms = {m['platform'] for m in markets}
+        has_kalshi = 'Kalshi' in platforms
+        has_poly = 'Polymarket' in platforms
 
-        # Only include if both platforms have this ticker
-        if 'Kalshi' not in platforms or 'Polymarket' not in platforms:
-            continue
+        if has_kalshi and has_poly:
+            platform = 'both'
+        elif has_kalshi:
+            platform = 'kalshi'
+        else:
+            platform = 'polymarket'
 
         kalshi_markets = [m for m in markets if m['platform'] == 'Kalshi']
         poly_markets = [m for m in markets if m['platform'] == 'Polymarket']
 
-        # Use the first market from each platform
-        k_market = kalshi_markets[0]
-        pm_market = poly_markets[0]
+        # Pick best market per platform by volume
+        def best_by_volume(mlist):
+            if not mlist:
+                return None
+            return max(mlist, key=lambda m: enriched.get(str(m['market_id']), {}).get('volume', 0))
+
+        k_market = best_by_volume(kalshi_markets)
+        pm_market = best_by_volume(poly_markets)
 
         # Get market IDs
-        k_ticker = k_market['market_id']
-        pm_token = str(pm_market['market_id'])
+        k_ticker_id = k_market['market_id'] if k_market else None
+        pm_token = str(pm_market['market_id']) if pm_market else None
 
         # Get volume from enriched data
-        k_vol = enriched.get(str(k_ticker), {}).get('volume', 0)
-        pm_vol = enriched.get(str(pm_token), {}).get('volume', 0)
+        k_vol = enriched.get(str(k_ticker_id), {}).get('volume', 0) if k_ticker_id else 0
+        pm_vol = enriched.get(str(pm_token), {}).get('volume', 0) if pm_token else 0
         total_volume = k_vol + pm_vol
 
-        # Get category and country
-        category = enriched.get(str(k_ticker), {}).get('category', '')
-        country = enriched.get(str(k_ticker), {}).get('country', '')
+        # Get category and country from whichever platform is available
+        ref_id = str(k_ticker_id) if k_ticker_id else str(pm_token)
+        category = enriched.get(ref_id, {}).get('category', '')
+        country = enriched.get(ref_id, {}).get('country', '')
 
-        # Generate slug from ticker
-        # BWR-DEM-WIN-GOV_CA-CERTIFIED-ANY-2026 -> dem-win-gov-ca
-        slug_parts = ticker.replace('BWR-', '').split('-')[:4]
+        # Generate unique slug from ticker
+        slug_parts = ticker.split('-')[:4]
         slug = slugify('-'.join(slug_parts))
+        base_slug = slug
+        counter = 2
+        while slug in seen_slugs:
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        seen_slugs.add(slug)
 
-        # Use Kalshi question as title (usually cleaner)
-        title = k_market.get('original_question', ticker)
+        # Use Kalshi question as title (usually cleaner), fall back to PM
+        title_market = k_market or pm_market
+        title = title_market.get('original_question', ticker)
 
         # Look up the actual CLOB API token for Polymarket
-        pm_token_id = pm_token_lookup.get(str(pm_token))
+        pm_token_id = pm_token_lookup.get(str(pm_token)) if pm_token else None
 
         matched_markets.append({
             'slug': slug,
             'title': title,
             'ticker': ticker,  # Our canonical BWR ticker
-            'k_ticker': k_ticker,
+            'k_ticker': k_ticker_id,
             'pm_token': pm_token,          # Short market_id (for URLs/display)
             'pm_token_id': pm_token_id,    # CLOB API token (77-digit)
             'category': category or _infer_category(ticker),
             'country': country,
+            'platform': platform,
             'total_volume': total_volume,
             # Include both questions for debugging
-            'k_question': k_market.get('original_question', ''),
-            'pm_question': pm_market.get('original_question', ''),
+            'k_question': k_market.get('original_question', '') if k_market else '',
+            'pm_question': pm_market.get('original_question', '') if pm_market else '',
         })
 
     # Sort by volume descending
@@ -227,10 +246,17 @@ def generate_market_map():
     with_token_id = sum(1 for m in matched_markets if m.get('pm_token_id'))
     without_token_id = len(matched_markets) - with_token_id
 
+    both_count = sum(1 for m in matched_markets if m.get('platform') == 'both')
+    kalshi_only = sum(1 for m in matched_markets if m.get('platform') == 'kalshi')
+    poly_only = sum(1 for m in matched_markets if m.get('platform') == 'polymarket')
+
     print(f"\n=== RESULTS ===")
     print(f"Total tickers: {len(tickers_data['tickers'])}")
     print(f"Unique tickers: {len(by_ticker)}")
-    print(f"Cross-platform matches: {len(matched_markets)}")
+    print(f"Total entries: {len(matched_markets)}")
+    print(f"  Cross-platform (both): {both_count}")
+    print(f"  Kalshi only: {kalshi_only}")
+    print(f"  Polymarket only: {poly_only}")
     print(f"With pm_token_id: {with_token_id}/{len(matched_markets)} ({100*with_token_id/max(len(matched_markets),1):.1f}%)")
     if without_token_id:
         print(f"  Missing pm_token_id: {without_token_id} markets")

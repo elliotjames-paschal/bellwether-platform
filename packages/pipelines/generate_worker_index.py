@@ -29,7 +29,7 @@ from collections import defaultdict
 
 from config import DATA_DIR, PACKAGES_DIR
 
-TICKERS_FILE = DATA_DIR / "tickers.json"
+TICKERS_FILE = DATA_DIR / "tickers_postprocessed.json"
 MASTER_CSV = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 API_OUTPUT = PACKAGES_DIR / "api" / "market_map.json"
 WEBSITE_OUTPUT = PACKAGES_DIR / "website" / "data" / "market_map.json"

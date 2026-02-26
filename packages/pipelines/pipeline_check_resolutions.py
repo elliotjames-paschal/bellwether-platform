@@ -275,16 +275,16 @@ def main():
     log(f"  Total markets: {len(df):,}")
 
     # Get open markets
-    open_markets = df[df['is_closed'] == False].copy()
+    # Polymarket: use is_closed flag
+    # Kalshi: use k_status since is_closed is stale (all True due to historical bug)
+    pm_open = df[(df['platform'] == 'Polymarket') & (df['is_closed'] == False)].copy()
+    kalshi_open = df[(df['platform'] == 'Kalshi') & (df['k_status'].isin(['active', 'open']))].copy()
+    open_markets = pd.concat([pm_open, kalshi_open])
     log(f"  Open markets to check: {len(open_markets):,}")
 
     if len(open_markets) == 0:
         log("No open markets to check!")
         return 0
-
-    # Split by platform
-    pm_open = open_markets[open_markets['platform'] == 'Polymarket']
-    kalshi_open = open_markets[open_markets['platform'] == 'Kalshi']
 
     log(f"    Polymarket: {len(pm_open):,}")
     log(f"    Kalshi: {len(kalshi_open):,}")
