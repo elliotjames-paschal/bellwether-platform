@@ -39,6 +39,7 @@ import os
 import sys
 import re
 import time
+import asyncio
 import smtplib
 from datetime import datetime
 from pathlib import Path
@@ -46,7 +47,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 sys.path.insert(0, str(Path(__file__).parent))
-from config import BASE_DIR, DATA_DIR, get_openai_api_key, rotate_backups
+from config import BASE_DIR, DATA_DIR, rotate_backups
 
 # Import coordinate lookup from generate_web_data
 from generate_web_data import LOCATION_COORDS, US_STATE_ABBREVS
@@ -572,6 +573,70 @@ def query_gpt(client, prompt):
     return None
 
 
+# Concurrency for parallel GPT calls
+MAX_CONCURRENT_GPT = 5
+
+
+async def query_gpt_async(client, prompt, semaphore):
+    """Send prompt to GPT-4o-search-preview asynchronously with rate limiting."""
+    async with semaphore:
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = await client.chat.completions.create(
+                    model=SEARCH_MODEL,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=600
+                )
+                text = response.choices[0].message.content.strip()
+                json_str = extract_json_from_response(text)
+                return json.loads(json_str)
+
+            except json.JSONDecodeError as e:
+                log(f"    JSON parse error (attempt {attempt + 1}): {e}")
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(DELAY_BETWEEN_CALLS)
+
+            except Exception as e:
+                log(f"    API error (attempt {attempt + 1}): {e}")
+                if attempt < MAX_RETRIES - 1:
+                    wait = DELAY_BETWEEN_CALLS * (2 ** attempt)
+                    await asyncio.sleep(wait)
+
+        return None
+
+
+async def run_elections_async(prepared):
+    """Run GPT calls for all prepared elections in parallel.
+
+    Args:
+        prepared: list of (key, prompt, pm_markets, kalshi_markets, desc)
+
+    Returns:
+        list of (key, result, pm_markets, kalshi_markets, desc)
+    """
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI()
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_GPT)
+
+    async def process_one(item):
+        key, prompt, pm_markets, kalshi_markets, desc = item
+        result = await query_gpt_async(client, prompt, semaphore)
+        return (key, result, pm_markets, kalshi_markets, desc)
+
+    tasks = [process_one(item) for item in prepared]
+    results = []
+    completed = 0
+
+    for coro in asyncio.as_completed(tasks):
+        result = await coro
+        results.append(result)
+        completed += 1
+        if completed % 10 == 0 or completed == len(tasks):
+            log(f"  GPT calls completed: {completed}/{len(tasks)}")
+
+    return results
+
+
 def _resolve_coords(country, location):
     """Resolve (country, location) to (lat, lng) using LOCATION_COORDS.
 
@@ -964,8 +1029,6 @@ def main():
 
     # Process elections
     log(f"\nProcessing {len(elections_to_process)} elections...")
-    from openai import OpenAI
-    client = OpenAI(api_key=get_openai_api_key())
 
     processed = 0
     found = 0
@@ -975,7 +1038,10 @@ def main():
     both_selected = 0
     all_gpt_overrides = []  # Track markets found via GPT web search
 
-    for i, key in enumerate(elections_to_process):
+    # Phase 1: Prepare all elections (validate, pre-filter, build prompts)
+    prepared = []  # list of (key, prompt, pm_markets, kalshi_markets, desc)
+
+    for key in elections_to_process:
         election = elections[key]
         info = election['info']
         all_markets = election['markets']
@@ -985,8 +1051,6 @@ def main():
         location = info.get('location') if pd.notna(info.get('location')) else '?'
         is_primary = " (Primary)" if str(info.get('is_primary', '')).lower() == 'true' else ""
         desc = f"{year} {office} - {location}{is_primary}"
-
-        log(f"\n  [{i+1}/{len(elections_to_process)}] {desc} ({len(all_markets)} markets)")
 
         # Skip elections with incomplete metadata - require ALL of: country, office, location, year
         # This prevents vote shares from being assigned to elections we can't uniquely identify
@@ -1001,22 +1065,17 @@ def main():
             missing_fields.append('year')
 
         if missing_fields:
-            log(f"    SKIP: Incomplete metadata (missing: {', '.join(missing_fields)})")
-            log(f"    → Vote shares not assigned to prevent data corruption")
+            log(f"  SKIP: {desc} - Incomplete metadata (missing: {', '.join(missing_fields)})")
             selections[key] = {
                 "election_found": False,
                 "error": f"Incomplete metadata: missing {', '.join(missing_fields)}",
                 "skipped_markets": len(all_markets)
             }
-            save_selections(selections)
             processed += 1
             continue
 
         # Pre-filter non-winner markets
         filtered = [m for m in all_markets if not NON_WINNER_REGEX.search(m['question'])]
-        excluded = len(all_markets) - len(filtered)
-        if excluded > 0:
-            log(f"    Pre-filtered: {excluded} non-winner markets removed")
 
         # Split by platform and sort by volume
         pm_markets = sorted(
@@ -1029,74 +1088,80 @@ def main():
             key=lambda x: x['volume_usd'], reverse=True
         )[:MAX_MARKETS_PER_PLATFORM]
 
-        log(f"    Sending to GPT: {len(pm_markets)} PM + {len(kalshi_markets)} Kalshi markets")
-
-        # Build and send prompt
         prompt = build_prompt(info, pm_markets, kalshi_markets)
-        result = query_gpt(client, prompt)
+        prepared.append((key, prompt, pm_markets, kalshi_markets, desc))
 
-        if result is None:
-            log(f"    FAILED: No response from GPT")
-            selections[key] = {"election_found": False, "error": "API failure"}
-            save_selections(selections)
-            time.sleep(DELAY_BETWEEN_CALLS)
-            processed += 1
-            continue
+    # Save skipped selections
+    save_selections(selections)
 
-        if not result.get('election_found', False):
-            log(f"    Not found: {result.get('notes', 'no details')}")
+    if not prepared:
+        log("No elections need GPT processing (all skipped or validated)")
+    else:
+        # Phase 2: Send all GPT calls in parallel (5 concurrent, rate-limited)
+        log(f"\nSending {len(prepared)} GPT calls ({MAX_CONCURRENT_GPT} concurrent)...")
+        gpt_results = asyncio.run(run_elections_async(prepared))
+
+        # Phase 3: Process results sequentially (update shared state)
+        for key, result, pm_markets, kalshi_markets, desc in gpt_results:
+            log(f"\n  {desc}")
+
+            if result is None:
+                log(f"    FAILED: No response from GPT")
+                selections[key] = {"election_found": False, "error": "API failure"}
+                processed += 1
+                continue
+
+            if not result.get('election_found', False):
+                log(f"    Not found: {result.get('notes', 'no details')}")
+                selections[key] = result
+                selections[key]['processed_at'] = datetime.now().isoformat()
+                processed += 1
+                continue
+
+            # Validate GPT selection against volume
+            result, was_swapped = validate_selection_volume(result, pm_markets, kalshi_markets)
+
+            # Track any GPT overrides (markets found via web search)
+            if 'gpt_overrides' in result:
+                for override in result['gpt_overrides']:
+                    override['election_key'] = key
+                    all_gpt_overrides.append(override)
+
+            # Log results
+            found += 1
+            winner = result.get('winning_candidate', '?')
+            party = result.get('winning_party', '?')
+            d_share = result.get('democrat_vote_share')
+            r_share = result.get('republican_vote_share')
+
+            if d_share and r_share:
+                log(f"    Winner: {winner} ({party}) - D:{d_share}% R:{r_share}%")
+            else:
+                log(f"    Winner: {winner} ({party})")
+
+            pm_id = result.get('polymarket_winner_market_id')
+            k_id = result.get('kalshi_winner_market_id')
+
+            if pm_id:
+                pm_selected += 1
+            if k_id:
+                kalshi_selected += 1
+            if pm_id and k_id:
+                both_selected += 1
+
+            # Save selection
+            result['processed_at'] = datetime.now().isoformat()
+            result['election_info'] = {k: str(v) if pd.notna(v) else None for k, v in elections[key]['info'].items()}
             selections[key] = result
-            selections[key]['processed_at'] = datetime.now().isoformat()
-            save_selections(selections)
-            time.sleep(DELAY_BETWEEN_CALLS)
+
+            # Update master CSV vote shares
+            count = update_master_vote_shares(df, key, result)
+            vote_shares_updated += count
+
             processed += 1
-            continue
 
-        # Validate GPT selection against volume
-        result, was_swapped = validate_selection_volume(result, pm_markets, kalshi_markets)
-
-        # Track any GPT overrides (markets found via web search)
-        if 'gpt_overrides' in result:
-            for override in result['gpt_overrides']:
-                override['election_key'] = key
-                all_gpt_overrides.append(override)
-
-        # Log results
-        found += 1
-        winner = result.get('winning_candidate', '?')
-        party = result.get('winning_party', '?')
-        d_share = result.get('democrat_vote_share')
-        r_share = result.get('republican_vote_share')
-
-        if d_share and r_share:
-            log(f"    Winner: {winner} ({party}) - D:{d_share}% R:{r_share}%")
-        else:
-            log(f"    Winner: {winner} ({party})")
-
-        pm_id = result.get('polymarket_winner_market_id')
-        k_id = result.get('kalshi_winner_market_id')
-
-        if pm_id:
-            log(f"    PM selection: {pm_id}")
-            pm_selected += 1
-        if k_id:
-            log(f"    Kalshi selection: {k_id}")
-            kalshi_selected += 1
-        if pm_id and k_id:
-            both_selected += 1
-
-        # Save selection
-        result['processed_at'] = datetime.now().isoformat()
-        result['election_info'] = {k: str(v) if pd.notna(v) else None for k, v in info.items()}
-        selections[key] = result
+        # Save all selections after processing
         save_selections(selections)
-
-        # Update master CSV vote shares
-        count = update_master_vote_shares(df, key, result)
-        vote_shares_updated += count
-
-        processed += 1
-        time.sleep(DELAY_BETWEEN_CALLS)
 
     # Save updated master CSV
     log("\nSaving updated master CSV...")
