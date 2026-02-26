@@ -122,7 +122,7 @@ def fetch_kalshi_markets(status: Optional[str] = None, limit: int = 1000) -> lis
 
                     log(f"  Page {page}: {len(markets)} markets (total: {len(all_markets)})")
 
-                    if not cursor or len(markets) < limit:
+                    if not cursor:
                         return all_markets
 
                     time.sleep(KALSHI_RATE_LIMIT)
@@ -190,7 +190,7 @@ def fetch_kalshi_events(with_nested_markets: bool = True, limit: int = 200) -> l
 
                     log(f"  Page {page}: {len(events)} events (total: {len(all_events)})")
 
-                    if not cursor or len(events) < limit:
+                    if not cursor:
                         return all_events
 
                     time.sleep(KALSHI_RATE_LIMIT)

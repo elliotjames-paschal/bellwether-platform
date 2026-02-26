@@ -255,9 +255,9 @@ def main():
 
     # Normalize winning_outcome casing (Yes/No)
     if 'winning_outcome' in updated_master.columns:
-        wo = updated_master['winning_outcome']
-        updated_master.loc[wo.str.lower() == 'yes', 'winning_outcome'] = 'Yes'
-        updated_master.loc[wo.str.lower() == 'no', 'winning_outcome'] = 'No'
+        wo = updated_master['winning_outcome'].astype(str).str.lower()
+        updated_master.loc[wo == 'yes', 'winning_outcome'] = 'Yes'
+        updated_master.loc[wo == 'no', 'winning_outcome'] = 'No'
 
     # Save updated master
     log("\nSaving updated master CSV...")

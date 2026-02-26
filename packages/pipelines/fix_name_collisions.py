@@ -27,7 +27,7 @@ except ImportError:
     HAS_TQDM = False
 
 # Paths
-from config import DATA_DIR
+from config import DATA_DIR, atomic_write_json
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROMPTS_DIR = SCRIPT_DIR / "prompts"
@@ -354,8 +354,7 @@ async def main():
 
     # Save
     tickers_data['collision_fix_applied'] = datetime.now().isoformat()
-    with open(DATA_DIR / "tickers.json", "w") as f:
-        json.dump(tickers_data, f, indent=2)
+    atomic_write_json(DATA_DIR / "tickers.json", tickers_data, indent=2)
 
     print(f"Saved to {DATA_DIR / 'tickers.json'}")
 

@@ -36,6 +36,14 @@ def format_category_name(cat):
 import sys as _sys
 _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import BASE_DIR, DATA_DIR, WEBSITE_DIR
+try:
+    from paper_config import PAPER_DATA_DIR
+    if str(PAPER_DATA_DIR) != str(DATA_DIR):
+        print(f"WARNING: PAPER_DATA_DIR ({PAPER_DATA_DIR}) != DATA_DIR ({DATA_DIR}). "
+              "Some analysis outputs may be in PAPER_DATA_DIR. "
+              "Run analysis scripts without BELLWETHER_OUTPUT_DIR to write to DATA_DIR.")
+except ImportError:
+    PAPER_DATA_DIR = DATA_DIR
 WEB_DATA_DIR = str(WEBSITE_DIR / "data")
 
 # Ensure output directory exists

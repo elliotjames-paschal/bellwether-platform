@@ -103,7 +103,7 @@ print(f"Records at 1 day before: {len(df_1day):,}")
 num_bins = 100
 # Sort by prediction_price and assign bin based on rank
 df_1day = df_1day.sort_values('prediction_price').reset_index(drop=True)
-samples_per_bin = len(df_1day) // num_bins
+samples_per_bin = max(1, len(df_1day) // num_bins)
 df_1day['bin'] = df_1day.index // samples_per_bin
 # Handle any remainder by putting them in the last bin
 df_1day.loc[df_1day['bin'] >= num_bins, 'bin'] = num_bins - 1

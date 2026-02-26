@@ -463,7 +463,7 @@ def main():
         dates_df = pd.read_csv(DATES_LOOKUP_FILE)
         log(f"  Existing dates lookup: {len(dates_df):,} entries")
     else:
-        dates_df = pd.DataFrame(columns=['office', 'location', 'election_year', 'election_date'])
+        dates_df = pd.DataFrame(columns=['country', 'office', 'location', 'election_year', 'is_primary', 'election_date'])
         log("  No existing dates lookup - starting fresh")
 
     # Find elections that need dates

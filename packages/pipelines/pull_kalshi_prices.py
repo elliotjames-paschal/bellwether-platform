@@ -30,7 +30,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config import BASE_DIR, DATA_DIR
+from config import BASE_DIR, DATA_DIR, atomic_write_json
 MASTER_FILE = str(DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv")
 PRICES_FILE = str(DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json")
 
@@ -224,10 +224,10 @@ def fetch_kalshi_trades_direct(ticker, start_ts, end_ts):
     return candlesticks
 
 
-def process_market(ticker, existing_prices, start_ts, end_ts, full_history_start_ts):
+def process_market(ticker, existing_prices, start_ts, end_ts, full_history_start_ts, full_refresh=False):
     """Process a single Kalshi market: fetch candlesticks, fall back to trades if empty."""
     # Determine actual start timestamp based on existing data
-    if ticker in existing_prices and existing_prices[ticker]:
+    if not full_refresh and ticker in existing_prices and existing_prices[ticker]:
         last_ts = max(p.get('end_period_ts', p.get('t', 0)) for p in existing_prices[ticker])
         actual_start = last_ts + 1
     else:
@@ -310,7 +310,7 @@ def main():
                     skipped += 1
                     continue
 
-        work_items.append((ticker, existing_prices, default_start_ts, end_ts, full_history_start_ts))
+        work_items.append((ticker, existing_prices, default_start_ts, end_ts, full_history_start_ts, full_refresh))
 
     log(f"Skipped {skipped} old closed markets")
     log(f"Submitting {len(work_items)} markets to {NUM_WORKERS} workers...")
@@ -346,8 +346,7 @@ def main():
                     f"({updated} updated, {errors} errors)")
 
     # Save
-    with open(PRICES_FILE, 'w') as f:
-        json.dump(existing_prices, f)
+    atomic_write_json(PRICES_FILE, existing_prices)
 
     log("=" * 60)
     log(f"COMPLETE: {updated} updated, {errors} errors, {skipped} skipped")

@@ -902,25 +902,27 @@ def main():
     client = get_openai_client()
     log("  OpenAI client ready")
 
-    # Load checkpoint if exists
-    processed_indices = {}
+    # Load checkpoint if exists (keyed by stable market_id, not DataFrame index)
+    processed_markets = {}
     if CHECKPOINT_FILE.exists():
         with open(CHECKPOINT_FILE, 'r') as f:
             checkpoint = json.load(f)
-            processed_indices = {int(k): v for k, v in checkpoint.get('results', {}).items()}
-        log(f"  Loaded checkpoint: {len(processed_indices)} already processed")
+            processed_markets = checkpoint.get('results', {})
+        log(f"  Loaded checkpoint: {len(processed_markets)} already processed")
 
-    # Get questions to classify
-    questions = needs_classification['question'].tolist()
-    original_indices = needs_classification.index.tolist()
+    # Build market_id -> df_index mapping for needs_classification
+    mid_to_idx = {}
+    for idx, row in needs_classification.iterrows():
+        mid_to_idx[str(row['market_id'])] = idx
 
-    # Filter out already processed
+    # Filter out already processed (by market_id)
     questions_to_process = []
-    indices_to_process = []
-    for q, idx in zip(questions, original_indices):
-        if idx not in processed_indices:
-            questions_to_process.append(q)
-            indices_to_process.append(idx)
+    ids_to_process = []  # list of (market_id, df_index)
+    for idx, row in needs_classification.iterrows():
+        mid = str(row['market_id'])
+        if mid not in processed_markets:
+            questions_to_process.append(row['question'])
+            ids_to_process.append((mid, idx))
 
     log(f"  Markets to classify: {len(questions_to_process):,}")
 
@@ -929,15 +931,15 @@ def main():
         start_time = time.time()
         results = run_classification_pipeline(client, questions_to_process, show_progress=True)
 
-        # Map results back to original indices and update dataframe
+        # Map results back to market IDs and update dataframe
         for result in results:
             local_idx = result["index"]
-            original_idx = indices_to_process[local_idx]
+            market_id, df_idx = ids_to_process[local_idx]
             full_category = expand_category(result["category"])
-            df.loc[original_idx, 'political_category'] = full_category
+            df.loc[df_idx, 'political_category'] = full_category
 
-            # Save to checkpoint
-            processed_indices[original_idx] = {
+            # Save to checkpoint (keyed by market_id)
+            processed_markets[market_id] = {
                 "category": full_category,
                 "confidence": result.get("confidence", 0),
                 "votes": result.get("votes", 1)
@@ -946,7 +948,7 @@ def main():
         # Save checkpoint
         with open(CHECKPOINT_FILE, 'w') as f:
             json.dump({
-                'results': {str(k): v for k, v in processed_indices.items()},
+                'results': processed_markets,
                 'last_updated': datetime.now().isoformat()
             }, f)
 
@@ -954,9 +956,9 @@ def main():
         log(f"\nClassification completed in {elapsed/60:.1f} minutes")
 
     # Also apply any previously processed results
-    for idx_str, data in processed_indices.items():
-        idx = int(idx_str)
-        if idx in df.index and pd.isna(df.loc[idx, 'political_category']):
+    for market_id, data in processed_markets.items():
+        idx = mid_to_idx.get(market_id)
+        if idx is not None and idx in df.index and pd.isna(df.loc[idx, 'political_category']):
             df.loc[idx, 'political_category'] = data.get("category", "NEEDS_REVIEW")
 
     # Separate classified markets from those needing review

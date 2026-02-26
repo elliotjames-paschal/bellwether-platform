@@ -23,7 +23,7 @@ from pathlib import Path
 # Paths
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
-from config import DATA_DIR
+from config import DATA_DIR, atomic_write_json
 
 # Input/Output files - IMPORTANT: Read from CORRECTED to preserve repulled data
 INPUT_PRICES = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
@@ -254,8 +254,7 @@ print(f"      Total price points removed: {stats['prices_removed_total']:,}")
 
 print("\n5. Saving corrected prices...")
 
-with open(OUTPUT_PRICES, 'w') as f:
-    json.dump(truncated_prices, f)
+atomic_write_json(OUTPUT_PRICES, truncated_prices)
 
 print(f"   Saved to: {OUTPUT_PRICES}")
 

@@ -708,14 +708,51 @@ def load_markets(input_file: Path) -> List[Dict[str, Any]]:
     return data.get("markets", data)
 
 
+def get_market_id(market: Dict[str, Any]) -> str:
+    """Extract market_id from a market dict (handles enriched format)."""
+    csv = market.get("original_csv", market)
+    return str(csv.get("market_id", ""))
+
+
+def filter_to_untickered(
+    markets: List[Dict[str, Any]],
+    output_file: Path
+) -> tuple:
+    """
+    Filter markets to only those without existing tickers.
+
+    Returns (filtered_markets, existing_tickers_list).
+    """
+    if not output_file.exists():
+        print("No existing tickers file found, all markets need tickers")
+        return markets, []
+
+    with open(output_file, "r", encoding="utf-8") as f:
+        existing_data = json.load(f)
+
+    existing_tickers = existing_data.get("tickers", [])
+    existing_ids = {t["market_id"] for t in existing_tickers if "market_id" in t}
+
+    filtered = []
+    skipped = 0
+    for m in markets:
+        market_id = get_market_id(m)
+        if market_id and market_id in existing_ids:
+            skipped += 1
+        else:
+            filtered.append(m)
+
+    print(f"{len(filtered)} new markets need tickers, {skipped} already tickered (skipped)")
+    return filtered, existing_tickers
+
+
 async def run_pipeline_async(
     markets: List[Dict[str, Any]],
-    output_file: Path,
     model: str,
     workers: int,
     batch_size: int
-):
-    """Run the full pipeline with async processing."""
+) -> List[Dict[str, Any]]:
+    """Run the full pipeline with async processing. Returns list of ticker results."""
     print(f"Pre-extracting fields for {len(markets)} markets...")
     prepared = [pre_extract_fields(m) for m in markets]
 
@@ -758,23 +795,26 @@ async def run_pipeline_async(
             postprocess_ticker(t)
             t["ticker"] = assemble_ticker(t)
 
-    # Save
+    return all_results
+
+
+def save_tickers(tickers: List[Dict[str, Any]], output_file: Path, model: str):
+    """Save tickers to output file and print stats."""
     output = {
         "generated_at": datetime.now().isoformat(),
         "model": model,
-        "total_markets": len(all_results),
-        "tickers": all_results
+        "total_markets": len(tickers),
+        "tickers": tickers
     }
 
     DATA_DIR.mkdir(exist_ok=True)
     with open(output_file, "w") as f:
         json.dump(output, f, indent=2)
 
-    # Stats
-    errors = sum(1 for t in all_results if "error" in t)
-    unique = len(set(t.get("ticker", "") for t in all_results if "ticker" in t))
+    errors = sum(1 for t in tickers if "error" in t)
+    unique = len(set(t.get("ticker", "") for t in tickers if "ticker" in t))
     print(f"\nComplete!")
-    print(f"  Total: {len(all_results)}")
+    print(f"  Total: {len(tickers)}")
     print(f"  Errors: {errors}")
     print(f"  Unique tickers: {unique}")
     print(f"  Output: {output_file}")
@@ -818,6 +858,11 @@ def main():
         default=None,
         help="Limit markets to process"
     )
+    parser.add_argument(
+        "--full-refresh",
+        action="store_true",
+        help="Reprocess all markets (ignore existing tickers)"
+    )
 
     args = parser.parse_args()
 
@@ -827,13 +872,51 @@ def main():
 
     print(f"Loaded {len(markets)} markets")
 
-    asyncio.run(run_pipeline_async(
-        markets,
-        args.output,
+    # Build set of all enriched market IDs for pruning
+    all_enriched_ids = {get_market_id(m) for m in markets}
+    all_enriched_ids.discard("")
+
+    # Incremental mode: skip markets that already have tickers
+    if args.full_refresh:
+        filtered, existing_tickers = markets, []
+    else:
+        filtered, existing_tickers = filter_to_untickered(markets, args.output)
+
+    # Index existing tickers by market_id for merging
+    existing_by_id = {t["market_id"]: t for t in existing_tickers if "market_id" in t}
+
+    if not filtered:
+        print("All markets already have tickers, pruning stale entries...")
+        before = len(existing_by_id)
+        pruned = {mid: t for mid, t in existing_by_id.items() if mid in all_enriched_ids}
+        removed = before - len(pruned)
+        if removed:
+            print(f"Pruned {removed} stale tickers")
+        save_tickers(list(pruned.values()), args.output, args.model)
+        return
+
+    # Run GPT pipeline on new/filtered markets only
+    new_results = asyncio.run(run_pipeline_async(
+        filtered,
         args.model,
         args.workers,
         args.batch_size
     ))
+
+    # Merge: new results overwrite/add to existing
+    for t in new_results:
+        mid = t.get("market_id")
+        if mid:
+            existing_by_id[mid] = t
+
+    # Prune tickers whose market_id is no longer in enriched input
+    before = len(existing_by_id)
+    merged = {mid: t for mid, t in existing_by_id.items() if mid in all_enriched_ids}
+    removed = before - len(merged)
+    if removed:
+        print(f"Pruned {removed} stale tickers")
+
+    save_tickers(list(merged.values()), args.output, args.model)
 
 
 if __name__ == "__main__":

@@ -16,8 +16,10 @@ import sys
 import time
 from pathlib import Path
 
-BASE_DIR = Path("/Users/paschal/Hall Research Dropbox/Elliot Paschal/Polymarket:Kalshi")
-SCRIPTS_DIR = BASE_DIR / "scripts"
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from config import BASE_DIR, PIPELINES_DIR
+SCRIPTS_DIR = PIPELINES_DIR
 
 
 # ---------------------------------------------------------------------------

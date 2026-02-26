@@ -21,8 +21,9 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 # Paths
-BASE_DIR = Path("/Users/paschal/Hall Research Dropbox/Elliot Paschal/Polymarket:Kalshi")
-DATA_DIR = BASE_DIR / "data"
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from config import BASE_DIR, DATA_DIR, atomic_write_json
 
 # Input files - read from CURRENT file as primary source
 # This ensures we don't lose newly-pulled markets
@@ -34,10 +35,6 @@ ELECTION_DATES = DATA_DIR / "election_dates_lookup.csv"
 OUTPUT_PRICES = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
 
 import shutil
-import sys
-
-# Add scripts dir to path for config import
-sys.path.insert(0, str(Path(__file__).parent))
 from config import rotate_backups
 
 print("=" * 80)
@@ -285,8 +282,7 @@ for ticker in problematic:
 
 print("\n6. Saving corrected prices...")
 
-with open(OUTPUT_PRICES, 'w') as f:
-    json.dump(truncated_prices, f)
+atomic_write_json(OUTPUT_PRICES, truncated_prices)
 
 print(f"   Saved to: {OUTPUT_PRICES}")
 

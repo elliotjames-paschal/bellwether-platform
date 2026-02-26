@@ -75,10 +75,7 @@ def parse_close_time(close_time_val):
     if pd.isna(close_time_val):
         return None
     try:
-        dt_str = str(close_time_val).replace('+00:00', '').replace('Z', '').replace('+00', '')
-        dt = pd.to_datetime(dt_str)
-        if dt.tzinfo is not None:
-            dt = dt.tz_localize(None)
+        dt = pd.to_datetime(str(close_time_val), utc=True)
         return int(dt.timestamp())
     except:
         return None

@@ -13,6 +13,17 @@
 // Native APIs - no authentication required for public data
 const KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2";
 const POLYMARKET_CLOB_BASE = "https://clob.polymarket.com";
+const UPSTREAM_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const CONFIG = {
   cache_ttl_ms: 30000, // 30 seconds for price data
@@ -39,9 +50,23 @@ async function loadMarketMap(env) {
     return cachedMarketMap;
   }
 
-  // Fetch from website
+  // Primary: read from KV (populated by generate_worker_index.py)
+  if (env.BELLWETHER_KV) {
+    try {
+      const data = await env.BELLWETHER_KV.get("market_map:latest", { type: "json" });
+      if (data && data.markets && data.markets.length > 0) {
+        cachedMarketMap = data.markets;
+        cacheTimestamp = now;
+        return cachedMarketMap;
+      }
+    } catch (err) {
+      console.error("Failed to read market_map from KV:", err);
+    }
+  }
+
+  // Fallback: fetch from website (transition period)
   try {
-    const response = await fetch(MARKET_MAP_URL);
+    const response = await fetchWithTimeout(MARKET_MAP_URL);
     if (response.ok) {
       const data = await response.json();
       if (data && data.markets) {
@@ -51,10 +76,10 @@ async function loadMarketMap(env) {
       }
     }
   } catch (err) {
-    console.error("Failed to fetch market_map:", err);
+    console.error("Failed to fetch market_map from website:", err);
   }
 
-  // Return stale cache if fetch failed
+  // Return stale cache if both sources failed
   if (cachedMarketMap) {
     return cachedMarketMap;
   }
@@ -70,6 +95,7 @@ function searchMarketMap(markets, query) {
   return markets.filter(m =>
     (m.title && m.title.toLowerCase().includes(q)) ||
     (m.slug && m.slug.toLowerCase().includes(q)) ||
+    (m.ticker && m.ticker.toLowerCase().includes(q)) ||
     (m.k_ticker && m.k_ticker.toLowerCase().includes(q)) ||
     (m.category && m.category.toLowerCase().includes(q)) ||
     (m.country && m.country.toLowerCase().includes(q))
@@ -86,19 +112,13 @@ function getMarketBySlug(markets, slug) {
 
 async function validateApiKey(request, env) {
   const authHeader = request.headers.get("Authorization");
-  const apiKeyParam = new URL(request.url).searchParams.get("api_key");
-
-  const apiKey = authHeader?.replace("Bearer ", "") || apiKeyParam;
+  const apiKey = authHeader?.replace("Bearer ", "");
 
   if (!apiKey) {
     return { valid: false, error: "Missing API key. Include 'Authorization: Bearer <key>' header." };
   }
 
   if (!env.API_KEYS) {
-    // Fallback for development - accept any key starting with "bw_test_"
-    if (apiKey.startsWith("bw_test_")) {
-      return { valid: true, client: "test_client", tier: "test" };
-    }
     return { valid: false, error: "API key validation unavailable" };
   }
 
@@ -145,7 +165,7 @@ async function fetchKalshiOrderbook(ticker) {
   const url = `${KALSHI_API_BASE}/markets/${ticker}/orderbook`;
 
   try {
-    const response = await fetch(url, { headers: { "Accept": "application/json" } });
+    const response = await fetchWithTimeout(url, { headers: { "Accept": "application/json" } });
     if (!response.ok) return null;
 
     const data = await response.json();
@@ -188,7 +208,7 @@ async function fetchPolymarketOrderbook(tokenId) {
   const url = `${POLYMARKET_CLOB_BASE}/book?token_id=${tokenId}`;
 
   try {
-    const response = await fetch(url, { headers: { "Accept": "application/json" } });
+    const response = await fetchWithTimeout(url, { headers: { "Accept": "application/json" } });
     if (!response.ok) return null;
 
     const data = await response.json();
@@ -247,7 +267,7 @@ async function fetchKalshiTrades(ticker, windowHours) {
     const url = `${KALSHI_API_BASE}/markets/trades?${params}`;
 
     try {
-      const response = await fetch(url, { headers: { "Accept": "application/json" } });
+      const response = await fetchWithTimeout(url, { headers: { "Accept": "application/json" } });
       if (!response.ok) break;
 
       const data = await response.json();
@@ -256,6 +276,7 @@ async function fetchKalshiTrades(ticker, windowHours) {
       for (const trade of tradeList) {
         // Price is in cents (0-100), convert to decimal
         const price = Number(trade.yes_price) / 100;
+        // Kalshi trade.count = number of contracts in this trade (correct for VWAP volume weighting)
         const size = Number(trade.count || 1);
         let timestamp = trade.created_time;
 
@@ -300,7 +321,7 @@ async function fetchPolymarketTrades(tokenId, windowHours) {
     const url = `${POLYMARKET_CLOB_BASE}/trades?${params}`;
 
     try {
-      const response = await fetch(url, { headers: { "Accept": "application/json" } });
+      const response = await fetchWithTimeout(url, { headers: { "Accept": "application/json" } });
       if (!response.ok) break;
 
       const data = await response.json();
@@ -610,8 +631,8 @@ export default {
         description: "Live prediction market data for news organizations",
         documentation: "https://bellwethermetrics.com/api-docs",
         endpoints: {
-          "GET /v1/events": "List all available cross-platform events",
-          "GET /v1/search?q=query": "Search events by keyword",
+          "GET /v1/events": "List all active markets (filter by category, country)",
+          "GET /v1/search?q=query": "Search events by keyword, ticker, or category",
           "GET /v1/events/:slug": "Get aggregated data by Bellwether event slug",
           "GET /v1/markets/:platform/:market_id": "Get data for a specific platform market",
           "GET /v1/health": "API health check",
@@ -664,11 +685,13 @@ export default {
         offset,
         markets: paginated.map(m => ({
           slug: m.slug,
+          ticker: m.ticker || null,
           title: m.title,
           k_ticker: m.k_ticker,
           pm_token: m.pm_token,
           category: m.category,
           country: m.country,
+          platform: m.platform || null,
           total_volume: m.total_volume,
         })),
       }), { headers: corsHeaders });
@@ -693,11 +716,13 @@ export default {
         count: results.length,
         markets: results.map(m => ({
           slug: m.slug,
+          ticker: m.ticker || null,
           title: m.title,
           k_ticker: m.k_ticker,
           pm_token: m.pm_token,
           category: m.category,
           country: m.country,
+          platform: m.platform || null,
           platforms: [m.k_ticker ? "kalshi" : null, m.pm_token ? "polymarket" : null].filter(Boolean),
         })),
       }), { headers: corsHeaders });
@@ -727,6 +752,7 @@ export default {
 
       return new Response(JSON.stringify({
         slug: market.slug,
+        ticker: market.ticker || null,
         title: market.title,
         ...data,
       }), { headers: corsHeaders });

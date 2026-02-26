@@ -1,19 +1,24 @@
 /**
- * Bellwether Live Data Server (Cloudflare Workers version)
+ * Bellwether Live Data Server V2 (Cloudflare Workers)
+ *
+ * V2 changes from cloudflare-worker.js:
+ * - Loads market index from KV (market_map:latest) instead of being stateless
+ * - New endpoint: GET /api/metrics/event/:slug - resolve slug to live data
+ * - All responses include `ticker` field when available
+ * - Removed legacy /metrics/:tokenId endpoint
  *
  * Tiered Pricing System:
  * - Tier 1: 6h VWAP (10+ trades) - Full reportability
  * - Tier 2: 12h/24h VWAP (10+ trades) - Reportability downgraded one level
  * - Tier 3: Stale VWAP or insufficient data - Always Fragile
  *
- * Deploy: npx wrangler deploy
+ * Deploy: cd packages/website/server && npx wrangler deploy -c wrangler-v2.toml
  */
 
 // =============================================================================
 // CONFIGURATION
 // =============================================================================
 
-// Native APIs - no authentication required for public data
 const KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2";
 const POLYMARKET_CLOB_BASE = "https://clob.polymarket.com";
 const UPSTREAM_TIMEOUT_MS = 8000;
@@ -35,6 +40,44 @@ const CONFIG = {
 };
 
 // =============================================================================
+// MARKET MAP - Loaded from KV
+// =============================================================================
+
+let cachedMarketMap = null;
+let marketMapTimestamp = 0;
+const MARKET_MAP_CACHE_TTL = 300000; // 5 minutes
+
+async function loadMarketMap(kv) {
+  const now = Date.now();
+
+  if (cachedMarketMap && (now - marketMapTimestamp) < MARKET_MAP_CACHE_TTL) {
+    return cachedMarketMap;
+  }
+
+  if (!kv) return [];
+
+  try {
+    const data = await kv.get("market_map:latest", { type: "json" });
+    if (data && data.markets) {
+      cachedMarketMap = data.markets;
+      marketMapTimestamp = now;
+      return cachedMarketMap;
+    }
+  } catch (err) {
+    console.error("Failed to load market_map from KV:", err);
+  }
+
+  // Return stale cache if KV read failed
+  if (cachedMarketMap) return cachedMarketMap;
+
+  return [];
+}
+
+function getMarketBySlug(markets, slug) {
+  return markets.find(m => m.slug === slug);
+}
+
+// =============================================================================
 // NATIVE API FUNCTIONS (Kalshi Elections API + Polymarket CLOB)
 // =============================================================================
 
@@ -50,19 +93,15 @@ async function fetchKalshiOrderbook(ticker) {
     const bids = [];
     const asks = [];
 
-    // Kalshi returns yes/no arrays of [price, quantity] pairs
-    // Price is in cents (0-100)
     const yesOrders = orderbook.yes || [];
     const noOrders = orderbook.no || [];
 
-    // YES bids = people willing to buy YES at this price
     for (const [priceVal, qty] of yesOrders) {
-      const price = Number(priceVal) / 100; // Convert cents to decimal
+      const price = Number(priceVal) / 100;
       const size = Number(qty);
       if (price > 0 && size > 0) bids.push({ price, size });
     }
 
-    // NO orders convert to YES asks: ask price = 1 - no_price
     for (const [priceVal, qty] of noOrders) {
       const noPrice = Number(priceVal) / 100;
       const price = 1 - noPrice;
@@ -149,7 +188,6 @@ async function fetchKalshiTrades(ticker, windowHours) {
 
       for (const trade of tradeList) {
         const price = Number(trade.yes_price) / 100;
-        // Kalshi trade.count = number of contracts in this trade (correct for VWAP volume weighting)
         const size = Number(trade.count || 1);
         let timestamp = trade.created_time;
 
@@ -252,48 +290,34 @@ function computeVWAP(trades) {
   };
 }
 
-// Cost to push price UP 5 cents (buying into asks)
 function computeCostToMoveUp5Cents(asks) {
   if (asks.length === 0) return null;
-
   const startingPrice = asks[0].price;
   const targetPrice = startingPrice + 0.05;
-
   let spent = 0;
 
   for (const ask of asks) {
-    if (ask.price >= targetPrice) {
-      return Math.round(spent);
-    }
-    const levelCost = ask.price * ask.size;
-    spent += levelCost;
+    if (ask.price >= targetPrice) return Math.round(spent);
+    spent += ask.price * ask.size;
   }
 
-  return null; // Not enough depth
+  return null;
 }
 
-// Cost to push price DOWN 5 cents (selling into bids)
 function computeCostToMoveDown5Cents(bids) {
   if (bids.length === 0) return null;
-
-  const startingPrice = bids[0].price; // Best bid (highest)
+  const startingPrice = bids[0].price;
   const targetPrice = startingPrice - 0.05;
-
-  let value = 0; // Value of shares we need to sell
+  let value = 0;
 
   for (const bid of bids) {
-    if (bid.price <= targetPrice) {
-      return Math.round(value);
-    }
-    const levelValue = bid.price * bid.size;
-    value += levelValue;
+    if (bid.price <= targetPrice) return Math.round(value);
+    value += bid.price * bid.size;
   }
 
-  return null; // Not enough depth
+  return null;
 }
 
-// Returns minimum cost to move price 5 cents in EITHER direction
-// This is the vulnerability - manipulator picks the cheaper direction
 function computeCostToMove5Cents(bids, asks) {
   const costUp = computeCostToMoveUp5Cents(asks);
   const costDown = computeCostToMoveDown5Cents(bids);
@@ -306,9 +330,7 @@ function computeCostToMove5Cents(bids, asks) {
 
 function computeOrderbookMidpoint(bids, asks) {
   if (bids.length === 0 || asks.length === 0) return null;
-  const bestBid = bids[0].price;
-  const bestAsk = asks[0].price;
-  return Math.round(((bestBid + bestAsk) / 2) * 10000) / 10000;
+  return Math.round(((bids[0].price + asks[0].price) / 2) * 10000) / 10000;
 }
 
 function getBaseReportability(costToMove5c) {
@@ -321,13 +343,6 @@ function downgradeReportability(r) {
   if (r === "reportable") return "caution";
   if (r === "caution") return "fragile";
   return "fragile";
-}
-
-function capReportability(r, maxLevel) {
-  const levels = ["fragile", "caution", "reportable"];
-  const currentIdx = levels.indexOf(r);
-  const maxIdx = levels.indexOf(maxLevel);
-  return levels[Math.min(currentIdx, maxIdx)];
 }
 
 // =============================================================================
@@ -358,7 +373,7 @@ async function cacheMetrics(kv, platform, tokenId, metrics) {
 
   try {
     await kv.put(`${platform}:${tokenId}`, JSON.stringify(metrics), {
-      expirationTtl: Math.ceil(CONFIG.cache_ttl_ms / 1000),
+      expirationTtl: Math.ceil(CONFIG.cache_ttl_ms / 1000) + 60,
     });
   } catch (err) {
     console.error("Cache write error:", err);
@@ -385,7 +400,6 @@ async function storeStaleVWAP(kv, prefix, key, price, windowHours, tradeCount) {
       trade_count: tradeCount,
       stored_at: new Date().toISOString(),
     };
-    // Store for 7 days
     await kv.put(`stale:${prefix}:${key}`, JSON.stringify(stale), { expirationTtl: 604800 });
   } catch (err) {
     console.error("Stale VWAP store error:", err);
@@ -397,28 +411,24 @@ async function storeStaleVWAP(kv, prefix, key, price, windowHours, tradeCount) {
 // =============================================================================
 
 async function computeTieredPrice(platform, tokenId, bids, asks, kv) {
-  // Fetch 24h trades once, then filter for smaller windows in memory
   const allTrades = await fetchTrades(platform, tokenId, 24);
   const now = Date.now();
 
-  // Try progressively larger windows by filtering the same trade data
   for (const windowHours of CONFIG.vwap_windows) {
     const cutoff = now - (windowHours * 60 * 60 * 1000);
     const windowTrades = allTrades.filter(t => t.timestamp >= cutoff);
     const vwapResult = computeVWAP(windowTrades);
 
     if (vwapResult.trade_count >= CONFIG.min_trades_for_vwap) {
-      // Success! Store this as the last known good VWAP
       await storeStaleVWAP(kv, platform, tokenId, vwapResult.vwap, windowHours, vwapResult.trade_count);
 
       const tier = windowHours === 6 ? 1 : 2;
       const source = windowHours === 6 ? "6h_vwap" : (windowHours === 12 ? "12h_vwap" : "24h_vwap");
-      const label = `${windowHours}h VWAP`;
 
       return {
         tier,
         price: vwapResult.vwap,
-        label,
+        label: `${windowHours}h VWAP`,
         window_hours: windowHours,
         trade_count: vwapResult.trade_count,
         total_volume: vwapResult.total_volume,
@@ -427,7 +437,6 @@ async function computeTieredPrice(platform, tokenId, bids, asks, kv) {
     }
   }
 
-  // No sufficient trades - try stale VWAP
   const stale = await getStaleVWAP(kv, platform, tokenId);
   if (stale) {
     return {
@@ -441,7 +450,6 @@ async function computeTieredPrice(platform, tokenId, bids, asks, kv) {
     };
   }
 
-  // No data at all - return null price, always fragile
   return {
     tier: 3,
     price: null,
@@ -454,13 +462,8 @@ async function computeTieredPrice(platform, tokenId, bids, asks, kv) {
 }
 
 async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks, kBids, kAsks, kv) {
-  // Combine orderbooks for midpoint calculation
-  const allBids = [...pmBids, ...kBids].sort((a, b) => b.price - a.price);
-  const allAsks = [...pmAsks, ...kAsks].sort((a, b) => a.price - b.price);
-
   const cacheKey = `${pmToken || ""}_${kTicker || ""}`;
 
-  // Fetch 24h trades once from each platform, then filter for smaller windows
   const allTrades = [];
   if (pmToken) {
     const pmTrades = await fetchTrades("polymarket", pmToken, 24);
@@ -473,7 +476,6 @@ async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks,
 
   const now = Date.now();
 
-  // Try progressively larger windows by filtering the same trade data
   for (const windowHours of CONFIG.vwap_windows) {
     const cutoff = now - (windowHours * 60 * 60 * 1000);
     const windowTrades = allTrades.filter(t => t.timestamp >= cutoff);
@@ -484,12 +486,11 @@ async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks,
 
       const tier = windowHours === 6 ? 1 : 2;
       const source = windowHours === 6 ? "6h_vwap" : (windowHours === 12 ? "12h_vwap" : "24h_vwap");
-      const label = `${windowHours}h VWAP across platforms`;
 
       return {
         tier,
         price: vwapResult.vwap,
-        label,
+        label: `${windowHours}h VWAP across platforms`,
         window_hours: windowHours,
         trade_count: vwapResult.trade_count,
         total_volume: vwapResult.total_volume,
@@ -498,7 +499,6 @@ async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks,
     }
   }
 
-  // No sufficient trades - try stale VWAP
   const stale = await getStaleVWAP(kv, "combined", cacheKey);
   if (stale) {
     return {
@@ -512,7 +512,6 @@ async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks,
     };
   }
 
-  // No data at all - return null price, always fragile
   return {
     tier: 3,
     price: null,
@@ -525,53 +524,35 @@ async function computeCrossplatformTieredPrice(pmToken, kTicker, pmBids, pmAsks,
 }
 
 // =============================================================================
-// MAIN FETCH FUNCTION
+// MAIN FETCH FUNCTIONS
 // =============================================================================
 
 async function getMarketMetrics(platform, tokenId, kv) {
   const cached = await getCachedMetrics(kv, platform, tokenId);
-  if (cached) {
-    return cached;
-  }
+  if (cached) return cached;
 
   const orderbook = await fetchOrderbook(platform, tokenId);
-  if (!orderbook) {
-    return null;
-  }
+  if (!orderbook) return null;
 
   const [bids, asks] = orderbook;
 
-  // Compute tiered price
   const tieredPrice = await computeTieredPrice(platform, tokenId, bids, asks, kv);
 
-  // Compute robustness (min of up and down directions)
   const costToMove5c = computeCostToMove5Cents(bids, asks);
   const rawReportability = getBaseReportability(costToMove5c);
 
-  // Adjust reportability based on tier
   let reportability;
   if (tieredPrice.tier === 1) {
     reportability = rawReportability;
   } else if (tieredPrice.tier === 2) {
     reportability = downgradeReportability(rawReportability);
   } else {
-    // Tier 3 (stale/insufficient data) is always fragile
     reportability = "fragile";
   }
 
-  // Get current price (most recent trade in any window)
-  const recentTrades = await fetchTrades(platform, tokenId, 24);
-  let currentPrice = null;
-  if (recentTrades.length > 0) {
-    const sortedTrades = [...recentTrades].sort((a, b) => b.timestamp - a.timestamp);
-    currentPrice = sortedTrades[0].price;
-  }
-
-  const midpoint = computeOrderbookMidpoint(bids, asks);
-
-  // Debug: compute both directions separately
   const costUp = computeCostToMoveUp5Cents(asks);
   const costDown = computeCostToMoveDown5Cents(bids);
+  const midpoint = computeOrderbookMidpoint(bids, asks);
 
   const metrics = {
     token_id: tokenId,
@@ -580,7 +561,6 @@ async function getMarketMetrics(platform, tokenId, kv) {
     price_tier: tieredPrice.tier,
     price_label: tieredPrice.label,
     price_source: tieredPrice.source,
-    current_price: currentPrice,
     robustness: {
       cost_to_move_5c: costToMove5c,
       cost_to_move_up_5c: costUp,
@@ -611,6 +591,97 @@ async function getMarketMetrics(platform, tokenId, kv) {
   return metrics;
 }
 
+async function getEventMetrics(market, kv) {
+  /**
+   * Fetch live metrics for an event resolved via the market index.
+   * Handles single-platform and cross-platform markets.
+   */
+  const pmToken = market.pm_token_id || market.pm_token;
+  const kTicker = market.k_ticker;
+
+  // Single-platform case
+  if (!pmToken && kTicker) {
+    const metrics = await getMarketMetrics("kalshi", kTicker, kv);
+    if (metrics) metrics.ticker = market.ticker;
+    return metrics;
+  }
+  if (pmToken && !kTicker) {
+    const metrics = await getMarketMetrics("polymarket", pmToken, kv);
+    if (metrics) metrics.ticker = market.ticker;
+    return metrics;
+  }
+
+  // Cross-platform: combined metrics
+  const [pmOrderbook, kOrderbook] = await Promise.all([
+    pmToken ? fetchOrderbook("polymarket", pmToken) : null,
+    kTicker ? fetchOrderbook("kalshi", kTicker) : null,
+  ]);
+
+  const pmBids = pmOrderbook?.[0] || [];
+  const pmAsks = pmOrderbook?.[1] || [];
+  const kBids = kOrderbook?.[0] || [];
+  const kAsks = kOrderbook?.[1] || [];
+
+  const tieredPrice = await computeCrossplatformTieredPrice(
+    pmToken, kTicker, pmBids, pmAsks, kBids, kAsks, kv
+  );
+
+  const pmCost = (pmBids.length > 0 || pmAsks.length > 0) ? computeCostToMove5Cents(pmBids, pmAsks) : null;
+  const kCost = (kBids.length > 0 || kAsks.length > 0) ? computeCostToMove5Cents(kBids, kAsks) : null;
+
+  let minCost = null;
+  let weakestPlatform = null;
+
+  if (pmCost !== null && kCost !== null) {
+    minCost = Math.min(pmCost, kCost);
+    weakestPlatform = pmCost <= kCost ? "polymarket" : "kalshi";
+  } else if (pmCost !== null) {
+    minCost = pmCost;
+    weakestPlatform = "polymarket";
+  } else if (kCost !== null) {
+    minCost = kCost;
+    weakestPlatform = "kalshi";
+  }
+
+  const rawReportability = getBaseReportability(minCost);
+  let reportability;
+  if (tieredPrice.tier === 1) {
+    reportability = rawReportability;
+  } else if (tieredPrice.tier === 2) {
+    reportability = downgradeReportability(rawReportability);
+  } else {
+    reportability = "fragile";
+  }
+
+  return {
+    ticker: market.ticker,
+    bellwether_price: tieredPrice.price,
+    price_tier: tieredPrice.tier,
+    price_label: tieredPrice.label,
+    price_source: tieredPrice.source,
+    platform_prices: {
+      polymarket: pmToken || null,
+      kalshi: kTicker || null,
+    },
+    robustness: {
+      cost_to_move_5c: minCost,
+      reportability,
+      raw_reportability: rawReportability,
+      weakest_platform: weakestPlatform,
+    },
+    vwap_details: {
+      window_hours: tieredPrice.window_hours,
+      trade_count: tieredPrice.trade_count,
+      total_volume: tieredPrice.total_volume,
+    },
+    orderbook_midpoint: computeOrderbookMidpoint(
+      [...pmBids, ...kBids].sort((a, b) => b.price - a.price),
+      [...pmAsks, ...kAsks].sort((a, b) => a.price - b.price)
+    ),
+    fetched_at: new Date().toISOString(),
+  };
+}
+
 // =============================================================================
 // HTTP HANDLER (Cloudflare Workers format)
 // =============================================================================
@@ -633,12 +704,14 @@ export default {
 
     // GET /health
     if (url.pathname === "/health") {
+      const markets = await loadMarketMap(kv);
       return new Response(
         JSON.stringify({
           status: "ok",
-          mode: "cloudflare-workers",
+          version: "2.0.0",
           cache_ttl_seconds: CONFIG.cache_ttl_ms / 1000,
           kv_configured: !!kv,
+          market_count: markets.length,
           min_trades_for_vwap: CONFIG.min_trades_for_vwap,
           vwap_windows: CONFIG.vwap_windows,
         }),
@@ -651,18 +724,58 @@ export default {
       return new Response(
         JSON.stringify({
           name: "Bellwether Live Data Server",
-          version: "3.0.0-cloudflare",
-          description: "Tiered pricing: 6h VWAP → 12h/24h VWAP → Orderbook midpoint → Stale VWAP",
+          version: "2.0.0",
+          description: "V2: All active markets via KV market index",
           endpoints: {
             "/health": "Server health check",
             "/api/metrics/:platform/:token_id": "Get tiered price + robustness for a single-platform market",
             "/api/metrics/combined": "Get cross-platform tiered price + min robustness (query: pm_token, k_ticker)",
+            "/api/metrics/event/:slug": "Get live data for an event by Bellwether slug",
           },
           price_tiers: {
             1: "6h VWAP (10+ trades) - Full reportability",
             2: "12h/24h VWAP (10+ trades) - Reportability downgraded one level",
             3: "Stale VWAP or insufficient data - Always Fragile",
           },
+        }),
+        { headers: corsHeaders }
+      );
+    }
+
+    // GET /api/metrics/event/:slug - Resolve slug via market index
+    const slugMatch = url.pathname.match(/^\/api\/metrics\/event\/([a-z0-9-]+)$/);
+    if (slugMatch) {
+      const slug = slugMatch[1];
+      const markets = await loadMarketMap(kv);
+      const market = getMarketBySlug(markets, slug);
+
+      if (!market) {
+        return new Response(
+          JSON.stringify({
+            error: "Event not found",
+            slug,
+            hint: "Check /health for market_count to verify market index is loaded",
+          }),
+          { status: 404, headers: corsHeaders }
+        );
+      }
+
+      const metrics = await getEventMetrics(market, kv);
+      if (!metrics) {
+        return new Response(
+          JSON.stringify({ error: "Market data unavailable", slug }),
+          { status: 502, headers: corsHeaders }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          slug: market.slug,
+          title: market.title,
+          category: market.category,
+          country: market.country,
+          platform: market.platform,
+          ...metrics,
         }),
         { headers: corsHeaders }
       );
@@ -686,6 +799,16 @@ export default {
         );
       }
 
+      // Try to find ticker from market index
+      const markets = await loadMarketMap(kv);
+      const match = markets.find(m =>
+        (platform === "kalshi" && m.k_ticker === tokenId) ||
+        (platform === "polymarket" && (m.pm_token_id === tokenId || m.pm_token === tokenId))
+      );
+      if (match) {
+        metrics.ticker = match.ticker;
+      }
+
       return new Response(JSON.stringify(metrics), { headers: corsHeaders });
     }
 
@@ -704,7 +827,6 @@ export default {
         );
       }
 
-      // Fetch orderbooks from both platforms in parallel
       const [pmOrderbook, kOrderbook] = await Promise.all([
         pmToken ? fetchOrderbook("polymarket", pmToken) : null,
         kTicker ? fetchOrderbook("kalshi", kTicker) : null,
@@ -715,12 +837,10 @@ export default {
       const kBids = kOrderbook?.[0] || [];
       const kAsks = kOrderbook?.[1] || [];
 
-      // Compute tiered price across platforms
       const tieredPrice = await computeCrossplatformTieredPrice(
         pmToken, kTicker, pmBids, pmAsks, kBids, kAsks, kv
       );
 
-      // Use minimum robustness (weakest link across platforms AND directions)
       const pmCost = (pmBids.length > 0 || pmAsks.length > 0) ? computeCostToMove5Cents(pmBids, pmAsks) : null;
       const kCost = (kBids.length > 0 || kAsks.length > 0) ? computeCostToMove5Cents(kBids, kAsks) : null;
 
@@ -739,44 +859,30 @@ export default {
       }
 
       const rawReportability = getBaseReportability(minCost);
-
-      // Adjust reportability based on tier
       let reportability;
       if (tieredPrice.tier === 1) {
         reportability = rawReportability;
       } else if (tieredPrice.tier === 2) {
         reportability = downgradeReportability(rawReportability);
       } else {
-        // Tier 3 (stale/insufficient data) is always fragile
         reportability = "fragile";
       }
 
-      // Get current prices from each platform
-      let pmCurrentPrice = null;
-      let kCurrentPrice = null;
-
-      if (pmToken) {
-        const pmTrades = await fetchTrades("polymarket", pmToken, 24);
-        if (pmTrades.length > 0) {
-          pmCurrentPrice = [...pmTrades].sort((a, b) => b.timestamp - a.timestamp)[0].price;
-        }
-      }
-      if (kTicker) {
-        const kTrades = await fetchTrades("kalshi", kTicker, 24);
-        if (kTrades.length > 0) {
-          kCurrentPrice = [...kTrades].sort((a, b) => b.timestamp - a.timestamp)[0].price;
-        }
-      }
+      // Try to find ticker from market index
+      let ticker = null;
+      const markets = await loadMarketMap(kv);
+      const match = markets.find(m =>
+        (kTicker && m.k_ticker === kTicker) ||
+        (pmToken && (m.pm_token_id === pmToken || m.pm_token === pmToken))
+      );
+      if (match) ticker = match.ticker;
 
       const combined = {
+        ticker,
         bellwether_price: tieredPrice.price,
         price_tier: tieredPrice.tier,
         price_label: tieredPrice.label,
         price_source: tieredPrice.source,
-        platform_prices: {
-          polymarket: pmCurrentPrice,
-          kalshi: kCurrentPrice,
-        },
         robustness: {
           cost_to_move_5c: minCost,
           reportability,
@@ -798,26 +904,10 @@ export default {
       return new Response(JSON.stringify(combined), { headers: corsHeaders });
     }
 
-    // Legacy endpoint support
-    const legacyMatch = url.pathname.match(/^\/metrics\/(.+)$/);
-    if (legacyMatch) {
-      const tokenId = legacyMatch[1];
-      const metrics = await getMarketMetrics("polymarket", tokenId, kv);
-
-      if (!metrics) {
-        return new Response(
-          JSON.stringify({ error: "Market not found" }),
-          { status: 404, headers: corsHeaders }
-        );
-      }
-
-      return new Response(JSON.stringify(metrics), { headers: corsHeaders });
-    }
-
     return new Response(
       JSON.stringify({
         error: "Not found",
-        available_endpoints: ["/", "/health", "/api/metrics/:platform/:token_id", "/api/metrics/combined"]
+        available_endpoints: ["/", "/health", "/api/metrics/:platform/:token_id", "/api/metrics/combined", "/api/metrics/event/:slug"]
       }),
       { status: 404, headers: corsHeaders }
     );

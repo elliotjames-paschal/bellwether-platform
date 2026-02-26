@@ -44,6 +44,11 @@ if PANEL_A_FILE.exists():
 
     # Prediction error = prediction - actual outcome
     # Positive error means over-prediction (predicted higher than actual)
+    # TODO [CH-07]: Methodology review needed. Current approach measures distance-from-certainty,
+    # not partisan bias. Correct approach for partisan bias:
+    #   prediction_error = republican_prob - republican_won
+    #   is_republican should label the candidate being predicted, not the winner
+    # Full fix requires domain decision on the regression specification.
     if 'winner_prediction' in df.columns and 'republican_won' in df.columns:
         # For winner markets: prediction error based on whether market predicted the winner
         df['actual'] = df['republican_won'] if 'republican_won' in df.columns else df['correct'].astype(int)

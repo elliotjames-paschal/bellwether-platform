@@ -22,20 +22,22 @@ PHASES:
   4. Stitch all responses together by foreign keys
 
 Usage:
-    python packages/pipelines/enrich_markets_with_api_data.py
+    python packages/pipelines/enrich_markets_with_api_data.py              # incremental (default)
+    python packages/pipelines/enrich_markets_with_api_data.py --full-refresh  # re-fetch everything
 
 ================================================================================
 """
 
+import argparse
 import asyncio
 import aiohttp
 import pandas as pd
 import json
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Set
+from typing import Optional, Dict, Any, List, Set, Tuple
 from dataclasses import dataclass, field
 import time
 
@@ -54,6 +56,7 @@ POLYMARKET_API_BASE = "https://gamma-api.polymarket.com"
 MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 OUTPUT_FILE = DATA_DIR / "enriched_political_markets.json"
 CHECKPOINT_FILE = DATA_DIR / ".enrichment_checkpoint.json"
+ARCHIVE_FILE = DATA_DIR / "enriched_political_markets_archive.json"
 
 # Rate Limiting & Parallelism
 SEMAPHORE_LIMIT = 10  # Max concurrent requests per platform
@@ -809,13 +812,186 @@ def phase4_stitch_results(
 
 
 # =============================================================================
+# INCREMENTAL ENRICHMENT FILTER
+# =============================================================================
+
+def filter_to_unenriched(
+    active_df: pd.DataFrame,
+    retry_days: int = 7
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """
+    Load existing enriched data and filter active_df to only markets that
+    need enrichment (new or recently failed).
+
+    Returns:
+        (filtered_df, existing_by_id) where existing_by_id maps market_id
+        to its enriched entry for later merging.
+    """
+    existing_by_id: Dict[str, Any] = {}
+
+    if not OUTPUT_FILE.exists():
+        log("  No existing enriched file found — will enrich all active markets")
+        return active_df, existing_by_id
+
+    log("  Loading existing enriched data...")
+    with open(OUTPUT_FILE) as f:
+        existing_data = json.load(f)
+
+    # Index existing entries by market_id
+    for entry in existing_data.get("markets", []):
+        mid = str(entry.get("original_csv", {}).get("market_id", ""))
+        if mid:
+            existing_by_id[mid] = entry
+
+    log(f"  Existing enriched markets: {len(existing_by_id):,}")
+
+    cutoff_date = datetime.now() - timedelta(days=retry_days)
+
+    needs_enrichment = []
+    skipped = 0
+    retry = 0
+    new = 0
+
+    for _, row in active_df.iterrows():
+        market_id = str(row.get("market_id", ""))
+        existing = existing_by_id.get(market_id)
+
+        if existing is None:
+            # New market — not in enriched data yet
+            needs_enrichment.append(row)
+            new += 1
+            continue
+
+        # Check if enrichment was successful
+        api_market = (existing.get("api_data") or {}).get("market")
+        if api_market is not None:
+            has_rules = bool(api_market.get("rules_primary") or api_market.get("description"))
+            if has_rules:
+                # Successfully enriched — skip
+                skipped += 1
+                continue
+
+        # Failed enrichment — retry if market is recent enough
+        date_added = str(row.get("date_added", ""))
+        try:
+            added_dt = datetime.strptime(date_added, "%Y-%m-%d")
+            if added_dt >= cutoff_date:
+                needs_enrichment.append(row)
+                retry += 1
+                continue
+        except (ValueError, TypeError):
+            pass
+
+        # Old failed market — give up, keep existing entry as-is
+        skipped += 1
+
+    log(f"  New markets: {new}")
+    log(f"  Retrying failed: {retry}")
+    log(f"  Already enriched (skipped): {skipped}")
+    log(f"  Total to enrich: {new + retry}")
+
+    if not needs_enrichment:
+        return pd.DataFrame(columns=active_df.columns), existing_by_id
+
+    filtered_df = pd.DataFrame(needs_enrichment)
+    return filtered_df, existing_by_id
+
+
+def archive_pruned(pruned_entries: List[Dict[str, Any]]):
+    """Append pruned entries to the archive file (deduped by market_id)."""
+    if not pruned_entries:
+        return
+
+    # Load existing archive
+    archive_by_id: Dict[str, Any] = {}
+    if ARCHIVE_FILE.exists():
+        with open(ARCHIVE_FILE) as f:
+            archive_data = json.load(f)
+        for entry in archive_data.get("markets", []):
+            mid = str(entry.get("original_csv", {}).get("market_id", ""))
+            if mid:
+                archive_by_id[mid] = entry
+
+    # Add/overwrite with newly pruned entries
+    for entry in pruned_entries:
+        mid = str(entry.get("original_csv", {}).get("market_id", ""))
+        if mid:
+            entry["archived_at"] = datetime.now().isoformat()
+            archive_by_id[mid] = entry
+
+    archive_output = {
+        "generated_at": datetime.now().isoformat(),
+        "description": "Enriched markets pruned from the active file after closing/settling",
+        "total_markets": len(archive_by_id),
+        "markets": list(archive_by_id.values())
+    }
+
+    with open(ARCHIVE_FILE, 'w') as f:
+        json.dump(archive_output, f, indent=2, default=str)
+
+    log(f"    Archived {len(pruned_entries)} pruned entries → {ARCHIVE_FILE.name} ({len(archive_by_id):,} total)")
+
+
+def merge_results(
+    new_output: Dict[str, Any],
+    existing_by_id: Dict[str, Any],
+    active_ids: Set[str]
+) -> Dict[str, Any]:
+    """
+    Merge newly enriched markets with existing enriched data.
+    - New/re-fetched entries overwrite existing ones
+    - Entries for inactive markets are pruned and archived
+    """
+    # Overwrite existing with new results
+    for entry in new_output.get("markets", []):
+        mid = str(entry.get("original_csv", {}).get("market_id", ""))
+        if mid:
+            existing_by_id[mid] = entry
+
+    # Prune markets no longer active → archive them
+    pruned = []
+    for mid in list(existing_by_id.keys()):
+        if mid not in active_ids:
+            pruned.append(existing_by_id.pop(mid))
+
+    if pruned:
+        archive_pruned(pruned)
+
+    markets = list(existing_by_id.values())
+
+    # Recalculate stats
+    kalshi_count = len([m for m in markets if str((m.get("original_csv") or {}).get("platform", "")).lower() == "kalshi"])
+    pm_count = len([m for m in markets if str((m.get("original_csv") or {}).get("platform", "")).lower() == "polymarket"])
+    failed_count = len([m for m in markets if m.get("fetch_errors")])
+
+    log(f"\n  Merge complete:")
+    log(f"    Total markets: {len(markets):,}")
+    log(f"    Kalshi: {kalshi_count:,}")
+    log(f"    Polymarket: {pm_count:,}")
+    log(f"    Pruned (archived): {len(pruned)}")
+    log(f"    Markets with errors: {failed_count}")
+
+    return {
+        "generated_at": datetime.now().isoformat(),
+        "stats": {
+            "total_markets": len(markets),
+            "kalshi_markets": kalshi_count,
+            "polymarket_markets": pm_count,
+            "failed_fetches": failed_count,
+        },
+        "markets": markets
+    }
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
-async def main():
+async def main(full_refresh: bool = False):
     """Main enrichment pipeline."""
+    mode = "FULL REFRESH" if full_refresh else "INCREMENTAL"
     print("\n" + "=" * 70)
-    print("MARKET ENRICHMENT PIPELINE")
+    print(f"MARKET ENRICHMENT PIPELINE ({mode})")
     print("=" * 70)
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 70 + "\n")
@@ -843,10 +1019,40 @@ async def main():
 
     # Combine active markets
     active_df = pd.concat([kalshi_active, polymarket_active])
+    active_ids = set(active_df['market_id'].astype(str))
 
     log(f"  Active Kalshi markets: {len(kalshi_active):,}")
     log(f"  Active Polymarket markets: {len(polymarket_active):,}")
     log(f"  Total active markets: {len(active_df):,}")
+
+    # Incremental filtering
+    existing_by_id: Dict[str, Any] = {}
+    if not full_refresh:
+        log("\nFiltering to unenriched markets...")
+        active_df, existing_by_id = filter_to_unenriched(active_df)
+
+        if len(active_df) == 0:
+            log("\nAll active markets are already enriched!")
+            # Still prune inactive markets from existing data
+            log("\nPruning inactive markets...")
+            output = merge_results({"markets": []}, existing_by_id, active_ids)
+
+            log("\n" + "=" * 60)
+            log("Saving Output")
+            log("=" * 60)
+            with open(OUTPUT_FILE, 'w') as f:
+                json.dump(output, f, indent=2, default=str)
+            log(f"  Saved to: {OUTPUT_FILE}")
+            file_size_mb = os.path.getsize(OUTPUT_FILE) / (1024 * 1024)
+            log(f"  File size: {file_size_mb:.1f} MB")
+
+            print("\n" + "=" * 70)
+            print("ENRICHMENT COMPLETE — nothing to fetch")
+            print(f"  Total markets in output: {output['stats']['total_markets']:,}")
+            print("=" * 70 + "\n")
+            return 0
+
+    log(f"\n  Markets to enrich: {len(active_df):,}")
 
     # Check for checkpoint
     checkpoint = load_checkpoint()
@@ -891,6 +1097,13 @@ async def main():
         all_errors
     )
 
+    # Merge with existing data (incremental mode) or use output directly (full refresh)
+    if not full_refresh and existing_by_id:
+        log("\n" + "=" * 60)
+        log("Merging with Existing Data")
+        log("=" * 60)
+        output = merge_results(output, existing_by_id, active_ids)
+
     # Save output
     log("\n" + "=" * 60)
     log("Saving Output")
@@ -913,11 +1126,10 @@ async def main():
     print("=" * 70)
     print(f"Finished: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"\nStats:")
-    print(f"  Total markets enriched: {output['stats']['total_markets']:,}")
+    print(f"  Total markets in output: {output['stats']['total_markets']:,}")
     print(f"  Kalshi: {output['stats']['kalshi_markets']:,}")
     print(f"  Polymarket: {output['stats']['polymarket_markets']:,}")
     print(f"  Failed fetches: {output['stats']['failed_fetches']:,}")
-    print(f"  Total phase errors: {output['stats']['total_phase_errors']:,}")
     print(f"\nOutput: {OUTPUT_FILE}")
     print("=" * 70 + "\n")
 
@@ -925,5 +1137,11 @@ async def main():
 
 
 if __name__ == "__main__":
-    import sys
-    sys.exit(asyncio.run(main()))
+    parser = argparse.ArgumentParser(description="Enrich political markets with API data")
+    parser.add_argument(
+        "--full-refresh",
+        action="store_true",
+        help="Re-fetch all active markets instead of only unenriched ones"
+    )
+    args = parser.parse_args()
+    sys.exit(asyncio.run(main(full_refresh=args.full_refresh)))

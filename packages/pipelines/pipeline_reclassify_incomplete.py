@@ -86,8 +86,9 @@ def get_stable_id(row):
     if pd.notna(val):
         return f"mk:{val}"
     # Last resort: use question hash (very unlikely to hit this)
+    import hashlib
     q = str(row.get('question', ''))
-    return f"q:{hash(q)}"
+    return f"q:{hashlib.sha256(q.encode()).hexdigest()[:16]}"
 
 
 def find_incomplete_electoral(master_df):
@@ -346,11 +347,15 @@ def main():
     log(f"  Checkpoint: {len(already_processed)} already processed")
 
     # Filter out already-processed markets (by stable ID)
-    to_process = []  # list of (stable_id, df_index, question)
+    to_process = []  # list of (stable_id, df_index, question, market_id, scheduled_end_time)
     for idx, row in incomplete.iterrows():
         stable_id = idx_to_id[idx]
         if stable_id not in already_processed:
-            to_process.append((stable_id, idx, row['question']))
+            to_process.append((
+                stable_id, idx, row['question'],
+                str(row.get('market_id', '')),
+                row.get('trading_close_time')
+            ))
 
     log(f"  Remaining to classify: {len(to_process):,}")
 
@@ -366,14 +371,21 @@ def main():
             chunk_end = min(chunk_start + CHUNK_SIZE, len(to_process))
             chunk = to_process[chunk_start:chunk_end]
 
-            chunk_questions = [q for _, _, q in chunk]
-            chunk_ids = [(sid, idx) for sid, idx, _ in chunk]
+            chunk_questions = [q for _, _, q, _, _ in chunk]
+            chunk_ids = [(sid, idx) for sid, idx, _, _, _ in chunk]
+            chunk_market_ids = [mid for _, _, _, mid, _ in chunk]
+            chunk_end_times = [t for _, _, _, _, t in chunk]
 
             log(f"\n--- Chunk {chunk_num + 1}/{total_chunks}: "
                 f"markets {chunk_start + 1}-{chunk_end} of {len(to_process)} ---")
 
             # Run the 3-stage pipeline (same as pipeline_classify_electoral.py)
-            results = run_electoral_pipeline(client, chunk_questions, show_progress=True)
+            results = run_electoral_pipeline(
+                client, chunk_questions,
+                market_ids=chunk_market_ids,
+                scheduled_end_times=chunk_end_times,
+                show_progress=True
+            )
 
             # Save results to checkpoint (keyed by stable ID)
             for result in results:

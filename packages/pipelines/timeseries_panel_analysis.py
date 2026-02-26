@@ -21,7 +21,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Paths
-DATA_DIR = Path("/Users/paschal/Hall Research Dropbox/Elliot Paschal/Polymarket:Kalshi/data")
+sys.path.insert(0, str(Path(__file__).parent))
+from config import DATA_DIR
 OUTPUT_DIR = Path("/tmp")
 
 print("=" * 80)

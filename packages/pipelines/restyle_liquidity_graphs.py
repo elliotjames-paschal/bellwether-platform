@@ -11,8 +11,10 @@ from scipy import stats
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-DATA_DIR = Path("/Users/paschal/Hall Research Dropbox/Elliot Paschal/Polymarket:Kalshi/data")
-OUTPUT_DIR = Path("/Users/paschal/Hall Research Dropbox/Elliot Paschal/Polymarket:Kalshi/website/assets/liquidity-article")
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from config import DATA_DIR, WEBSITE_DIR
+OUTPUT_DIR = WEBSITE_DIR / "assets" / "liquidity-article"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Website theme colors (from calibration charts)

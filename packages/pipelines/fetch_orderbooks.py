@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config import BASE_DIR, DATA_DIR
+from config import BASE_DIR, DATA_DIR, atomic_write_json
 
 MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 PM_OUTPUT_FILE = DATA_DIR / "orderbook_history_polymarket.json"
@@ -252,8 +252,7 @@ def save_checkpoint(processed_with_data, processed_no_data):
         'processed_no_data': list(processed_no_data),
         'timestamp': datetime.now().isoformat()
     }
-    with open(CHECKPOINT_FILE, 'w') as f:
-        json.dump(checkpoint, f)
+    atomic_write_json(CHECKPOINT_FILE, checkpoint)
 
 
 def load_checkpoint():
@@ -381,8 +380,7 @@ def main():
                     log(f"   Processed {completed}/{len(pm_to_process)} PM "
                         f"(success: {pm_success}, empty: {pm_empty})")
                     save_checkpoint(processed_with_data, processed_no_data)
-                    with open(PM_OUTPUT_FILE, 'w') as f:
-                        json.dump(pm_data, f)
+                    atomic_write_json(PM_OUTPUT_FILE, pm_data)
 
     log(f"   Polymarket complete: {pm_success} with data, {pm_empty} empty")
     save_checkpoint(processed_with_data, processed_no_data)
@@ -422,20 +420,17 @@ def main():
                     log(f"   Processed {completed}/{len(kalshi_to_process)} Kalshi "
                         f"(success: {k_success}, empty: {k_empty})")
                     save_checkpoint(processed_with_data, processed_no_data)
-                    with open(KALSHI_OUTPUT_FILE, 'w') as f:
-                        json.dump(kalshi_data, f)
+                    atomic_write_json(KALSHI_OUTPUT_FILE, kalshi_data)
 
     log(f"   Kalshi complete: {k_success} with data, {k_empty} empty")
 
     # Save final results
     log("\n4. Saving results...")
 
-    with open(PM_OUTPUT_FILE, 'w') as f:
-        json.dump(pm_data, f)
+    atomic_write_json(PM_OUTPUT_FILE, pm_data)
     log(f"   Saved {len(pm_data):,} Polymarket markets to {PM_OUTPUT_FILE.name}")
 
-    with open(KALSHI_OUTPUT_FILE, 'w') as f:
-        json.dump(kalshi_data, f)
+    atomic_write_json(KALSHI_OUTPUT_FILE, kalshi_data)
     log(f"   Saved {len(kalshi_data):,} Kalshi markets to {KALSHI_OUTPUT_FILE.name}")
 
     # Save final checkpoint

@@ -27,7 +27,7 @@ import requests
 
 # Add scripts dir to path for config import
 sys.path.insert(0, str(Path(__file__).parent))
-from config import BASE_DIR, DATA_DIR
+from config import BASE_DIR, DATA_DIR, atomic_write_json
 
 # Constants
 DATA_API_BASE = "https://data-api.polymarket.com"
@@ -249,8 +249,7 @@ def load_state():
 def save_state(state):
     """Save fetch state to file."""
     state["last_run"] = datetime.now().isoformat()
-    with open(STATE_FILE, 'w') as f:
-        json.dump(state, f, indent=2)
+    atomic_write_json(STATE_FILE, state, indent=2)
 
 
 def load_existing_trades():
@@ -266,8 +265,7 @@ def load_existing_trades():
 
 def save_trades(trades_data):
     """Save trades to file."""
-    with open(TRADES_FILE, 'w') as f:
-        json.dump(trades_data, f)
+    atomic_write_json(TRADES_FILE, trades_data)
 
 
 def main():

@@ -525,6 +525,15 @@ def main():
         results["market_map"] = success
         step_results["generate_market_map"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
+        # Step 4: Generate full worker index (all active markets) and upload to KV
+        success = run_script(
+            "generate_worker_index.py",
+            "Generate worker index for V2 workers (KV upload)",
+            required=False
+        )
+        results["worker_index"] = success
+        step_results["generate_worker_index"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
         # Export liquidity data for website
         success = run_script(
             "export_liquidity_for_website.py",

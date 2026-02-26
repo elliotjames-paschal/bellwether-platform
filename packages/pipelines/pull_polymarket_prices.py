@@ -29,7 +29,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config import BASE_DIR, DATA_DIR
+from config import BASE_DIR, DATA_DIR, atomic_write_json
 MASTER_FILE = str(DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv")
 PRICES_FILE = str(DATA_DIR / "polymarket_all_political_prices_CORRECTED.json")
 
@@ -140,23 +140,24 @@ def parse_close_time(close_time_val):
         return None
 
 
-def process_market(token_id, existing_prices, is_closed, close_time, now_ts, full_history_start_ts):
+def process_market(token_id, existing_prices, is_closed, close_time, now_ts, full_history_start_ts, full_refresh=False):
     """Process a single market: decide whether to fetch and do it."""
     DAILY_BUFFER = 86400
 
     last_price_ts = get_last_price_ts(existing_prices, token_id)
 
-    if is_closed:
-        if close_time:
-            close_ts = int(close_time.timestamp())
-            if last_price_ts and last_price_ts >= close_ts - DAILY_BUFFER:
-                return token_id, "skip_complete", None
+    if not full_refresh:
+        if is_closed:
+            if close_time:
+                close_ts = int(close_time.timestamp())
+                if last_price_ts and last_price_ts >= close_ts - DAILY_BUFFER:
+                    return token_id, "skip_complete", None
+            else:
+                if last_price_ts and last_price_ts >= now_ts - DAILY_BUFFER:
+                    return token_id, "skip_uptodate", None
         else:
             if last_price_ts and last_price_ts >= now_ts - DAILY_BUFFER:
                 return token_id, "skip_uptodate", None
-    else:
-        if last_price_ts and last_price_ts >= now_ts - DAILY_BUFFER:
-            return token_id, "skip_uptodate", None
 
     prices = fetch_market_prices(token_id)
 
@@ -223,7 +224,7 @@ def main():
         token_id = str(row['pm_token_id_yes'])
         is_closed = row.get('is_closed', False)
         close_time = parse_close_time(row.get('trading_close_time'))
-        work_items.append((token_id, existing_prices, is_closed, close_time, now_ts, full_history_start_ts))
+        work_items.append((token_id, existing_prices, is_closed, close_time, now_ts, full_history_start_ts, full_refresh))
 
     log(f"Submitting {len(work_items)} markets to {NUM_WORKERS} workers...")
 
@@ -260,8 +261,7 @@ def main():
                     f"{skipped_complete + skipped_up_to_date} skipped)")
 
     # Save updated prices
-    with open(PRICES_FILE, 'w') as f:
-        json.dump(existing_prices, f)
+    atomic_write_json(PRICES_FILE, existing_prices)
 
     log("=" * 60)
     log("COMPLETE")
