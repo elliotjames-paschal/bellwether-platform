@@ -278,6 +278,47 @@
   .api-body .num { color: #E8B87A; }
   .api-body .dim { color: rgba(255,255,255,0.3); }
 
+  /* ── PLATFORM VISION ── */
+  .platform-section {
+    background: var(--bw-bg);
+    border-top: 1px solid var(--bw-border); border-bottom: 1px solid var(--bw-border);
+  }
+  .platform-section section {
+    max-width: 1200px; margin: 0 auto; padding: 100px 32px;
+  }
+  .platform-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+  }
+  .platform-card {
+    border: 1px solid var(--bw-border); border-radius: 10px; padding: 32px 28px;
+    transition: all 0.3s; position: relative; background: var(--bw-white);
+  }
+  .platform-card:hover {
+    border-color: var(--bw-blue-muted);
+    box-shadow: 0 4px 16px rgba(74,144,217,0.06);
+    transform: translateY(-2px);
+  }
+  .platform-card.current { border-color: var(--bw-blue); }
+  .platform-card .card-badge {
+    font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 3px 10px; border-radius: 4px; display: inline-block; margin-bottom: 20px;
+  }
+  .card-badge-live { background: rgba(58,138,92,0.1); color: var(--bw-green); }
+  .card-badge-building { background: rgba(74,144,217,0.1); color: var(--bw-blue); }
+  .platform-card h3 {
+    font-size: 18px; font-weight: 600; color: var(--bw-dark); margin-bottom: 12px;
+    font-family: var(--font-serif);
+  }
+  .platform-card p {
+    font-size: 14px; color: var(--bw-text-secondary); line-height: 1.65;
+  }
+  .platform-card .card-detail {
+    margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--bw-border);
+    font-family: var(--font-mono); font-size: 12px; color: var(--bw-text-secondary);
+    line-height: 1.7;
+  }
+  .platform-card.current .card-detail { color: var(--bw-text); }
+
   /* ── ANIMATIONS ── */
   .fade-in {
     opacity: 0; transform: translateY(16px);
@@ -294,6 +335,7 @@
     .why-grid { grid-template-columns: 1fr; }
     .product-two-col { grid-template-columns: 1fr; gap: 48px; }
     .api-block { position: static; }
+    .platform-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -518,6 +560,50 @@
     </div>
   </div>
 </section>
+
+<!-- ════════════ PLATFORM VISION ════════════ -->
+<div class="platform-section" id="platform">
+  <section>
+    <div class="section-label fade-in">Platform</div>
+    <h2 class="section-title fade-in">Cleaning up the prediction<br>market stack, one layer at a time</h2>
+    <p class="section-subtitle fade-in">
+      The Tape API is where we started. These are the problems we're solving next.
+    </p>
+
+    <div class="platform-grid">
+      <div class="platform-card current fade-in">
+        <span class="card-badge card-badge-live">Live</span>
+        <h3>Tape API</h3>
+        <p>Canonical tickers, manipulation-resistant VWAP pricing, and reportability labels for every political prediction market across platforms.</p>
+        <div class="card-detail">
+          10,359 markets · 330 matched pairs<br>
+          Polymarket + Kalshi<br>
+          REST API · Historical data
+        </div>
+      </div>
+      <div class="platform-card fade-in" style="transition-delay: 0.08s">
+        <span class="card-badge card-badge-building">Building</span>
+        <h3>Market Agents</h3>
+        <p>Autonomous agents that provide liquidity to thin markets, making low-volume predictions more accurate by supplying informed prices where humans won't trade.</p>
+        <div class="card-detail">
+          Targeted at fragile markets<br>
+          Informed by cross-platform data<br>
+          Improving the markets we measure
+        </div>
+      </div>
+      <div class="platform-card fade-in" style="transition-delay: 0.16s">
+        <span class="card-badge card-badge-building">Building</span>
+        <h3>Information Feed</h3>
+        <p>Trade-level behavioral analysis that separates informed trading from noise. Extracted "pure information" signals delivered as a real-time feed for LLMs and world models.</p>
+        <div class="card-detail">
+          Behavioral signal extraction<br>
+          Trade-level granularity<br>
+          Built for machine consumption
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
 
 <script>
   // Live stats from pipeline data
