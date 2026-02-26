@@ -958,13 +958,8 @@
 
         switch (currentView) {
             case 'biggest_moves':
-                // Volume-weighted moves: heavily prioritize high-volume markets
+                // All open markets, sorted by volume-weighted price movement
                 // Score = abs(price_change) * log(volume)³ - surfaces moves on markets DC cares about
-                const MIN_VOLUME = 100000;  // $100K minimum to filter noise
-                sorted = sorted.filter(m => {
-                    const vol = m.total_volume || m.volume || 0;
-                    return m.price_change_24h !== null && vol >= MIN_VOLUME;
-                });
                 sorted.sort((a, b) => {
                     const volA = a.total_volume || a.volume || 0;
                     const volB = b.total_volume || b.volume || 0;
@@ -1053,11 +1048,7 @@
         const divergencesCount = document.getElementById('tab-count-divergences');
         const reportableCount = document.getElementById('tab-count-reportable');
 
-        const MIN_VOLUME_FOR_MOVES = 10000;
-        const withChange = filteredMarkets.filter(m => {
-            const vol = m.total_volume || m.volume || 0;
-            return m.price_change_24h !== null && vol >= MIN_VOLUME_FOR_MOVES;
-        });
+        const withChange = filteredMarkets;
         const withVolume = filteredMarkets.filter(m => m.total_volume > 0 || m.volume > 0);
         const divergences = filteredMarkets.filter(m => {
             const isElection = m.entry_type === 'election' || (m.has_both && m.pm_price !== undefined);
