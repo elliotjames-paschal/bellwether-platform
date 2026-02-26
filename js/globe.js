@@ -914,8 +914,9 @@ function initGlobe(containerId, options) {
                     linkParts.push('<a href="' + pmUrl + '" target="_blank" rel="noopener" ' +
                         'style="color:#60a5fa;text-decoration:none;">Polymarket &nearr;</a>');
                 }
-                if (e.has_k && e.kalshi_event) {
-                    linkParts.push('<a href="https://kalshi.com/events/' + e.kalshi_event + '" target="_blank" rel="noopener" ' +
+                if (e.has_k && (e.k_url || e.kalshi_event)) {
+                    var kUrl = e.k_url || ('https://kalshi.com/markets/' + e.kalshi_event.toLowerCase());
+                    linkParts.push('<a href="' + kUrl + '" target="_blank" rel="noopener" ' +
                         'style="color:#34d399;text-decoration:none;">Kalshi &nearr;</a>');
                 }
                 if (linkParts.length) {

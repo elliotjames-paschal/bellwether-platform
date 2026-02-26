@@ -981,7 +981,7 @@
                 sorted = sorted.filter(m => {
                     // Extract event slug from pm_url or k_url
                     const pmSlug = m.pm_url ? m.pm_url.split('/event/')[1]?.split('/')[0] : null;
-                    const kSlug = m.k_url ? m.k_url.split('/events/')[1]?.split('/')[0] : null;
+                    const kSlug = m.k_url ? m.k_url.split('/markets/')[1]?.split('/')[0] : null;
                     const slug = pmSlug || kSlug || m.key;
                     if (seenSlugs.has(slug)) return false;
                     seenSlugs.add(slug);
