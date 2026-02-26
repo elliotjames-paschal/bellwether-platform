@@ -265,7 +265,7 @@
       <div class="stack-layer-header">
         <span class="stack-layer-name">Raw Market Data</span>
       </div>
-      <div class="stack-layer-desc">Polymarket · Kalshi · <span id="market-count">10,359</span> markets · trade-level data</div>
+      <div class="stack-layer-desc">Polymarket · Kalshi · trade-level data</div>
     </div>
   </div>
 </div>
@@ -277,15 +277,6 @@
   }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
   document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
 
-  // Live market count from pipeline data
-  fetch('data/market_map.json')
-    .then(r => r.json())
-    .then(data => {
-      if (data.count) {
-        document.getElementById('market-count').textContent = data.count.toLocaleString();
-      }
-    })
-    .catch(() => {}); // fallback: keep static number
 </script>
 
 </body>
