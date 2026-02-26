@@ -103,16 +103,18 @@
             letter-spacing: 0.02em;
         }
 
-        .nav-cta {
-            font-size: 13px !important;
-            color: #FFFFFF !important;
+        .nav-links a.nav-cta {
+            all: unset !important;
+            font-size: 13px !important; color: #FFFFFF !important;
             background: rgba(255, 255, 255, 0.12) !important;
-            padding: 8px 20px !important;
-            border-radius: 6px !important;
-            transition: background 0.2s !important;
+            padding: 8px 20px !important; border-radius: 6px !important;
+            cursor: pointer !important; transition: background 0.2s !important;
+            font-family: 'DM Sans', -apple-system, sans-serif !important;
+            text-decoration: none !important; display: inline-block !important;
+            box-sizing: border-box !important;
         }
 
-        .nav-cta:hover {
+        .nav-links a.nav-cta:hover {
             background: rgba(255, 255, 255, 0.2) !important;
         }
 
