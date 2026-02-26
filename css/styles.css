@@ -2469,19 +2469,25 @@ a.price-box.clickable:hover {
     margin-bottom: 18px;
 }
 
+.card-question-col {
+    min-width: 0;
+    flex: 1;
+}
+
 .card-ticker {
-    padding: 0 16px;
-    margin-top: -4px;
-    margin-bottom: 4px;
+    margin-top: 3px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-.card-ticker code {
     font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
     font-size: 9px;
     color: #aaa;
     letter-spacing: 0.2px;
+}
+.card-ticker code {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
 }
 
 .card-market-img {
