@@ -499,11 +499,11 @@
                     </div>
                     <div class="card-platforms">${platformLinksHtml}</div>
                 </div>
+                ${e.ticker ? `<div class="card-ticker"><code>${e.ticker}</code></div>` : ''}
                 <div class="card-question-row">
                     <div class="card-market-img">${imageHtml}</div>
                     <div class="card-question">${truncate(title, 100)}</div>
                 </div>
-                ${e.ticker ? `<div class="card-ticker"><code>${e.ticker}</code></div>` : ''}
                 <div class="card-price-row" title="Volume-weighted average price across platforms, resistant to manipulation">
                     <span class="bw-price">${bwPrice}</span>
                     <span class="bw-label">Bellwether</span>
@@ -613,11 +613,11 @@
                     <span class="card-category">${m.category_display || 'Other'}</span>
                     <div class="card-platforms">${platformLinkHtml}</div>
                 </div>
+                ${m.ticker ? `<div class="card-ticker"><code>${m.ticker}</code></div>` : ''}
                 <div class="card-question-row">
                     <div class="card-market-img">${imageHtml}</div>
                     <div class="card-question">${truncate(m.label, 100)}</div>
                 </div>
-                ${m.ticker ? `<div class="card-ticker"><code>${m.ticker}</code></div>` : ''}
                 <div class="card-price-row" title="Volume-weighted average price across platforms, resistant to manipulation">
                     <span class="bw-price">${bwPrice}</span>
                     <span class="bw-label">Bellwether</span>

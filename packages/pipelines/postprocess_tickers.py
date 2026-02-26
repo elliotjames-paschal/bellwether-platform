@@ -350,7 +350,7 @@ def reassemble_ticker(ticker: dict) -> str:
     threshold = ticker.get('threshold', 'ANY')
     timeframe = ticker.get('timeframe', 'UNKNOWN')
 
-    return f"{agent}-{action}-{target}-{mechanism}-{threshold}-{timeframe}"
+    return f"BWR-{agent}-{action}-{target}-{mechanism}-{threshold}-{timeframe}"
 
 
 def postprocess(
