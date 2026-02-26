@@ -293,13 +293,13 @@
 <div class="trust-bar">
   <div class="trust-inner fade-in">
     <div class="trust-item">
-      <div class="trust-number">10,359</div>
-      <div class="trust-label">Markets monitored continuously</div>
+      <div class="trust-number" id="trust-market-count">10,359</div>
+      <div class="trust-label">Active political markets</div>
     </div>
     <div class="trust-divider"></div>
     <div class="trust-item">
       <div class="trust-number">86%</div>
-      <div class="trust-label">Winner-call accuracy on shared markets</div>
+      <div class="trust-label">Winner-call accuracy on shared election markets</div>
     </div>
     <div class="trust-divider"></div>
     <div class="trust-item">
@@ -308,13 +308,27 @@
     </div>
     <div class="trust-divider"></div>
     <div class="trust-item">
-      <div class="trust-number">330</div>
-      <div class="trust-label">Cross-platform matched pairs</div>
+      <div class="trust-number" id="trust-brier">0.088</div>
+      <div class="trust-label">Combined Brier score</div>
     </div>
   </div>
 </div>
 
 <script>
+  // Live stats from pipeline data
+  fetch('data/market_map.json')
+    .then(r => r.json())
+    .then(data => {
+      if (data.count) document.getElementById('trust-market-count').textContent = data.count.toLocaleString();
+    })
+    .catch(() => {});
+  fetch('data/summary.json')
+    .then(r => r.json())
+    .then(data => {
+      if (data.combined_brier) document.getElementById('trust-brier').textContent = data.combined_brier.toFixed(3);
+    })
+    .catch(() => {});
+
   // Scroll-triggered fade-in
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
