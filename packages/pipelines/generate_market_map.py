@@ -221,6 +221,19 @@ def generate_market_map():
             'pm_question': pm_market.get('original_question', '') if pm_market else '',
         })
 
+    # Filter to valid political categories only
+    VALID_CATEGORIES = {
+        '1. ELECTORAL', '2. MONETARY_POLICY', '3. LEGISLATIVE', '4. APPOINTMENTS',
+        '5. REGULATORY', '6. INTERNATIONAL', '7. JUDICIAL', '8. MILITARY_SECURITY',
+        '9. CRISIS_EMERGENCY', '10. GOVERNMENT_OPERATIONS', '11. PARTY_POLITICS',
+        '12. STATE_LOCAL', '13. TIMING_EVENTS', '14. POLLING_APPROVAL', '15. POLITICAL_SPEECH',
+    }
+    before = len(matched_markets)
+    matched_markets = [m for m in matched_markets if m.get('category', '') in VALID_CATEGORIES]
+    excluded = before - len(matched_markets)
+    if excluded:
+        print(f"  Excluded {excluded} markets with invalid categories")
+
     # Sort by volume descending
     matched_markets.sort(key=lambda x: x.get('total_volume', 0), reverse=True)
 

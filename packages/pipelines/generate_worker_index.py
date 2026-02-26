@@ -73,7 +73,15 @@ def load_master_csv():
     df = pd.read_csv(MASTER_CSV, low_memory=False)
     # Filter to active markets only
     active = df[df['is_closed'] != True].copy()
-    print(f"  Master CSV: {len(df)} total, {len(active)} active")
+    # Exclude non-political and non-standard categories
+    VALID_CATEGORIES = {
+        '1. ELECTORAL', '2. MONETARY_POLICY', '3. LEGISLATIVE', '4. APPOINTMENTS',
+        '5. REGULATORY', '6. INTERNATIONAL', '7. JUDICIAL', '8. MILITARY_SECURITY',
+        '9. CRISIS_EMERGENCY', '10. GOVERNMENT_OPERATIONS', '11. PARTY_POLITICS',
+        '12. STATE_LOCAL', '13. TIMING_EVENTS', '14. POLLING_APPROVAL', '15. POLITICAL_SPEECH',
+    }
+    active = active[active['political_category'].isin(VALID_CATEGORIES)]
+    print(f"  Master CSV: {len(df)} total, {len(active)} active (valid categories)")
     return active
 
 

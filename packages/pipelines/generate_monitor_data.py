@@ -1296,7 +1296,13 @@ def generate_monitor_data(skip_prices=False):
     pm_active = df[(df['platform'] == 'Polymarket') & (df['is_closed'] != True)]
     k_active = df[(df['platform'] == 'Kalshi') & (df['k_status'].isin(['active', 'open']))]
     active = pd.concat([pm_active, k_active]).copy()
-    log(f"  Active markets: {len(active):,} ({len(pm_active):,} PM + {len(k_active):,} Kalshi)")
+
+    # Filter to valid political categories only (exclude NOT_POLITICAL, PARTISAN_CONTROL, etc.)
+    valid_categories = set(CATEGORY_DISPLAY.keys())
+    before_filter = len(active)
+    active = active[active['political_category'].isin(valid_categories)]
+    excluded = before_filter - len(active)
+    log(f"  Active markets: {len(active):,} ({excluded:,} excluded for invalid category)")
 
     # Build market_id -> row lookup from active markets
     mid_to_row = {}
