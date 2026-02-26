@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4JTSRBJBY5"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-4JTSRBJBY5');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bellwether — Prediction Market Infrastructure</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bw-blue: #4A90D9;
+    --bw-blue-light: #EBF2FC;
+    --bw-blue-muted: #A8C8E8;
+    --bw-dark: #1A1A1A;
+    --bw-text: #2C2C2C;
+    --bw-text-secondary: #6B6B6B;
+    --bw-border: #E8E8E8;
+    --bw-bg: #FAFAFA;
+    --bw-white: #FFFFFF;
+    --bw-red: #D94A4A;
+    --bw-green: #3A8A5C;
+    --bw-amber: #D4950A;
+    --font-serif: 'Source Serif 4', Georgia, serif;
+    --font-sans: 'DM Sans', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    color: var(--bw-text);
+    background: var(--bw-white);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--bw-border);
+    transition: box-shadow 0.3s;
+  }
+  nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
+  .nav-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 32px;
+    height: 60px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-serif); font-weight: 600; font-size: 18px;
+    color: var(--bw-dark); text-decoration: none;
+  }
+  .nav-logo .dot { width: 10px; height: 10px; background: var(--bw-blue); border-radius: 50%; }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a {
+    font-size: 14px; color: var(--bw-text-secondary); text-decoration: none;
+    font-weight: 400; transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--bw-dark); }
+  .nav-affil {
+    font-size: 12px; color: var(--bw-text-secondary); opacity: 0.6;
+    font-weight: 300; letter-spacing: 0.02em;
+    display: flex; align-items: center; gap: 6px;
+    text-decoration: none;
+  }
+  .nav-affil img { height: 18px; opacity: 0.5; }
+
+  @media (max-width: 900px) {
+    .nav-links a:not(.nav-cta) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="./" class="nav-logo"><span class="dot"></span>Bellwether</a>
+    <div class="nav-links">
+      <a href="./">Home</a>
+      <a href="globe.html">Globe</a>
+      <a href="research.html">Research</a>
+      <a href="data.html">Data</a>
+      <a href="about.html">About</a>
+      <a href="https://www.hoover.org" target="_blank" rel="noopener" class="nav-affil">
+        <img src="assets/hoover-tower.svg" alt="">
+        Hoover Institution
+      </a>
+    </div>
+  </div>
+</nav>
+
+<script>
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 10), { passive: true });
+</script>
+
+<!-- Sections will be added here as we build them -->
+<div style="height: 100vh; display: flex; align-items: center; justify-content: center; padding-top: 60px;">
+  <p style="color: var(--bw-text-secondary); font-size: 16px;">V2 homepage — building section by section</p>
+</div>
+
+</body>
+</html>
