@@ -24,7 +24,7 @@ import pandas as pd
 
 # Add scripts dir to path
 sys.path.insert(0, str(Path(__file__).parent))
-from config import BASE_DIR, DATA_DIR
+from config import BASE_DIR, DATA_DIR, get_market_anchor_time
 
 # Output paths
 OUTPUT_DIR = BASE_DIR / "output"
@@ -40,7 +40,7 @@ PM_PRICES_V3_FILE = DATA_DIR / "polymarket_all_political_prices_CORRECTED_v3.jso
 KALSHI_PRICES_FILE = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
 PM_ORDERBOOK_FILE = DATA_DIR / "orderbook_history_polymarket.json"
 KALSHI_ORDERBOOK_FILE = DATA_DIR / "orderbook_history_kalshi.json"
-RESOLUTION_PRICES_FILE = DATA_DIR / "resolution_prices.json"
+ELECTION_DATES_FILE = DATA_DIR / "election_dates_lookup.csv"
 
 # Truncation offsets (hours before anchor)
 PM_TRUNCATION_OFFSETS = [-48, -24, -12]  # Conservative, Moderate, Aggressive
@@ -225,19 +225,40 @@ def load_orderbooks():
     return pm_ob, kalshi_ob
 
 
-def load_resolution_prices():
-    """Load resolution prices for outcome data."""
-    log("Loading resolution prices...")
+def load_election_dates():
+    """Load election dates lookup and return a lookup function."""
+    log("Loading election dates lookup...")
 
-    if not RESOLUTION_PRICES_FILE.exists():
-        log("  Warning: resolution_prices.json not found")
+    if not ELECTION_DATES_FILE.exists():
+        log("  Warning: election_dates_lookup.csv not found")
         return {}
 
-    with open(RESOLUTION_PRICES_FILE, 'r') as f:
-        data = json.load(f)
+    election_dates_df = pd.read_csv(ELECTION_DATES_FILE)
+    log(f"  Loaded {len(election_dates_df):,} election date records")
 
-    log(f"  Loaded {len(data):,} resolution records")
-    return data
+    lookup = {}
+    for _, row in election_dates_df.iterrows():
+        key = (
+            str(row['country']).strip(),
+            str(row['office']).strip(),
+            str(row['location']).strip(),
+            int(row['election_year']) if pd.notna(row.get('election_year')) else None
+        )
+        dt = pd.to_datetime(row['election_date'])
+        lookup[key] = dt.replace(hour=0, minute=0, second=0, tzinfo=timezone.utc)
+
+    return lookup
+
+
+def get_election_date(market_row, election_dates_lookup):
+    """Look up election date for an electoral market."""
+    country = str(market_row.get('country', '')).strip() if pd.notna(market_row.get('country')) else ''
+    office = str(market_row.get('office', '')).strip() if pd.notna(market_row.get('office')) else ''
+    location = str(market_row.get('location', '')).strip() if pd.notna(market_row.get('location')) else ''
+    year = int(market_row.get('election_year')) if pd.notna(market_row.get('election_year')) else None
+
+    key = (country, office, location, year)
+    return election_dates_lookup.get(key)
 
 
 def main():
@@ -248,9 +269,9 @@ def main():
     # Load data
     pm_prices, kalshi_prices = load_prices()
     pm_ob, kalshi_ob = load_orderbooks()
-    resolution_data = load_resolution_prices()
+    election_dates_lookup = load_election_dates()
 
-    # Load prediction accuracy files (for reference dates and spot prices)
+    # Load prediction accuracy files (for list of resolved markets + outcomes)
     log("\nLoading prediction accuracy files...")
     pm_pred = pd.read_csv(PM_PRED_FILE, dtype={'token_id': str, 'market_id': str})
     kalshi_pred = pd.read_csv(KALSHI_PRED_FILE, dtype={'ticker': str, 'market_id': str})
@@ -258,10 +279,20 @@ def main():
     log(f"  Polymarket predictions: {len(pm_pred):,}")
     log(f"  Kalshi predictions: {len(kalshi_pred):,}")
 
-    # Load master CSV for market metadata
+    # Load master CSV for market metadata and anchor times
     log("\nLoading master CSV...")
     master_df = pd.read_csv(MASTER_CSV, low_memory=False)
     log(f"  Total markets: {len(master_df):,}")
+
+    # Build lookup from master CSV: market_id -> row
+    master_by_id = {}
+    for _, mrow in master_df.iterrows():
+        mid = str(mrow['market_id'])
+        master_by_id[mid] = mrow
+
+    # Helper to get election date for a market row
+    def election_date_fn(market_row):
+        return get_election_date(market_row, election_dates_lookup)
 
     # Get unique markets per platform with their reference info
     log("\nProcessing markets...")
@@ -282,8 +313,17 @@ def main():
             # Get price history
             price_history = pm_prices.get(token_id, [])
 
-            # Get reference datetime
-            ref_dt = pd.to_datetime(row['reference_datetime'])
+            # Get anchor time from master CSV (trading_close_time or election date)
+            master_row = master_by_id.get(market_id)
+            if master_row is None:
+                errors += 1
+                continue
+            category = str(master_row.get('political_category', ''))
+            is_election = category.startswith('1.') or 'ELECTORAL' in category.upper()
+            ref_dt = get_market_anchor_time(master_row, is_election, election_date_fn)
+            if ref_dt is None:
+                errors += 1
+                continue
             if ref_dt.tzinfo is None:
                 ref_dt = ref_dt.tz_localize('UTC')
             ref_ts = int(ref_dt.timestamp())
@@ -325,7 +365,8 @@ def main():
             # Also add resolution-time prices (offset = 0)
             spot_res = get_spot_price_at_time(price_history, ref_ts)
             vwap_1h_res = compute_vwap(price_history, ref_ts, VWAP_WINDOWS['vwap_1h'])
-            midpoint_res = get_midpoint_at_time(ob_data if 'ob_data' in dir() else {}, ref_ts)
+            ob_data = pm_ob.get(market_id, {})
+            midpoint_res = get_midpoint_at_time(ob_data, ref_ts)
 
             all_prices.append({
                 'market_id': market_id,
@@ -367,8 +408,17 @@ def main():
             # Get price history
             price_history = kalshi_prices.get(ticker, [])
 
-            # Get reference datetime
-            ref_dt = pd.to_datetime(row['reference_datetime'])
+            # Get anchor time from master CSV (trading_close_time or election date)
+            master_row = master_by_id.get(market_id)
+            if master_row is None:
+                errors_k += 1
+                continue
+            category = str(master_row.get('political_category', ''))
+            is_election = category.startswith('1.') or 'ELECTORAL' in category.upper()
+            ref_dt = get_market_anchor_time(master_row, is_election, election_date_fn)
+            if ref_dt is None:
+                errors_k += 1
+                continue
             if ref_dt.tzinfo is None:
                 ref_dt = ref_dt.tz_localize('UTC')
             ref_ts = int(ref_dt.timestamp())

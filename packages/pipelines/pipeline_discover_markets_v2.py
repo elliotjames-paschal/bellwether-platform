@@ -12,8 +12,8 @@ APPROACH:
   Kalshi (event ticker filtering):
     - Load political event tickers from data/kalshi_political_event_tickers.json
       (maintained by pipeline_classify_kalshi_events.py)
-    - GET /markets (all markets, paginate with cursor)
-    - Filter to markets whose event_ticker is in the political set
+    - GET /markets (paginate with cursor), filtering each page to political
+      event tickers immediately (never holds all markets in memory)
 
   Polymarket (tag-based discovery):
     - Load political tags from data/polymarket_political_tags.json
@@ -22,9 +22,7 @@ APPROACH:
     - Deduplicate by condition_id across all tags
 
 OUTPUT:
-  - data/markets_v2.json (combined master)
-  - data/kalshi_raw_v2.json (raw Kalshi API responses)
-  - data/polymarket_raw_v2.json (raw Polymarket political markets)
+  - data/new_markets_discovered.csv (new markets not yet in index)
 
 Usage:
     python pipeline_discover_markets_v2.py [--active-only] [--sample N]
@@ -56,12 +54,8 @@ POLYMARKET_API_BASE = "https://gamma-api.polymarket.com"
 
 # Output paths
 from config import DATA_DIR
-OUTPUT_DIR = DATA_DIR
 KALSHI_POLITICAL_TICKERS_FILE = DATA_DIR / "kalshi_political_event_tickers.json"
-KALSHI_RAW_FILE = OUTPUT_DIR / "kalshi_raw_v2.json"
-POLYMARKET_RAW_FILE = OUTPUT_DIR / "polymarket_raw_v2.json"
-MASTER_V2_FILE = OUTPUT_DIR / "markets_v2.json"
-NEW_MARKETS_CSV = OUTPUT_DIR / "new_markets_discovered.csv"
+NEW_MARKETS_CSV = DATA_DIR / "new_markets_discovered.csv"
 INDEX_FILE = DATA_DIR / "market_id_index.json"
 
 # Rate limiting
@@ -147,136 +141,6 @@ def fetch_kalshi_markets(status: Optional[str] = None, limit: int = 1000) -> lis
     return all_markets
 
 
-def fetch_kalshi_events(with_nested_markets: bool = True, limit: int = 200) -> list:
-    """
-    Fetch all events from Kalshi native API.
-
-    Args:
-        with_nested_markets: Include nested market data
-        limit: Results per page (max 200 with nested markets)
-
-    Returns:
-        List of event dicts with ALL fields
-    """
-    all_events = []
-    cursor = None
-    page = 0
-
-    log(f"Fetching Kalshi events (with_nested_markets={with_nested_markets})...")
-
-    while True:
-        params = {"limit": limit}
-        if cursor:
-            params["cursor"] = cursor
-        if with_nested_markets:
-            params["with_nested_markets"] = "true"
-
-        for attempt in range(MAX_RETRIES):
-            try:
-                response = requests.get(
-                    f"{KALSHI_API_BASE}/events",
-                    params=params,
-                    headers={"Accept": "application/json"},
-                    timeout=60  # Longer timeout for nested data
-                )
-
-                if response.status_code == 200:
-                    data = response.json()
-                    events = data.get("events", [])
-                    all_events.extend(events)
-
-                    cursor = data.get("cursor")
-                    page += 1
-
-                    log(f"  Page {page}: {len(events)} events (total: {len(all_events)})")
-
-                    if not cursor:
-                        return all_events
-
-                    time.sleep(KALSHI_RATE_LIMIT)
-                    break
-
-                elif response.status_code == 429:
-                    wait = 10 * (2 ** attempt)
-                    log(f"  Rate limited, waiting {wait}s...")
-                    time.sleep(wait)
-                else:
-                    log(f"  Error {response.status_code}: {response.text[:200]}")
-                    if attempt == MAX_RETRIES - 1:
-                        return all_events
-                    time.sleep(5)
-
-            except Exception as e:
-                log(f"  Exception: {e}")
-                if attempt == MAX_RETRIES - 1:
-                    return all_events
-                time.sleep(5)
-
-    return all_events
-
-
-def fetch_kalshi_series() -> list:
-    """
-    Fetch all series from Kalshi native API.
-
-    Returns:
-        List of series dicts with ALL fields
-    """
-    all_series = []
-    cursor = None
-    page = 0
-
-    log("Fetching Kalshi series...")
-
-    while True:
-        params = {"limit": 1000}
-        if cursor:
-            params["cursor"] = cursor
-
-        for attempt in range(MAX_RETRIES):
-            try:
-                response = requests.get(
-                    f"{KALSHI_API_BASE}/series",
-                    params=params,
-                    headers={"Accept": "application/json"},
-                    timeout=30
-                )
-
-                if response.status_code == 200:
-                    data = response.json()
-                    series = data.get("series", [])
-                    all_series.extend(series)
-
-                    cursor = data.get("cursor")
-                    page += 1
-
-                    log(f"  Page {page}: {len(series)} series (total: {len(all_series)})")
-
-                    if not cursor or len(series) == 0:
-                        return all_series
-
-                    time.sleep(KALSHI_RATE_LIMIT)
-                    break
-
-                elif response.status_code == 429:
-                    wait = 10 * (2 ** attempt)
-                    log(f"  Rate limited, waiting {wait}s...")
-                    time.sleep(wait)
-                else:
-                    log(f"  Error {response.status_code}: {response.text[:200]}")
-                    if attempt == MAX_RETRIES - 1:
-                        return all_series
-                    time.sleep(5)
-
-            except Exception as e:
-                log(f"  Exception: {e}")
-                if attempt == MAX_RETRIES - 1:
-                    return all_series
-                time.sleep(5)
-
-    return all_series
-
-
 def load_kalshi_political_event_tickers() -> set:
     """
     Load political event tickers from kalshi_political_event_tickers.json.
@@ -297,17 +161,20 @@ def load_kalshi_political_event_tickers() -> set:
     return political
 
 
-def fetch_kalshi_political_markets(status: Optional[str] = None) -> dict:
+def fetch_kalshi_political_markets(
+    status: Optional[str] = None,
+    existing_ids: Optional[set] = None,
+    limit: int = 1000,
+) -> dict:
     """
-    Fetch Kalshi markets filtered to only political event tickers.
+    Fetch Kalshi markets, filtering to political event tickers during pagination.
 
-    1. Loads political event tickers from kalshi_political_event_tickers.json
-       (maintained by pipeline_classify_kalshi_events.py)
-    2. Fetches all markets from GET /markets (paginated)
-    3. Filters to markets whose event_ticker is in the political set
+    Each page of results is filtered immediately so non-political markets are
+    never accumulated in memory. Markets whose ticker is already in
+    existing_ids are also skipped.
 
     Returns:
-        Dict with 'markets' list and count metadata
+        Dict with 'markets' list (processed CSV-format dicts) and count metadata
     """
     political_tickers = load_kalshi_political_event_tickers()
     if not political_tickers:
@@ -317,26 +184,89 @@ def fetch_kalshi_political_markets(status: Optional[str] = None) -> dict:
             "total_markets_scanned": 0,
         }
 
-    # Fetch all markets (paginated)
-    all_markets = fetch_kalshi_markets(status=status)
+    if existing_ids is None:
+        existing_ids = set()
 
-    # Filter to political
-    political_markets = [
-        m for m in all_markets
-        if m.get("event_ticker") in political_tickers
-    ]
-    political_event_set = {
-        m.get("event_ticker") for m in political_markets if m.get("event_ticker")
-    }
+    political_markets = []
+    political_event_set = set()
+    total_scanned = 0
+    cursor = None
+    page = 0
+
+    log(f"Fetching Kalshi political markets (status={status or 'all'})...")
+
+    done = False
+    while not done:
+        params = {"limit": limit}
+        if cursor:
+            params["cursor"] = cursor
+        if status:
+            params["status"] = status
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = requests.get(
+                    f"{KALSHI_API_BASE}/markets",
+                    params=params,
+                    headers={"Accept": "application/json"},
+                    timeout=30,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    markets = data.get("markets", [])
+                    total_scanned += len(markets)
+
+                    # Filter this page immediately — discard non-political
+                    for m in markets:
+                        event_ticker = m.get("event_ticker")
+                        ticker = m.get("ticker")
+                        if event_ticker in political_tickers:
+                            if ticker and ticker in existing_ids:
+                                continue
+                            political_markets.append(
+                                process_kalshi_market_native(m)
+                            )
+                            if event_ticker:
+                                political_event_set.add(event_ticker)
+
+                    cursor = data.get("cursor")
+                    page += 1
+
+                    if page % 10 == 0 or not cursor:
+                        log(f"  Page {page}: scanned {total_scanned}, "
+                            f"kept {len(political_markets)} political")
+
+                    if not cursor:
+                        done = True
+
+                    time.sleep(KALSHI_RATE_LIMIT)
+                    break
+
+                elif response.status_code == 429:
+                    wait = 10 * (2 ** attempt)
+                    log(f"  Rate limited, waiting {wait}s...")
+                    time.sleep(wait)
+                else:
+                    log(f"  Error {response.status_code}: {response.text[:200]}")
+                    if attempt == MAX_RETRIES - 1:
+                        done = True
+                    time.sleep(5)
+
+            except Exception as e:
+                log(f"  Exception: {e}")
+                if attempt == MAX_RETRIES - 1:
+                    done = True
+                time.sleep(5)
 
     log(f"Filtered to {len(political_markets)} political markets "
-        f"({len(political_event_set)} events) from {len(all_markets)} total")
+        f"({len(political_event_set)} events) from {total_scanned} scanned")
 
     return {
         "markets": political_markets,
         "political_event_tickers": len(political_tickers),
         "political_events_found": len(political_event_set),
-        "total_markets_scanned": len(all_markets),
+        "total_markets_scanned": total_scanned,
     }
 
 
@@ -402,16 +332,16 @@ def fetch_markets_for_tag(tag_slug: str, limit: int = 100) -> list:
     return markets
 
 
-def fetch_polymarket_political_markets() -> list:
+def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> list:
     """
     Fetch Polymarket markets by iterating through political tag slugs.
 
     Loads political tags from polymarket_political_tags.json, fetches all
-    markets for each tag via GET /markets?tag={slug}, and deduplicates
-    by condition_id.
+    markets for each tag via GET /markets?tag={slug}, deduplicates
+    by condition_id, and skips markets already in existing_ids.
 
     Returns:
-        List of unique political market dicts
+        List of processed market dicts (CSV-format)
     """
     political_tags_file = DATA_DIR / "polymarket_political_tags.json"
 
@@ -424,8 +354,12 @@ def fetch_polymarket_political_markets() -> list:
 
     log(f"Loaded {len(political_tags)} political tags")
 
+    if existing_ids is None:
+        existing_ids = set()
+
     # Deduplicate markets by condition_id across all tags
-    all_markets = {}  # condition_id -> market dict
+    seen_condition_ids = set()
+    processed_markets = []
     tags_with_markets = 0
 
     for i, tag in enumerate(political_tags):
@@ -435,24 +369,28 @@ def fetch_polymarket_political_markets() -> list:
 
         tag_markets = fetch_markets_for_tag(tag_slug)
 
-        new_count = 0
         for market in tag_markets:
             condition_id = market.get("conditionId") or market.get("condition_id")
-            if condition_id and condition_id not in all_markets:
-                all_markets[condition_id] = market
-                new_count += 1
+            if not condition_id or condition_id in seen_condition_ids:
+                continue
+            seen_condition_ids.add(condition_id)
+            # Skip markets already in the index
+            slug = market.get("slug")
+            if condition_id in existing_ids or (slug and slug in existing_ids):
+                continue
+            processed_markets.append(process_polymarket_market_native(market))
 
         if tag_markets:
             tags_with_markets += 1
 
         if (i + 1) % 50 == 0 or (i + 1) == len(political_tags):
             log(f"  Tags processed: {i + 1}/{len(political_tags)}, "
-                f"unique markets: {len(all_markets)}")
+                f"unique markets: {len(processed_markets)}")
 
     log(f"  Tags with markets: {tags_with_markets}/{len(political_tags)}")
-    log(f"  Total unique political markets: {len(all_markets)}")
+    log(f"  Total unique political markets: {len(processed_markets)}")
 
-    return list(all_markets.values())
+    return processed_markets
 
 
 # =============================================================================
@@ -590,6 +528,15 @@ def main():
     print("=" * 70 + "\n")
 
     # =========================================================================
+    # LOAD INDEX UPFRONT FOR EARLY DEDUP
+    # =========================================================================
+
+    index = load_market_index()
+    kalshi_existing = set(str(x) for x in index.get("kalshi", []))
+    pm_existing = set(str(x) for x in index.get("polymarket", []))
+    log(f"Loaded index: {len(kalshi_existing)} Kalshi, {len(pm_existing)} Polymarket existing IDs")
+
+    # =========================================================================
     # KALSHI + POLYMARKET (fetched in parallel)
     # =========================================================================
 
@@ -602,106 +549,49 @@ def main():
     from concurrent.futures import ThreadPoolExecutor
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        kalshi_future = executor.submit(fetch_kalshi_political_markets, status=kalshi_status)
-        pm_future = executor.submit(fetch_polymarket_political_markets)
+        kalshi_future = executor.submit(
+            fetch_kalshi_political_markets,
+            status=kalshi_status,
+            existing_ids=kalshi_existing,
+        )
+        pm_future = executor.submit(
+            fetch_polymarket_political_markets,
+            existing_ids=pm_existing,
+        )
 
         kalshi_result = kalshi_future.result()
         pm_markets = pm_future.result()
 
-    # --- Process Kalshi results ---
+    # Markets are already processed to CSV format by the fetch functions
     kalshi_markets = kalshi_result["markets"]
 
     if sample_size and len(kalshi_markets) > sample_size:
         kalshi_markets = kalshi_markets[:sample_size]
         log(f"  Kalshi sampled to {sample_size} markets")
 
-    kalshi_data = {
-        "fetched_at": datetime.now().isoformat(),
-        "source": "political_event_tickers",
-        "markets": kalshi_markets,
-        "counts": {
-            "markets": len(kalshi_markets),
-            "political_event_tickers": kalshi_result["political_event_tickers"],
-            "political_events_found": kalshi_result.get("political_events_found", 0),
-            "total_markets_scanned": kalshi_result["total_markets_scanned"],
-        }
-    }
-
-    log(f"\nKalshi totals: {len(kalshi_markets)} political markets "
-        f"(from {kalshi_result['total_markets_scanned']} scanned)")
-
-    with open(KALSHI_RAW_FILE, 'w') as f:
-        json.dump(kalshi_data, f, indent=2, default=str)
-    log(f"Saved: {KALSHI_RAW_FILE}")
-
-    # --- Process Polymarket results ---
     if sample_size and len(pm_markets) > sample_size:
         pm_markets = pm_markets[:sample_size]
         log(f"  Polymarket sampled to {sample_size} markets")
 
-    polymarket_data = {
-        "fetched_at": datetime.now().isoformat(),
-        "source": "political_tags",
-        "markets": pm_markets,
-        "counts": {
-            "markets": len(pm_markets),
-        }
-    }
-
-    log(f"\nPolymarket totals: {len(pm_markets)} political markets (via tag-based discovery)")
-
-    with open(POLYMARKET_RAW_FILE, 'w') as f:
-        json.dump(polymarket_data, f, indent=2, default=str)
-    log(f"Saved: {POLYMARKET_RAW_FILE}")
+    log(f"\nKalshi: {len(kalshi_markets)} new political markets "
+        f"(from {kalshi_result['total_markets_scanned']} scanned)")
+    log(f"Polymarket: {len(pm_markets)} new political markets (via tags)")
 
     # =========================================================================
-    # CREATE COMBINED MASTER V2
-    # =========================================================================
-
-    log("\n" + "=" * 50)
-    log("CREATING MASTER V2")
-    log("=" * 50)
-
-    master_v2 = {
-        "version": "2.0",
-        "created_at": datetime.now().isoformat(),
-        "source": "native_apis",
-        "kalshi": kalshi_data,
-        "polymarket": polymarket_data,
-        "summary": {
-            "total_political_markets": len(kalshi_markets) + len(pm_markets),
-            "kalshi_political_markets": len(kalshi_markets),
-            "polymarket_political_markets": len(pm_markets),
-        }
-    }
-
-    with open(MASTER_V2_FILE, 'w') as f:
-        json.dump(master_v2, f, indent=2, default=str)
-    log(f"Saved: {MASTER_V2_FILE}")
-
-    # =========================================================================
-    # CONVERT TO CSV (for downstream pipeline compatibility)
+    # FINAL DEDUP + SAVE CSV
     # =========================================================================
 
     log("\n" + "=" * 50)
     log("GENERATING new_markets_discovered.csv")
     log("=" * 50)
 
-    # Convert raw API markets to pipeline CSV format
-    all_processed = []
-    for m in kalshi_markets:
-        all_processed.append(process_kalshi_market_native(m))
-    for m in pm_markets:
-        all_processed.append(process_polymarket_market_native(m))
+    all_new = kalshi_markets + pm_markets
 
-    log(f"Processed {len(all_processed)} markets to CSV format")
+    # Final dedup pass (belt-and-suspenders against the early dedup)
+    new_markets = filter_new_markets(all_new, index)
 
-    # Deduplicate against existing market index
-    index = load_market_index()
-    new_markets = filter_new_markets(all_processed, index)
-
-    log(f"After dedup: {len(new_markets)} new markets "
-        f"({len(all_processed) - len(new_markets)} already in index)")
+    log(f"After final dedup: {len(new_markets)} new markets "
+        f"({len(all_new) - len(new_markets)} filtered)")
 
     # Save CSV
     if new_markets:
@@ -727,11 +617,7 @@ def main():
     print("DISCOVERY V2 COMPLETE")
     print("=" * 70)
     print(f"Finished: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"\nOutput files:")
-    print(f"  - {KALSHI_RAW_FILE}")
-    print(f"  - {POLYMARKET_RAW_FILE}")
-    print(f"  - {MASTER_V2_FILE}")
-    print(f"  - {NEW_MARKETS_CSV} ({len(new_markets)} new markets)")
+    print(f"\nOutput: {NEW_MARKETS_CSV} ({len(new_markets)} new markets)")
     print(f"\nTotals:")
     print(f"  Kalshi: {len(kalshi_markets)} political markets "
           f"(from {kalshi_result['total_markets_scanned']} scanned, "

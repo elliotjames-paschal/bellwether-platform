@@ -6,6 +6,7 @@ This file should NOT be committed to version control.
 """
 
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Base directory (bellwether-platform root)
@@ -103,6 +104,33 @@ def rotate_backups(pattern, directory=None, keep=5):
             pass
 
     return deleted
+
+
+def get_market_anchor_time(market_row, is_election, election_date_lookup_fn=None):
+    """
+    Determine the anchor time for truncation.
+
+    - Electoral markets: midnight UTC on election day (via lookup)
+    - All others: trading_close_time
+
+    Returns datetime or None.
+    """
+    import pandas as pd
+
+    if is_election and election_date_lookup_fn is not None:
+        election_date = election_date_lookup_fn(market_row)
+        if election_date is not None:
+            return election_date
+
+    # Non-electoral (or electoral fallback): use trading_close_time directly
+    trading_close_time = market_row.get('trading_close_time')
+    if pd.notna(trading_close_time):
+        try:
+            return pd.to_datetime(trading_close_time, utc=True)
+        except Exception:
+            pass
+
+    return None
 
 
 def atomic_write_json(path, data, **json_kwargs):
