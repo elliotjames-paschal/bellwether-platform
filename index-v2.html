@@ -80,8 +80,112 @@
   }
   .nav-cta:hover { background: #333 !important; }
 
+  /* ── HERO ── */
+  .hero {
+    padding: 160px 32px 100px; max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center;
+    min-height: 90vh;
+  }
+  .hero-text h1 {
+    font-family: var(--font-serif); font-size: 50px; font-weight: 300;
+    line-height: 1.15; color: var(--bw-dark); letter-spacing: -0.02em; margin-bottom: 28px;
+  }
+  .hero-text h1 strong { font-weight: 600; }
+  .hero-text .subtitle {
+    font-size: 18px; line-height: 1.7; color: var(--bw-text-secondary);
+    margin-bottom: 20px; max-width: 480px;
+  }
+  .hero-text .hero-detail {
+    font-size: 14px; line-height: 1.7; color: var(--bw-text-secondary);
+    margin-bottom: 40px; max-width: 460px; opacity: 0.8;
+  }
+  .hero-actions { display: flex; gap: 16px; align-items: center; }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; background: var(--bw-dark); color: var(--bw-white);
+    border: none; border-radius: 8px; font-size: 15px;
+    font-family: var(--font-sans); font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-primary:hover { background: #333; transform: translateY(-1px); }
+  .btn-secondary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; background: transparent; color: var(--bw-text);
+    border: 1px solid var(--bw-border); border-radius: 8px; font-size: 15px;
+    font-family: var(--font-sans); font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--bw-text-secondary); }
+
+  /* ── HERO STACK DIAGRAM ── */
+  .hero-stack {
+    display: flex; flex-direction: column; gap: 0;
+    position: relative;
+  }
+  .stack-layer {
+    border: 1px solid var(--bw-border);
+    padding: 24px 28px;
+    background: var(--bw-white);
+    position: relative;
+    transition: all 0.3s;
+  }
+  .stack-layer:first-child { border-radius: 12px 12px 0 0; }
+  .stack-layer:last-child { border-radius: 0 0 12px 12px; }
+  .stack-layer + .stack-layer { border-top: none; }
+  .stack-layer.active {
+    background: var(--bw-dark);
+    border-color: var(--bw-dark);
+    z-index: 2;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  }
+  .stack-layer.active + .stack-layer { border-top: none; }
+  .stack-layer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .stack-layer-name {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+  }
+  .stack-layer.active .stack-layer-name { color: var(--bw-white); }
+  .stack-layer-badge {
+    font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 3px 10px; border-radius: 4px;
+  }
+  .badge-live { background: rgba(58,138,92,0.15); color: var(--bw-green); }
+  .stack-layer.active .badge-live { background: rgba(58,138,92,0.25); }
+  .badge-soon { background: rgba(74,144,217,0.1); color: var(--bw-blue-muted); }
+  .stack-layer-desc {
+    font-size: 13px; line-height: 1.5;
+    color: var(--bw-text-secondary);
+  }
+  .stack-layer.active .stack-layer-desc { color: rgba(255,255,255,0.55); }
+
+  /* mini code preview inside active layer */
+  .stack-code {
+    margin-top: 16px; padding: 14px 16px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 6px; overflow-x: auto;
+  }
+  .stack-code pre {
+    font-family: var(--font-mono); font-size: 11.5px;
+    line-height: 1.6; color: rgba(255,255,255,0.8);
+  }
+  .stack-code .key { color: var(--bw-blue-muted); }
+  .stack-code .str { color: #8BC89F; }
+  .stack-code .num { color: #E8B87A; }
+  .stack-code .dim { color: rgba(255,255,255,0.3); }
+
+  /* ── ANIMATIONS ── */
+  .fade-in {
+    opacity: 0; transform: translateY(16px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .fade-in.visible { opacity: 1; transform: translateY(0); }
+
   @media (max-width: 900px) {
     .nav-links a:not(.nav-cta) { display: none; }
+    .hero { grid-template-columns: 1fr; gap: 48px; min-height: auto; padding-top: 120px; }
+    .hero-text h1 { font-size: 36px; }
   }
 </style>
 </head>
@@ -108,10 +212,81 @@
   window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 10), { passive: true });
 </script>
 
-<!-- Sections will be added here as we build them -->
-<div style="height: 100vh; display: flex; align-items: center; justify-content: center; padding-top: 60px;">
-  <p style="color: var(--bw-text-secondary); font-size: 16px;">V2 homepage — building section by section</p>
+<!-- ════════════ HERO ════════════ -->
+<div class="hero">
+  <div class="hero-text fade-in">
+    <h1>Infrastructure for <strong>prediction markets</strong></h1>
+    <p class="subtitle">
+      Bellwether makes prediction markets reliable, comparable, and citable. We monitor markets across platforms — cleaning, matching, and scoring every price in real time.
+    </p>
+    <p class="hero-detail">
+      A research platform from Stanford GSB and the Hoover Institution, built to study how prediction markets process information — and to make that data useful.
+    </p>
+    <div class="hero-actions">
+      <a href="#data-api" class="btn-primary">Explore the API →</a>
+      <a href="#data" class="btn-secondary">See Live Data</a>
+    </div>
+  </div>
+
+  <!-- Stack diagram showing the layers -->
+  <div class="hero-stack fade-in" style="transition-delay: 0.15s">
+    <div class="stack-layer" style="opacity: 0.5;">
+      <div class="stack-layer-header">
+        <span class="stack-layer-name">Applications</span>
+      </div>
+      <div class="stack-layer-desc">Newsrooms, researchers, traders, LLMs</div>
+    </div>
+
+    <div class="stack-layer active">
+      <div class="stack-layer-header">
+        <span class="stack-layer-name">Bellwether Data API</span>
+        <span class="stack-layer-badge badge-live">Live</span>
+      </div>
+      <div class="stack-layer-desc">Canonical tickers · VWAP pricing · Manipulation resistance · Cross-platform matching</div>
+      <div class="stack-code">
+<pre><span class="dim">GET</span> /v2/markets/BWR-DEM-WIN-PRES-2028
+
+{
+  <span class="key">"bellwether_price"</span>: <span class="num">0.42</span>,
+  <span class="key">"cost_to_move_5c"</span>: <span class="str">"$47,200"</span>, <span class="dim">// robust</span>
+  <span class="key">"platforms"</span>: { <span class="str">"polymarket"</span>: <span class="num">0.43</span>, <span class="str">"kalshi"</span>: <span class="num">0.41</span> }
+}</pre>
+      </div>
+    </div>
+
+    <div class="stack-layer">
+      <div class="stack-layer-header">
+        <span class="stack-layer-name">Ingestion & Matching Engine</span>
+      </div>
+      <div class="stack-layer-desc">Ticker generation, event deduplication, VWAP calculation</div>
+    </div>
+
+    <div class="stack-layer">
+      <div class="stack-layer-header">
+        <span class="stack-layer-name">Raw Market Data</span>
+      </div>
+      <div class="stack-layer-desc">Polymarket · Kalshi · <span id="market-count">10,359</span> markets · trade-level data</div>
+    </div>
+  </div>
 </div>
+
+<script>
+  // Scroll-triggered fade-in
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+  // Live market count from pipeline data
+  fetch('data/market_map.json')
+    .then(r => r.json())
+    .then(data => {
+      if (data.count) {
+        document.getElementById('market-count').textContent = data.count.toLocaleString();
+      }
+    })
+    .catch(() => {}); // fallback: keep static number
+</script>
 
 </body>
 </html>
