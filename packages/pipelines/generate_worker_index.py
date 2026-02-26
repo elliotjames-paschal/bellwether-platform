@@ -227,8 +227,9 @@ def upload_to_kv(data_json: str):
     try:
         result = subprocess.run(
             [
-                "npx", "wrangler", "kv:key", "put",
+                "npx", "wrangler", "kv", "key", "put",
                 "--namespace-id", KV_NAMESPACE_ID,
+                "--remote",
                 "market_map:latest",
                 data_json,
             ],
