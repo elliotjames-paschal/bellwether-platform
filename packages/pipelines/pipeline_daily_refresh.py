@@ -516,6 +516,15 @@ def main():
             results["create_tickers"] = None
             step_results["create_tickers"] = "SKIP"
 
+        # Step 2b: Post-process tickers (deterministic fixes)
+        success = run_script(
+            "postprocess_tickers.py",
+            "Post-process ticker assignments",
+            required=False
+        )
+        results["postprocess_tickers"] = success
+        step_results["postprocess_tickers"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
         # Step 3: Generate market map using ticker-based matching
         success = run_script(
             "generate_market_map.py",

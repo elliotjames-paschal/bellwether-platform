@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from config import rotate_backups
 
 print("=" * 80)
-print("TRUNCATING DOME API PRICE DATA")
+print("TRUNCATING POLYMARKET PRICE DATA")
 print("=" * 80)
 
 # ============================================================================
@@ -68,10 +68,10 @@ else:
 
 print("\n1. Loading data...")
 
-# Load Dome API prices
+# Load Polymarket prices
 with open(INPUT_PRICES, 'r') as f:
-    dome_prices = json.load(f)
-print(f"   Loaded {len(dome_prices):,} token price histories from Dome API")
+    prices = json.load(f)
+print(f"   Loaded {len(prices):,} token price histories")
 
 # Load master file
 master_df = pd.read_csv(MASTER_FILE, low_memory=False)
@@ -148,7 +148,7 @@ stats = {
     'prices_removed_total': 0,
 }
 
-for token_id, price_history in dome_prices.items():
+for token_id, price_history in prices.items():
     stats['total_tokens'] += 1
 
     if not price_history:

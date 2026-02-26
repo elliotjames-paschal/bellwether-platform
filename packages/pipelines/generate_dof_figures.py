@@ -123,16 +123,16 @@ def load_all_data():
     pm_prices = {}
     if PM_PRICES_FILE.exists():
         with open(PM_PRICES_FILE) as f:
-            pm_dome = json.load(f)
+            pm_main = json.load(f)
     else:
-        pm_dome = {}
+        pm_main = {}
     if PM_PRICES_V3_FILE.exists():
         with open(PM_PRICES_V3_FILE) as f:
             pm_v3 = json.load(f)
     else:
         pm_v3 = {}
-    for token in set(pm_dome.keys()) | set(pm_v3.keys()):
-        pm_prices[token] = pm_dome.get(token) or pm_v3.get(token, [])
+    for token in set(pm_main.keys()) | set(pm_v3.keys()):
+        pm_prices[token] = pm_main.get(token) or pm_v3.get(token, [])
     data['pm_prices'] = pm_prices
     log(f"  PM price histories: {len(pm_prices):,}")
 
