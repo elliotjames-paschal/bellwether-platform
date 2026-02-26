@@ -346,6 +346,72 @@
     font-size: 14px; font-weight: 500; color: var(--bw-blue);
   }
 
+  /* ── CTA ── */
+  .cta-section {
+    border-top: 1px solid var(--bw-border);
+    background: var(--bw-dark);
+  }
+  .cta-section section {
+    max-width: 1200px; margin: 0 auto;
+    text-align: center;
+    padding: 80px 32px;
+  }
+  .cta-section h2 {
+    font-family: var(--font-serif); font-size: 32px; font-weight: 400;
+    color: var(--bw-white); margin-bottom: 16px; letter-spacing: -0.01em;
+  }
+  .cta-section p {
+    font-size: 16px; color: rgba(255,255,255,0.5); margin-bottom: 36px;
+    max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.6;
+  }
+  .cta-actions { display: flex; gap: 16px; justify-content: center; }
+  .btn-white {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; background: var(--bw-white); color: var(--bw-dark);
+    border: none; border-radius: 8px; font-size: 15px;
+    font-family: var(--font-sans); font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-white:hover { background: #f0f0f0; transform: translateY(-1px); }
+  .btn-ghost {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; background: transparent; color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; font-size: 15px;
+    font-family: var(--font-sans); font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-ghost:hover { border-color: rgba(255,255,255,0.35); color: var(--bw-white); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 60px 32px; background: var(--bw-dark);
+  }
+  .footer-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px;
+  }
+  .footer-brand .logo {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-serif); font-weight: 600; font-size: 16px;
+    color: var(--bw-white); margin-bottom: 12px;
+  }
+  .footer-brand .logo .dot { width: 8px; height: 8px; background: var(--bw-blue); border-radius: 50%; }
+  .footer-brand p {
+    font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6;
+    max-width: 280px; margin-bottom: 16px;
+  }
+  .footer-affil { font-size: 12px; color: rgba(255,255,255,0.25); }
+  .footer-col h4 {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.35); margin-bottom: 16px;
+  }
+  .footer-col a {
+    display: block; font-size: 14px; color: rgba(255,255,255,0.6);
+    text-decoration: none; padding: 4px 0; transition: color 0.2s;
+  }
+  .footer-col a:hover { color: var(--bw-white); }
+
   /* ── ANIMATIONS ── */
   .fade-in {
     opacity: 0; transform: translateY(16px);
@@ -364,6 +430,7 @@
     .api-block { position: static; }
     .platform-grid { grid-template-columns: 1fr; }
     .research-grid { grid-template-columns: 1fr; }
+    .footer-inner { grid-template-columns: 1fr 1fr; }
   }
 </style>
 </head>
@@ -660,6 +727,48 @@
     </a>
   </div>
 </section>
+
+<!-- ════════════ CTA ════════════ -->
+<div class="cta-section" id="contact">
+  <section>
+    <h2 class="fade-in">Built at Stanford. Free for research.<br>Open for partnerships.</h2>
+    <p class="fade-in">The Tape API is live. If you're a newsroom, researcher, or builder working with prediction market data, we'd like to hear from you.</p>
+    <div class="cta-actions fade-in">
+      <a href="mailto:bellwether@stanford.edu" class="btn-white">Request API Access</a>
+      <a href="data.html" class="btn-ghost">Read the Docs</a>
+    </div>
+  </section>
+</div>
+
+<!-- ════════════ FOOTER ════════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="logo"><span class="dot"></span> Bellwether</div>
+      <p>Prediction market infrastructure for research, journalism, and intelligent systems.</p>
+      <div class="footer-affil">Stanford GSB · Hall Lab · Hoover Institution</div>
+    </div>
+    <div class="footer-col">
+      <h4>Platform</h4>
+      <a href="data.html">Tape API</a>
+      <a href="data.html">Documentation</a>
+      <a href="globe.html">Globe</a>
+    </div>
+    <div class="footer-col">
+      <h4>Research</h4>
+      <a href="research.html">Dashboard</a>
+      <a href="papers/liquidity-accuracy/">Trustworthy Price</a>
+      <a href="papers/election-eve-methodology/">Measurement Timing</a>
+      <a href="papers/inside-the-markets/">Inside the Markets</a>
+    </div>
+    <div class="footer-col">
+      <h4>About</h4>
+      <a href="about.html">Team</a>
+      <a href="mailto:bellwether@stanford.edu">Contact</a>
+      <a href="https://github.com/elliotjames-paschal/bellwether-platform" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</footer>
 
 <script>
   // Live stats from pipeline data
