@@ -227,6 +227,57 @@
     font-size: 14px; color: var(--bw-text-secondary); line-height: 1.65;
   }
 
+  /* ── PRODUCT: TAPE API ── */
+  .product-section {
+    max-width: 1200px; margin: 0 auto; padding: 100px 32px;
+  }
+  .product-two-col {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start;
+  }
+  .product-features { display: flex; flex-direction: column; gap: 28px; }
+  .product-feature {
+    display: flex; gap: 16px; align-items: flex-start;
+  }
+  .product-feature-icon {
+    width: 36px; height: 36px; flex-shrink: 0;
+    background: var(--bw-blue-light); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bw-blue); font-size: 15px;
+  }
+  .product-feature h3 {
+    font-size: 15px; font-weight: 600; color: var(--bw-dark); margin-bottom: 4px;
+  }
+  .product-feature p {
+    font-size: 14px; color: var(--bw-text-secondary); line-height: 1.6;
+  }
+  .api-block {
+    background: var(--bw-dark); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08);
+    position: sticky; top: 80px;
+  }
+  .api-header {
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .api-header .method {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    color: var(--bw-green); background: rgba(58,138,92,0.15);
+    padding: 3px 8px; border-radius: 4px;
+  }
+  .api-header .endpoint {
+    font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.6);
+  }
+  .api-body { padding: 20px; }
+  .api-body pre {
+    font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7;
+    color: rgba(255,255,255,0.85); overflow-x: auto;
+  }
+  .api-body .key { color: var(--bw-blue-muted); }
+  .api-body .str { color: #8BC89F; }
+  .api-body .num { color: #E8B87A; }
+  .api-body .dim { color: rgba(255,255,255,0.3); }
+
   /* ── ANIMATIONS ── */
   .fade-in {
     opacity: 0; transform: translateY(16px);
@@ -241,6 +292,8 @@
     .trust-inner { flex-wrap: wrap; gap: 32px; }
     .trust-divider { display: none; }
     .why-grid { grid-template-columns: 1fr; }
+    .product-two-col { grid-template-columns: 1fr; gap: 48px; }
+    .api-block { position: static; }
   }
 </style>
 </head>
@@ -377,6 +430,94 @@
     </div>
   </section>
 </div>
+
+<!-- ════════════ TAPE API (product detail) ════════════ -->
+<section id="data-api" class="product-section">
+  <div class="section-label fade-in">Tape API</div>
+  <h2 class="section-title fade-in">Every market scored, matched,<br>and ready to use</h2>
+  <p class="section-subtitle fade-in">One endpoint returns a canonical ticker, a manipulation-resistant price, and cross-platform context for any political prediction market.</p>
+
+  <div class="product-two-col">
+    <div class="product-features">
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">◉</div>
+        <div>
+          <h3>Manipulation Resistance Scoring</h3>
+          <p>Every market includes the dollar cost to move its price by 5¢. Instantly know whether a prediction reflects deep conviction or thin liquidity.</p>
+        </div>
+      </div>
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">⟷</div>
+        <div>
+          <h3>Cross-Platform Canonical Tickers</h3>
+          <p>LLM-generated ticker system matches identical events across Polymarket and Kalshi into a single canonical ID. Same event, one price.</p>
+        </div>
+      </div>
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">△</div>
+        <div>
+          <h3>Volume-Weighted Pricing</h3>
+          <p>VWAP over configurable windows (1h – 24h) smooths out noise and manipulation attempts. The price that reflects sustained belief, not the last trade.</p>
+        </div>
+      </div>
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">⚑</div>
+        <div>
+          <h3>Reportability Labels</h3>
+          <p>Markets flagged as Robust, Moderate, or Fragile based on liquidity depth. Know instantly which numbers are safe to publish.</p>
+        </div>
+      </div>
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">↻</div>
+        <div>
+          <h3>Real-Time & Historical</h3>
+          <p>Live prices updated continuously, plus full time-series data for every matched market. Track how beliefs evolved over weeks or months.</p>
+        </div>
+      </div>
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">⊞</div>
+        <div>
+          <h3>Accuracy Tracking</h3>
+          <p>Calibration metrics updated daily as events resolve. Did markets that said 80% actually happen 80% of the time? We track it.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="api-block fade-in">
+      <div class="api-header">
+        <span class="method">GET</span>
+        <span class="endpoint">/v2/markets/BWR-DEM-WIN-PRES-2028</span>
+      </div>
+      <div class="api-body">
+<pre>{
+  <span class="key">"ticker"</span>: <span class="str">"BWR-DEM-WIN-PRES-2028"</span>,
+  <span class="key">"question"</span>: <span class="str">"Will the Democratic nominee win the 2028 presidential election?"</span>,
+  <span class="key">"category"</span>: <span class="str">"us_presidential"</span>,
+
+  <span class="key">"bellwether_price"</span>: <span class="num">0.42</span>,
+  <span class="key">"vwap_window"</span>: <span class="str">"12h"</span>,
+
+  <span class="key">"platforms"</span>: {
+    <span class="key">"polymarket"</span>: {
+      <span class="key">"price"</span>: <span class="num">0.43</span>,
+      <span class="key">"volume_24h"</span>: <span class="num">1_640_000</span>
+    },
+    <span class="key">"kalshi"</span>: {
+      <span class="key">"price"</span>: <span class="num">0.41</span>,
+      <span class="key">"volume_24h"</span>: <span class="num">1_200_000</span>
+    }
+  },
+
+  <span class="key">"manipulation_resistance"</span>: {
+    <span class="key">"cost_to_move_5c"</span>: <span class="num">47200</span>,
+    <span class="key">"rating"</span>: <span class="str">"robust"</span>,
+    <span class="key">"reportable"</span>: <span class="num">true</span>
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+</section>
 
 <script>
   // Live stats from pipeline data
