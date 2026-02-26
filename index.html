@@ -444,7 +444,7 @@
       <a href="./">Home</a>
       <a href="globe.html">Globe</a>
       <a href="research.html">Research</a>
-      <a href="monitor.html">Live Data</a>
+      <a href="data.html">Data</a>
       <a href="about.html">About</a>
       <span class="nav-affil">Stanford &middot; Hoover Institution</span>
       <a href="#contact" class="nav-cta">Request Access</a>
@@ -469,7 +469,7 @@
     </p>
     <div class="hero-actions">
       <a href="#data-api" class="btn-primary">Explore the API →</a>
-      <a href="monitor.html" class="btn-secondary">See Live Data</a>
+      <a href="#data" class="btn-secondary">See Live Data</a>
     </div>
   </div>
 
@@ -772,10 +772,11 @@
 
 <script>
   // Live stats from pipeline data
-  fetch('data/market_map.json')
+  fetch('data/active_markets.json')
     .then(r => r.json())
     .then(data => {
-      if (data.count) document.getElementById('trust-market-count').textContent = data.count.toLocaleString();
+      var count = Array.isArray(data) ? data.length : (data.count || 0);
+      if (count) document.getElementById('trust-market-count').textContent = count.toLocaleString();
     })
     .catch(() => {});
   fetch('data/summary.json')

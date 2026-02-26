@@ -772,10 +772,11 @@
 
 <script>
   // Live stats from pipeline data
-  fetch('data/market_map.json')
+  fetch('data/active_markets.json')
     .then(r => r.json())
     .then(data => {
-      if (data.count) document.getElementById('trust-market-count').textContent = data.count.toLocaleString();
+      var count = Array.isArray(data) ? data.length : (data.count || 0);
+      if (count) document.getElementById('trust-market-count').textContent = count.toLocaleString();
     })
     .catch(() => {});
   fetch('data/summary.json')
