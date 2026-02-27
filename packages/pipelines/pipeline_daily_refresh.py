@@ -525,6 +525,39 @@ def main():
         results["postprocess_tickers"] = success
         step_results["postprocess_tickers"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
+        # Step 2c: Cross-platform discovery (embedding-based, no GPT needed)
+        success = run_script(
+            "pipeline_discover_cross_platform.py",
+            "Discover cross-platform market candidates (embeddings)",
+            required=False
+        )
+        results["discover_cross_platform"] = success
+        step_results["discover_cross_platform"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # Step 2d: Compare resolutions for Bucket B candidates (GPT)
+        if has_openai and results.get("discover_cross_platform"):
+            success = run_script(
+                "pipeline_compare_resolutions.py",
+                "Compare resolution criteria (GPT-4o)",
+                required=False
+            )
+            results["compare_resolutions"] = success
+            step_results["compare_resolutions"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+        else:
+            if not has_openai:
+                logger.info("Skipping resolution comparison (no OpenAI API key)")
+            results["compare_resolutions"] = None
+            step_results["compare_resolutions"] = "SKIP"
+
+        # Step 2e: Apply cross-platform match fixes
+        success = run_script(
+            "pipeline_update_matches.py",
+            "Update cross-platform match files",
+            required=False
+        )
+        results["update_matches"] = success
+        step_results["update_matches"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
         # Step 3: Generate market map using ticker-based matching
         success = run_script(
             "generate_market_map.py",
