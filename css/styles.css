@@ -2065,13 +2065,13 @@ a:hover {
 /* Grid Layout */
 .monitor-grid {
     display: grid;
-    grid-template-columns: 1fr 280px;
+    grid-template-columns: 1fr 220px;
     gap: 20px;
 }
 
 .monitor-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
     background: transparent;
     border: none;
@@ -2721,7 +2721,7 @@ a.price-box.clickable:hover {
     background: var(--white);
     border: 1px solid var(--gray-200);
     border-radius: 6px;
-    padding: 16px;
+    padding: 14px;
 }
 
 .sidebar-card-header {
@@ -2863,6 +2863,10 @@ a.price-box.clickable:hover {
 @media (max-width: 1100px) {
     .monitor-grid {
         grid-template-columns: 1fr;
+    }
+
+    .monitor-cards {
+        grid-template-columns: repeat(2, 1fr);
     }
 
     .monitor-sidebar {
@@ -3698,7 +3702,7 @@ body.review-mode .market-card.selected {
 
 /* Update grid to 3-column layout */
 .monitor-grid {
-    grid-template-columns: 200px 1fr 280px;
+    grid-template-columns: 160px 1fr 220px;
 }
 
 /* Timeline Sidebar */
@@ -4044,7 +4048,7 @@ body.review-mode .market-card.selected {
 @media (max-width: 1100px) {
     /* 2-column layout: hide timeline sidebar, keep right sidebar */
     .monitor-grid {
-        grid-template-columns: 1fr 280px;
+        grid-template-columns: 1fr 220px;
     }
 
     .election-timeline-sidebar {
