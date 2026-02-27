@@ -2066,7 +2066,12 @@ a:hover {
 .monitor-grid {
     display: grid;
     grid-template-columns: 1fr 220px;
-    gap: 20px;
+    gap: 16px;
+    min-width: 0;
+}
+
+.monitor-grid > * {
+    min-width: 0;
 }
 
 .monitor-cards {
@@ -2075,6 +2080,7 @@ a:hover {
     gap: 10px;
     background: transparent;
     border: none;
+    min-width: 0;
 }
 
 /* Market Card - Political Intelligence Style */
@@ -2086,6 +2092,8 @@ a:hover {
     transition: border-color 0.15s, box-shadow 0.15s;
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .market-card:hover {
@@ -3702,7 +3710,7 @@ body.review-mode .market-card.selected {
 
 /* Update grid to 3-column layout */
 .monitor-grid {
-    grid-template-columns: 160px 1fr 220px;
+    grid-template-columns: 140px 1fr 200px;
 }
 
 /* Timeline Sidebar */
