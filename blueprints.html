@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blueprints — Bellwether</title>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4JTSRBJBY5"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-4JTSRBJBY5');
+</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bw-blue: #4A90D9;
+    --bw-blue-light: #EBF2FC;
+    --bw-blue-muted: #A8C8E8;
+    --bw-dark: #1A1A1A;
+    --bw-text: #2C2C2C;
+    --bw-text-secondary: #6B6B6B;
+    --bw-border: #E8E8E8;
+    --bw-bg: #FAFAFA;
+    --bw-white: #FFFFFF;
+    --font-serif: 'Source Serif 4', Georgia, serif;
+    --font-sans: 'DM Sans', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    color: var(--bw-text);
+    background: var(--bw-white);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--bw-border);
+    transition: box-shadow 0.3s;
+  }
+  nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
+  .nav-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 32px;
+    height: 60px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-serif); font-weight: 600; font-size: 18px;
+    color: var(--bw-dark); text-decoration: none;
+  }
+  .nav-logo .dot { width: 10px; height: 10px; background: var(--bw-blue); border-radius: 50%; }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a {
+    font-size: 14px; color: var(--bw-text-secondary); text-decoration: none;
+    font-weight: 400; transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--bw-dark); }
+  .nav-links a.active { color: var(--bw-dark); font-weight: 500; }
+  .nav-cta {
+    font-size: 13px !important; color: var(--bw-white) !important;
+    background: var(--bw-dark); padding: 8px 20px; border-radius: 6px;
+    transition: background 0.2s !important;
+  }
+  .nav-cta:hover { background: #333 !important; }
+  .nav-affil { font-size: 12px; color: var(--bw-text-secondary); opacity: 0.6; font-weight: 300; letter-spacing: 0.02em; }
+
+  /* ── PAGE HEADER ── */
+  .page-header {
+    padding: 92px 32px 0;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .page-header-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--bw-border);
+  }
+  .page-header-left h1 {
+    font-family: var(--font-serif);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+  }
+  .page-header-left p {
+    font-size: 15px;
+    color: var(--bw-text-secondary);
+    line-height: 1.6;
+    max-width: 560px;
+  }
+  .page-header-meta {
+    display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+  }
+  .version-badge {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--bw-text-secondary);
+    background: var(--bw-bg);
+    border: 1px solid var(--bw-border);
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+
+  /* ── MAIN CONTENT ── */
+  .content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  /* ── WHAT / WHY / HOW ── */
+  .intro-section {
+    padding: 56px 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: start;
+  }
+  .intro-text h2 {
+    font-family: var(--font-serif);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    margin-bottom: 16px;
+    line-height: 1.3;
+  }
+  .intro-text p {
+    font-size: 15px;
+    color: var(--bw-text-secondary);
+    line-height: 1.7;
+    margin-bottom: 16px;
+  }
+  .intro-text p:last-child { margin-bottom: 0; }
+
+  /* Spec preview card */
+  .spec-preview {
+    background: var(--bw-bg);
+    border: 1px solid var(--bw-border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .spec-preview-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--bw-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .spec-preview-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--bw-text-secondary);
+  }
+  .spec-preview-body {
+    padding: 0;
+  }
+  .spec-field {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    border-bottom: 1px solid var(--bw-border);
+  }
+  .spec-field:last-child { border-bottom: none; }
+  .spec-field-name {
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--bw-text-secondary);
+    background: var(--bw-white);
+    border-right: 1px solid var(--bw-border);
+  }
+  .spec-field-value {
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--bw-text);
+    line-height: 1.5;
+  }
+  .spec-field-value code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--bw-white);
+    border: 1px solid var(--bw-border);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--bw-blue);
+  }
+
+  /* ── FAILURE CASES ── */
+  .failures-section {
+    padding: 56px 0;
+    border-top: 1px solid var(--bw-border);
+  }
+  .failures-section-header {
+    margin-bottom: 32px;
+  }
+  .failures-section-header .section-label {
+    font-size: 12px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--bw-blue); margin-bottom: 12px;
+  }
+  .failures-section-header h2 {
+    font-family: var(--font-serif);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    margin-bottom: 10px;
+  }
+  .failures-section-header p {
+    font-size: 15px;
+    color: var(--bw-text-secondary);
+    max-width: 560px;
+    line-height: 1.6;
+  }
+  .failure-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .failure-card {
+    border: 1px solid var(--bw-border);
+    border-radius: 10px;
+    padding: 28px 24px;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+  }
+  .failure-card:hover {
+    border-color: var(--bw-blue-muted);
+    box-shadow: 0 2px 12px rgba(74,144,217,0.06);
+  }
+  .failure-type {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 16px;
+    width: fit-content;
+    background: rgba(74,144,217,0.08);
+    color: var(--bw-blue);
+  }
+  .failure-card h3 {
+    font-family: var(--font-serif);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    margin-bottom: 10px;
+    line-height: 1.3;
+  }
+  .failure-card .failure-desc {
+    font-size: 13px;
+    color: var(--bw-text-secondary);
+    line-height: 1.6;
+    flex-grow: 1;
+    margin-bottom: 16px;
+  }
+  .failure-card .failure-ticker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--bw-text-secondary);
+    padding-top: 14px;
+    border-top: 1px solid var(--bw-border);
+  }
+  .failure-card .failure-outcome {
+    font-size: 12px;
+    font-weight: 500;
+    margin-top: 6px;
+    color: var(--bw-blue);
+  }
+
+  /* ── BLUEPRINT CATALOG ── */
+  .catalog-section {
+    padding: 56px 0;
+    border-top: 1px solid var(--bw-border);
+  }
+  .catalog-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 32px;
+  }
+  .catalog-header h2 {
+    font-family: var(--font-serif);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    margin-bottom: 6px;
+  }
+  .catalog-header p {
+    font-size: 14px;
+    color: var(--bw-text-secondary);
+  }
+
+  /* Filter tabs */
+  .catalog-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .catalog-filter {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--bw-text-secondary);
+    background: var(--bw-white);
+    border: 1px solid var(--bw-border);
+    border-radius: 6px;
+    padding: 7px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .catalog-filter:hover { border-color: var(--bw-text-secondary); }
+  .catalog-filter.active {
+    color: var(--bw-dark);
+    font-weight: 500;
+    border-color: var(--bw-dark);
+    background: var(--bw-bg);
+  }
+
+  /* Blueprint table */
+  .blueprint-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--bw-border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bw-white);
+  }
+  .blueprint-table thead th {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--bw-text-secondary);
+    padding: 14px 20px;
+    text-align: left;
+    border-bottom: 1px solid var(--bw-border);
+    background: var(--bw-bg);
+  }
+  .blueprint-table tbody td {
+    padding: 18px 20px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--bw-border);
+    vertical-align: top;
+  }
+  .blueprint-table tbody tr:last-child td { border-bottom: none; }
+  .blueprint-table tbody tr {
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+  .blueprint-table tbody tr:hover { background: var(--bw-bg); }
+  .bp-title {
+    font-weight: 500;
+    color: var(--bw-dark);
+    margin-bottom: 3px;
+  }
+  .bp-ticker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--bw-text-secondary);
+  }
+  .bp-category {
+    font-size: 12px;
+    color: var(--bw-text-secondary);
+  }
+  .bp-type-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+    background: rgba(74,144,217,0.08);
+    color: var(--bw-blue);
+  }
+  .bp-status-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+    margin-left: 8px;
+  }
+  .bp-status-expired {
+    background: var(--bw-bg);
+    color: var(--bw-text-secondary);
+    border: 1px solid var(--bw-border);
+  }
+  .bp-status-active {
+    background: rgba(74,144,217,0.08);
+    color: var(--bw-blue);
+  }
+  .bp-source {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--bw-text-secondary);
+  }
+  .bp-view {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--bw-blue);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .bp-view:hover { color: var(--bw-dark); }
+
+  /* ── EXPANDED BLUEPRINT DETAIL ── */
+  .blueprint-detail {
+    display: none;
+    background: var(--bw-bg);
+    border: 1px solid var(--bw-border);
+    border-radius: 10px;
+    margin: 24px 0;
+    overflow: hidden;
+  }
+  .blueprint-detail.open { display: block; }
+  .detail-header {
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--bw-border);
+    background: var(--bw-white);
+  }
+  .detail-header h3 {
+    font-family: var(--font-serif);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    margin-bottom: 4px;
+  }
+  .detail-header .detail-ticker {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--bw-blue);
+  }
+  .detail-body {
+    padding: 0;
+  }
+  .detail-field {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    border-bottom: 1px solid var(--bw-border);
+  }
+  .detail-field:last-child { border-bottom: none; }
+  .detail-field-name {
+    padding: 14px 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--bw-text-secondary);
+    background: var(--bw-white);
+    border-right: 1px solid var(--bw-border);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .detail-field-value {
+    padding: 14px 20px;
+    font-size: 13px;
+    color: var(--bw-text);
+    line-height: 1.65;
+  }
+  .detail-field-value strong { font-weight: 600; color: var(--bw-dark); }
+
+  /* ── HOW IT WORKS ── */
+  .process-section {
+    padding: 56px 0;
+    border-top: 1px solid var(--bw-border);
+  }
+  .process-section h2 {
+    font-family: var(--font-serif);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    margin-bottom: 8px;
+  }
+  .process-section > p {
+    font-size: 15px;
+    color: var(--bw-text-secondary);
+    line-height: 1.6;
+    margin-bottom: 40px;
+    max-width: 560px;
+  }
+  .process-steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    position: relative;
+  }
+  .process-steps::before {
+    content: '';
+    position: absolute;
+    top: 19px;
+    left: calc(12.5%);
+    right: calc(12.5%);
+    height: 1px;
+    background: var(--bw-border);
+  }
+  .process-step {
+    text-align: center;
+  }
+  .step-num {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--bw-white);
+    border: 2px solid var(--bw-border);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--bw-text-secondary);
+    position: relative;
+    z-index: 1;
+  }
+  .process-step h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    margin-bottom: 6px;
+  }
+  .process-step p {
+    font-size: 13px;
+    color: var(--bw-text-secondary);
+    line-height: 1.55;
+    max-width: 220px;
+    margin: 0 auto;
+  }
+
+  /* ── CTA ── */
+  .cta-section {
+    border-top: 1px solid var(--bw-border);
+    background: var(--bw-dark);
+  }
+  .cta-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 72px 32px;
+    text-align: center;
+  }
+  .cta-inner h2 {
+    font-family: var(--font-serif);
+    font-size: 28px;
+    font-weight: 400;
+    color: var(--bw-white);
+    margin-bottom: 14px;
+    letter-spacing: -0.01em;
+  }
+  .cta-inner p {
+    font-size: 15px;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 32px;
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+  }
+  .cta-actions {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+  }
+  .btn-white {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; background: var(--bw-white); color: var(--bw-dark);
+    border: none; border-radius: 8px; font-size: 15px;
+    font-family: var(--font-sans); font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-white:hover { background: #f0f0f0; transform: translateY(-1px); }
+  .btn-ghost {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; background: transparent; color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; font-size: 15px;
+    font-family: var(--font-sans); font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-ghost:hover { border-color: rgba(255,255,255,0.35); color: var(--bw-white); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 60px 32px;
+    background: var(--bw-dark);
+  }
+  .footer-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px;
+  }
+  .footer-brand .logo {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-serif); font-weight: 600; font-size: 16px;
+    color: var(--bw-white); margin-bottom: 12px;
+  }
+  .footer-brand .logo .dot { width: 8px; height: 8px; background: var(--bw-blue); border-radius: 50%; }
+  .footer-brand p {
+    font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6;
+    max-width: 280px; margin-bottom: 16px;
+  }
+  .footer-affil { font-size: 12px; color: rgba(255,255,255,0.25); }
+  .footer-col h4 {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.35); margin-bottom: 16px;
+  }
+  .footer-col a {
+    display: block; font-size: 14px; color: rgba(255,255,255,0.6);
+    text-decoration: none; padding: 4px 0; transition: color 0.2s;
+  }
+  .footer-col a:hover { color: var(--bw-white); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .intro-section { grid-template-columns: 1fr; gap: 40px; }
+    .failure-cards { grid-template-columns: 1fr; }
+    .process-steps { grid-template-columns: 1fr 1fr; }
+    .process-steps::before { display: none; }
+    .page-header-top { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .footer-inner { grid-template-columns: 1fr 1fr; }
+    .nav-links a:not(.nav-cta) { display: none; }
+    .detail-field { grid-template-columns: 1fr; }
+    .detail-field-name { border-right: none; border-bottom: 1px solid var(--bw-border); }
+    .spec-field { grid-template-columns: 1fr; }
+    .spec-field-name { border-right: none; border-bottom: 1px solid var(--bw-border); }
+    .blueprint-table { font-size: 13px; }
+    .blueprint-table thead th:nth-child(4),
+    .blueprint-table tbody td:nth-child(4) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="./" class="nav-logo"><span class="dot"></span>Bellwether</a>
+    <div class="nav-links">
+      <a href="monitor.html">Live Data</a>
+      <a href="globe.html">Globe</a>
+      <a href="blueprints.html" class="active">Blueprints</a>
+      <a href="research.html">Research</a>
+      <a href="docs.html">Docs</a>
+      <span class="nav-affil">Stanford &middot; Hoover Institution</span>
+      <a href="#contact" class="nav-cta">Request Access</a>
+    </div>
+  </div>
+</nav>
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div class="page-header-top">
+    <div class="page-header-left">
+      <h1>Market Blueprints</h1>
+      <p>Open specifications for prediction market contracts. We design the markets that democracy needs — any platform can list them.</p>
+    </div>
+    <div class="page-header-meta">
+      <span class="version-badge">Spec v0.1</span>
+      <span style="font-family:var(--font-mono); font-size:12px; color:var(--bw-text-secondary);">6 blueprints</span>
+    </div>
+  </div>
+</div>
+
+<!-- WHAT & WHY -->
+<div class="content">
+  <div class="intro-section">
+    <div class="intro-text">
+      <h2>Prediction markets have a contract&nbsp;design problem</h2>
+      <p>The same event appears on multiple platforms with different resolution criteria — making markets that look identical actually incomparable. When resolution rules are ambiguous, disputes erode trust in the entire category.</p>
+      <p>The Venezuela invasion dispute. The Lebanon incursion oracle failure. The government shutdown rule change. Each was caused by the same thing: a contract that wasn't specified precisely enough before trading began.</p>
+      <p>Blueprints fix this. Each one is a complete, immutable specification for a prediction market — defining exactly what's being predicted, how the outcome is verified, and what happens in every edge case. Any platform can list them. Every platform resolves them the same way.</p>
+    </div>
+
+    <div class="spec-preview">
+      <div class="spec-preview-header">
+        <span class="spec-preview-label">Blueprint anatomy</span>
+      </div>
+      <div class="spec-preview-body">
+        <div class="spec-field">
+          <div class="spec-field-name">Ticker</div>
+          <div class="spec-field-value"><code>BWR-DEM-CONTROL-SENATE-CERTIFIED-ANY-2026</code></div>
+        </div>
+        <div class="spec-field">
+          <div class="spec-field-name">Event</div>
+          <div class="spec-field-value">Plain-language description, written to eliminate ambiguity</div>
+        </div>
+        <div class="spec-field">
+          <div class="spec-field-name">Source</div>
+          <div class="spec-field-value">External authority used to determine outcome — never the platform itself</div>
+        </div>
+        <div class="spec-field">
+          <div class="spec-field-name">Criteria</div>
+          <div class="spec-field-value">Precise conditions for YES, NO, or N/A resolution</div>
+        </div>
+        <div class="spec-field">
+          <div class="spec-field-name">Edge cases</div>
+          <div class="spec-field-value">Explicit handling of foreseeable ambiguities before trading begins</div>
+        </div>
+        <div class="spec-field">
+          <div class="spec-field-name">Fallback</div>
+          <div class="spec-field-value">What happens if the primary source is unavailable or disputed</div>
+        </div>
+        <div class="spec-field">
+          <div class="spec-field-name">Settlement</div>
+          <div class="spec-field-value">When and how resolution is evaluated</div>
+        </div>
+        <div class="spec-field">
+          <div class="spec-field-name">Expiration</div>
+          <div class="spec-field-value">Date after which the market resolves NO if the event hasn't occurred</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WHAT GOES WRONG -->
+<div class="content">
+  <div class="failures-section">
+    <div class="failures-section-header">
+      <div class="section-label">Why this matters</div>
+      <h2>Real disputes that blueprints would have prevented</h2>
+      <p>These aren't hypothetical — they're resolution failures that cost traders millions and damaged platform credibility.</p>
+    </div>
+
+    <div class="failure-cards">
+      <div class="failure-card">
+        <span class="failure-type">Semantic ambiguity</span>
+        <h3>Venezuela "Invasion"</h3>
+        <div class="failure-desc">U.S. forces captured Maduro, but Polymarket ruled it wasn't an "invasion" because no territorial control was established. $10M+ unresolved. The word was never defined.</div>
+        <div class="failure-ticker">BWR-US-INVADE-VENEZUELA-TERRITORY_CONTROL-ANY-2025</div>
+        <div class="failure-outcome">&#8627; Blueprint separates invasion from regime change</div>
+      </div>
+      <div class="failure-card">
+        <span class="failure-type">Oracle failure</span>
+        <h3>Lebanon Ground Incursion</h3>
+        <div class="failure-desc">Israel conducted a widely reported ground operation. UMA's oracle resolved NO after token-weighted voting overrode observable reality.</div>
+        <div class="failure-ticker">BWR-ISRAEL-ENTER-LEBANON-GROUND_INCURSION-ANY-2024</div>
+        <div class="failure-outcome">&#8627; Blueprint removes oracle from resolution chain</div>
+      </div>
+      <div class="failure-card">
+        <span class="failure-type">Rules changed</span>
+        <h3>Government Shutdown</h3>
+        <div class="failure-desc">Platform inserted an earlier cutoff date after trading was underway. Markets resolved YES under rules traders never agreed to.</div>
+        <div class="failure-ticker">BWR-GOVT-SHUTDOWN-FED-FUNDING_LAPSE-DEC31-2024</div>
+        <div class="failure-outcome">&#8627; Blueprint is immutable once published</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BLUEPRINT CATALOG -->
+<div class="content">
+  <div class="catalog-section" id="catalog">
+    <div class="catalog-header">
+      <div>
+        <h2>Blueprint Catalog</h2>
+        <p>All published specifications. Click any row to view the full blueprint.</p>
+      </div>
+    </div>
+
+    <div class="catalog-filters">
+      <button class="catalog-filter active" data-filter="all">All</button>
+      <button class="catalog-filter" data-filter="retro">Retroactive</button>
+      <button class="catalog-filter" data-filter="prospective">Prospective</button>
+      <button class="catalog-filter" data-filter="geopolitics">Geopolitics</button>
+      <button class="catalog-filter" data-filter="policy">Policy</button>
+      <button class="catalog-filter" data-filter="elections">Elections</button>
+    </div>
+
+    <table class="blueprint-table">
+      <thead>
+        <tr>
+          <th>Blueprint</th>
+          <th>Type</th>
+          <th>Category</th>
+          <th>Resolution Source</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr data-categories="retro geopolitics" data-blueprint="venezuela">
+          <td>
+            <div class="bp-title">U.S. Military Action in Venezuela <span class="bp-status-badge bp-status-expired">Expired</span></div>
+            <div class="bp-ticker">BWR-US-INVADE-VENEZUELA-TERRITORY_CONTROL-ANY-2025</div>
+          </td>
+          <td><span class="bp-type-badge">Retroactive</span></td>
+          <td><span class="bp-category">Geopolitics &middot; Military</span></td>
+          <td><span class="bp-source">DoD / White House</span></td>
+          <td><a href="#" class="bp-view" onclick="toggleBlueprint('venezuela', event)">View &rarr;</a></td>
+        </tr>
+        <tr data-categories="retro geopolitics" data-blueprint="lebanon">
+          <td>
+            <div class="bp-title">Israeli Ground Incursion into Lebanon <span class="bp-status-badge bp-status-expired">Expired</span></div>
+            <div class="bp-ticker">BWR-ISRAEL-ENTER-LEBANON-GROUND_INCURSION-ANY-2024</div>
+          </td>
+          <td><span class="bp-type-badge">Retroactive</span></td>
+          <td><span class="bp-category">Geopolitics &middot; Military</span></td>
+          <td><span class="bp-source">IDF / UNIFIL</span></td>
+          <td><a href="#" class="bp-view" onclick="toggleBlueprint('lebanon', event)">View &rarr;</a></td>
+        </tr>
+        <tr data-categories="retro policy" data-blueprint="shutdown">
+          <td>
+            <div class="bp-title">U.S. Federal Government Shutdown <span class="bp-status-badge bp-status-expired">Expired</span></div>
+            <div class="bp-ticker">BWR-GOVT-SHUTDOWN-FED-FUNDING_LAPSE-DEC31-2024</div>
+          </td>
+          <td><span class="bp-type-badge">Retroactive</span></td>
+          <td><span class="bp-category">Government Operations</span></td>
+          <td><span class="bp-source">OMB / OPM</span></td>
+          <td><a href="#" class="bp-view" onclick="toggleBlueprint('shutdown', event)">View &rarr;</a></td>
+        </tr>
+        <tr data-categories="prospective policy" data-blueprint="debtceiling">
+          <td>
+            <div class="bp-title">U.S. Debt Ceiling Resolution <span class="bp-status-badge bp-status-expired">Expired</span></div>
+            <div class="bp-ticker">BWR-CONGRESS-RESOLVE-DEBTCEILING-SIGNED-ANY-2025</div>
+          </td>
+          <td><span class="bp-type-badge">Prospective</span></td>
+          <td><span class="bp-category">U.S. Fiscal Policy</span></td>
+          <td><span class="bp-source">congress.gov</span></td>
+          <td><a href="#" class="bp-view" onclick="toggleBlueprint('debtceiling', event)">View &rarr;</a></td>
+        </tr>
+        <tr data-categories="prospective policy" data-blueprint="aireg">
+          <td>
+            <div class="bp-title">Comprehensive U.S. Federal AI Legislation <span class="bp-status-badge bp-status-active">Active</span></div>
+            <div class="bp-ticker">BWR-CONGRESS-PASS-AI_REG-SIGNED-COMPREHENSIVE-2026</div>
+          </td>
+          <td><span class="bp-type-badge">Prospective</span></td>
+          <td><span class="bp-category">Technology Policy</span></td>
+          <td><span class="bp-source">congress.gov</span></td>
+          <td><a href="#" class="bp-view" onclick="toggleBlueprint('aireg', event)">View &rarr;</a></td>
+        </tr>
+        <tr data-categories="prospective elections" data-blueprint="senate">
+          <td>
+            <div class="bp-title">Party Control of U.S. Senate After 2026 Midterms <span class="bp-status-badge bp-status-active">Active</span></div>
+            <div class="bp-ticker">BWR-DEM-CONTROL-SENATE-CERTIFIED-ANY-2026</div>
+          </td>
+          <td><span class="bp-type-badge">Prospective</span></td>
+          <td><span class="bp-category">U.S. Elections</span></td>
+          <td><span class="bp-source">AP / senate.gov</span></td>
+          <td><a href="#" class="bp-view" onclick="toggleBlueprint('senate', event)">View &rarr;</a></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Expandable detail panels -->
+    <div class="blueprint-detail" id="bp-venezuela">
+      <div class="detail-header">
+        <h3>U.S. Military Action in Venezuela</h3>
+        <div class="detail-ticker">BWR-US-INVADE-VENEZUELA-TERRITORY_CONTROL-ANY-2025</div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-field"><div class="detail-field-name">Event</div><div class="detail-field-value">The United States Armed Forces conduct a military operation involving ground troops entering Venezuelan sovereign territory with the objective of seizing or holding territory, removing the sitting government, or establishing operational control of a major population center.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Source</div><div class="detail-field-value">Official statement from the U.S. Department of Defense or the White House confirming deployment of ground forces. Secondary: UN Security Council records.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Criteria</div><div class="detail-field-value">Resolves <strong>YES</strong> if U.S. ground forces enter Venezuelan territory in a combat capacity. Targeted strikes, naval blockades, special operations raids without territorial objectives, and cyber operations resolve <strong>NO</strong>.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Edge cases</div><div class="detail-field-value">Capture of a head of state without territorial occupation: <strong>NO</strong> (separate blueprint for regime change). U.S. forces entering from a third country: <strong>YES</strong> if troops cross into Venezuelan territory. Proxy forces directed by U.S. command: <strong>NO</strong> unless U.S. personnel physically present.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Fallback</div><div class="detail-field-value">If DoD and White House issue conflicting statements, UN Security Council records are binding. If no official statement within 72 hours of credible reports, resolution deferred 30 days.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Settlement</div><div class="detail-field-value">Within 48 hours of official confirmation.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Expiration</div><div class="detail-field-value">December 31, 2025. Resolves NO if event has not occurred.</div></div>
+      </div>
+    </div>
+
+    <div class="blueprint-detail" id="bp-lebanon">
+      <div class="detail-header">
+        <h3>Israeli Ground Incursion into Lebanon</h3>
+        <div class="detail-ticker">BWR-ISRAEL-ENTER-LEBANON-GROUND_INCURSION-ANY-2024</div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-field"><div class="detail-field-name">Event</div><div class="detail-field-value">The Israel Defense Forces conduct a ground operation involving military personnel physically crossing the internationally recognized border into Lebanese sovereign territory.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Source</div><div class="detail-field-value">Official IDF statement. Secondary: Lebanese Armed Forces or UNIFIL statement.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Criteria</div><div class="detail-field-value">Resolves <strong>YES</strong> if IDF confirms ground forces crossed into Lebanese territory. Aerial strikes, drone operations, and cross-border shelling without ground troop entry resolve <strong>NO</strong>.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Edge cases</div><div class="detail-field-value">Small-scale raids: <strong>YES</strong> if personnel enter Lebanese territory regardless of duration. Shebaa Farms: <strong>YES</strong> (treated as Lebanese territory per UNSCR 1701). Entry and withdrawal within 24 hours: <strong>YES</strong> — the event is entry, not occupation.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Fallback</div><div class="detail-field-value">If IDF does not issue statement within 72 hours, joint UNIFIL confirmation + two major wire services (AP, Reuters, AFP) sufficient. Decentralized oracle outcomes explicitly excluded.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Settlement</div><div class="detail-field-value">Within 48 hours of official confirmation.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Expiration</div><div class="detail-field-value">December 31, 2024.</div></div>
+      </div>
+    </div>
+
+    <div class="blueprint-detail" id="bp-shutdown">
+      <div class="detail-header">
+        <h3>U.S. Federal Government Shutdown</h3>
+        <div class="detail-ticker">BWR-GOVT-SHUTDOWN-FED-FUNDING_LAPSE-DEC31-2024</div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-field"><div class="detail-field-name">Event</div><div class="detail-field-value">A lapse in federal government funding resulting in a partial or full shutdown of U.S. federal government operations, as defined by the Antideficiency Act.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Source</div><div class="detail-field-value">Official OMB communication directing agencies to execute shutdown procedures. Secondary: OPM furlough guidance.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Criteria</div><div class="detail-field-value">Resolves <strong>YES</strong> if OMB issues shutdown guidance on or before December 31, 2024 at 11:59 PM ET. A continuing resolution or other stopgap that prevents the lapse resolves <strong>NO</strong>, even if passed in the final hours.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Edge cases</div><div class="detail-field-value">Partial shutdown (some agencies funded): <strong>YES</strong>. Short-term CR that expires before Dec 31: resolves based on whether a lapse actually occurs. Shutdown that begins and resolves same day: <strong>YES</strong>.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Fallback</div><div class="detail-field-value">If OMB does not issue formal guidance but employees directed not to report, OPM furlough notices are binding. If neither source issues guidance, resolves <strong>NO</strong>.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Settlement</div><div class="detail-field-value">Within 24 hours of expiration deadline or OMB guidance, whichever comes first.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Expiration</div><div class="detail-field-value">December 31, 2024, 11:59 PM ET.</div></div>
+      </div>
+    </div>
+
+    <div class="blueprint-detail" id="bp-debtceiling">
+      <div class="detail-header">
+        <h3>U.S. Debt Ceiling Resolution</h3>
+        <div class="detail-ticker">BWR-CONGRESS-RESOLVE-DEBTCEILING-SIGNED-ANY-2025</div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-field"><div class="detail-field-name">Event</div><div class="detail-field-value">The U.S. federal government takes legislative or executive action that eliminates the immediate risk of the Treasury exhausting its borrowing capacity under the statutory debt limit (31 U.S.C. &sect; 3101).</div></div>
+        <div class="detail-field"><div class="detail-field-name">Source</div><div class="detail-field-value">Enrolled legislation on congress.gov. Secondary: Treasury Department statement confirming extraordinary measures no longer necessary.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Criteria</div><div class="detail-field-value">Resolves <strong>YES</strong> if: (1) Congress raises the statutory limit, (2) Congress suspends the limit through a specified date, or (3) Congress abolishes the limit — and the President signs. Resolves <strong>NO</strong> if Treasury exhausts borrowing capacity and begins missing payments.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Edge cases</div><div class="detail-field-value">Extraordinary measures without legislation: <strong>NO</strong> (crisis deferred, not resolved). Discharge petition: depends on whether resulting legislation is signed. Reconciliation: treated same as any vehicle. Executive action under 14th Amendment theory: <strong>NO</strong>.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Fallback</div><div class="detail-field-value">GPO enrolled bill text if congress.gov unavailable. White House signed text as final fallback.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Settlement</div><div class="detail-field-value">Within 24 hours of presidential signature.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Expiration</div><div class="detail-field-value">December 31, 2025.</div></div>
+      </div>
+    </div>
+
+    <div class="blueprint-detail" id="bp-aireg">
+      <div class="detail-header">
+        <h3>Comprehensive U.S. Federal AI Legislation</h3>
+        <div class="detail-ticker">BWR-CONGRESS-PASS-AI_REG-SIGNED-COMPREHENSIVE-2026</div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-field"><div class="detail-field-name">Event</div><div class="detail-field-value">Congress passes and the President signs legislation establishing a federal regulatory framework for AI systems, including binding requirements on development, deployment, or use of AI that apply across multiple sectors.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Source</div><div class="detail-field-value">Enrolled legislation on congress.gov.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Criteria</div><div class="detail-field-value">Resolves <strong>YES</strong> if signed legislation meets all three: (1) uses "artificial intelligence" or "AI" or "automated decision system" in operative provisions, (2) creates binding legal requirements (not voluntary guidelines), and (3) applies across at least two distinct sectors.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Edge cases</div><div class="detail-field-value">Executive orders: <strong>NO</strong>. Sector-specific AI bills: <strong>NO</strong> unless cross-sector. Appropriations riders: <strong>YES</strong> only if provisions meet all three conditions. Signed with delayed effective date: <strong>YES</strong> on signature.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Fallback</div><div class="detail-field-value">GPO enrolled bill text if congress.gov unavailable.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Settlement</div><div class="detail-field-value">Within 48 hours of presidential signature.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Expiration</div><div class="detail-field-value">December 31, 2026.</div></div>
+      </div>
+    </div>
+
+    <div class="blueprint-detail" id="bp-senate">
+      <div class="detail-header">
+        <h3>Party Control of the U.S. Senate After 2026 Midterms</h3>
+        <div class="detail-ticker">BWR-DEM-CONTROL-SENATE-CERTIFIED-ANY-2026</div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-field"><div class="detail-field-name">Event</div><div class="detail-field-value">The Democratic Party holds functional control of the U.S. Senate following the 2026 midterm elections — defined as the ability to elect the Senate Majority Leader and control committee structure.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Source</div><div class="detail-field-value">Official results certified by each state, compiled by the Associated Press. Secondary: senate.gov published composition.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Criteria</div><div class="detail-field-value">Resolves <strong>YES</strong> if Democrats + caucusing independents hold enough seats to elect Majority Leader. In a 50–50 split, the VP's party holds functional control. Resolves <strong>NO</strong> if Republicans hold 51+ seats, or 50 seats with a Republican VP.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Edge cases</div><div class="detail-field-value">Independents: counted with formal caucus per Congressional Record. Undeclared independent by Jan 3, 2027: excluded from both counts. Vacancies: based on certified results, not current occupancy. Disputed races: deferred until AP call or Senate vote.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Fallback</div><div class="detail-field-value">If AP doesn't compile by Feb 1, 2027: senate.gov membership. Final fallback: Congressional Record for opening day of 120th Congress.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Settlement</div><div class="detail-field-value">Within 72 hours of AP certifying final outstanding race.</div></div>
+        <div class="detail-field"><div class="detail-field-name">Expiration</div><div class="detail-field-value">February 1, 2027. Resolved on certified results available at that time.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROCESS -->
+<div class="content">
+  <div class="process-section">
+    <h2>How commissioning works</h2>
+    <p>Organizations tell us what questions they need markets for. We design the specification. Platforms list it.</p>
+
+    <div class="process-steps">
+      <div class="process-step">
+        <div class="step-num">1</div>
+        <h3>Define the question</h3>
+        <p>You tell us the policy question, geopolitical event, or accountability metric you need a market for.</p>
+      </div>
+      <div class="process-step">
+        <div class="step-num">2</div>
+        <h3>We draft the spec</h3>
+        <p>Bellwether designs the blueprint — event definition, resolution source, edge cases, settlement rules. Every ambiguity resolved before trading begins.</p>
+      </div>
+      <div class="process-step">
+        <div class="step-num">3</div>
+        <h3>Review &amp; publish</h3>
+        <p>You review the spec. Once published, it's immutable and open. Any platform can list it. All resolve identically.</p>
+      </div>
+      <div class="process-step">
+        <div class="step-num">4</div>
+        <h3>Platforms list it</h3>
+        <p>Polymarket, Kalshi, or any exchange lists the blueprint. Bellwether tracks compliance and accuracy through the Tape API.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-section">
+  <div class="cta-inner">
+    <h2>What question does your organization need answered?</h2>
+    <p>We design prediction market contracts for newsrooms, think tanks, government agencies, and research institutions. If there's a question the public needs a reliable probability for, we'll build the spec.</p>
+    <div class="cta-actions">
+      <a href="mailto:bellwether@stanford.edu" class="btn-white">Commission a Blueprint</a>
+      <a href="docs.html" class="btn-ghost">Read the Spec Format</a>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="logo"><span class="dot"></span> Bellwether</div>
+      <p>Prediction market infrastructure for research, journalism, and intelligent systems.</p>
+      <div class="footer-affil">Stanford GSB &middot; Hall Lab &middot; Hoover Institution</div>
+    </div>
+    <div class="footer-col">
+      <h4>Platform</h4>
+      <a href="docs.html">Tape API</a>
+      <a href="blueprints.html">Blueprints</a>
+      <a href="docs.html">Documentation</a>
+    </div>
+    <div class="footer-col">
+      <h4>Research</h4>
+      <a href="research.html">Methodology</a>
+      <a href="research.html">Papers</a>
+      <a href="globe.html">Globe</a>
+    </div>
+    <div class="footer-col">
+      <h4>About</h4>
+      <a href="about.html">Team</a>
+      <a href="mailto:bellwether@stanford.edu">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Nav scroll
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 10));
+
+  // Blueprint expand/collapse
+  function toggleBlueprint(id, e) {
+    e.preventDefault();
+    const panel = document.getElementById('bp-' + id);
+    const wasOpen = panel.classList.contains('open');
+    // close all
+    document.querySelectorAll('.blueprint-detail').forEach(p => p.classList.remove('open'));
+    // toggle clicked
+    if (!wasOpen) {
+      panel.classList.add('open');
+      setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    }
+  }
+
+  // Catalog filters
+  document.querySelectorAll('.catalog-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.catalog-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filter = btn.dataset.filter;
+      document.querySelectorAll('.blueprint-table tbody tr').forEach(row => {
+        if (filter === 'all') {
+          row.style.display = '';
+        } else {
+          row.style.display = row.dataset.categories.includes(filter) ? '' : 'none';
+        }
+      });
+      // close any open details
+      document.querySelectorAll('.blueprint-detail').forEach(p => p.classList.remove('open'));
+    });
+  });
+</script>
+</body>
+</html>
