@@ -529,15 +529,12 @@
     <div class="sidebar-section">
       <div class="sidebar-section-title">Getting Started</div>
       <a href="#overview" class="sidebar-link active">Overview</a>
-      <a href="#authentication" class="sidebar-link">Authentication</a>
       <a href="#quickstart" class="sidebar-link">Quick Start</a>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-section-title">Tape API</div>
+      <div class="sidebar-section-title">API</div>
       <a href="#events" class="sidebar-link">Events</a>
-      <a href="#events-list" class="sidebar-link nested">List events</a>
       <a href="#events-get" class="sidebar-link nested">Get event</a>
-      <a href="#events-search" class="sidebar-link nested">Search</a>
       <a href="#markets" class="sidebar-link">Markets</a>
       <a href="#markets-platform" class="sidebar-link nested">Platform data</a>
       <a href="#markets-combined" class="sidebar-link nested">Combined data</a>
@@ -547,13 +544,7 @@
     <div class="sidebar-section">
       <div class="sidebar-section-title">Data</div>
       <a href="#glossary" class="sidebar-link">Data Glossary</a>
-      <a href="#exports" class="sidebar-link">CSV Exports</a>
       <a href="#categories" class="sidebar-link">Categories</a>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-title">Resources</div>
-      <a href="#rate-limits" class="sidebar-link">Rate Limits</a>
-      <a href="#changelog" class="sidebar-link">Changelog</a>
     </div>
   </aside>
 
@@ -565,11 +556,11 @@
     <!-- OVERVIEW -->
     <div class="doc-section" id="overview">
       <h2>Overview</h2>
-      <span class="status-badge"><span class="pulse"></span> API Live — v1</span>
-      <p>Bellwether tracks every political prediction market on Polymarket and Kalshi. The Tape API provides canonical tickers, volume-weighted prices, cross-platform matching, and manipulation resistance scores for all 10,700+ markets — updated continuously via live order book and trade data.</p>
+      <span class="status-badge"><span class="pulse"></span> API Live — v2</span>
+      <p>Bellwether tracks every political prediction market on Polymarket and Kalshi. The API provides canonical tickers, volume-weighted prices, cross-platform matching, and manipulation resistance scores — updated continuously via live order book and trade data.</p>
 
       <div class="callout">
-        <p><strong>Early access.</strong> The Tape API is live but access is currently granted by request. Email <code>paschal@stanford.edu</code> or use the Request Access button to get started. Academic and research use is free.</p>
+        <p><strong>Open access.</strong> The API is currently public with no authentication required. Email <code>paschal@stanford.edu</code> for questions or support. Academic and research use is free.</p>
       </div>
 
       <h3>Base URL</h3>
@@ -577,24 +568,11 @@
         <div class="code-block-header">
           <span class="code-block-label">Base URL</span>
         </div>
-<pre>https://api.bellwethermetrics.com/v1</pre>
+<pre>https://api.bellwethermetrics.com/api</pre>
       </div>
 
       <h3>Response Format</h3>
       <p>All responses are JSON. Timestamps are ISO 8601. Prices are decimal probabilities (0.00 – 1.00). Volume is in contracts traded (not USD).</p>
-    </div>
-
-    <!-- AUTHENTICATION -->
-    <div class="doc-section" id="authentication">
-      <h2>Authentication</h2>
-      <p>Include your API key in the request header:</p>
-      <div class="code-block">
-        <div class="code-block-header">
-          <span class="code-block-label">Header</span>
-        </div>
-<pre>Authorization: Bearer bw_live_xxxxxxxxxxxxxxxx</pre>
-      </div>
-      <p class="muted">Keys are issued per organization. The <code>/v1</code> root and <code>/v1/health</code> endpoints are public; all others require authentication.</p>
     </div>
 
     <!-- QUICK START -->
@@ -606,8 +584,7 @@
           <span class="code-block-label">cURL</span>
           <span class="code-block-method method-get">GET</span>
         </div>
-<pre>curl https://api.bellwethermetrics.com/v1/events/bwr-fitzgerald-win-pres-ie \
-  -H <span class="str">"Authorization: Bearer bw_live_xxxxxxxx"</span></pre>
+<pre>curl https://api.bellwethermetrics.com/api/metrics/event/bwr-fitzgerald-win-pres-ie</pre>
       </div>
 
       <div class="code-block">
@@ -618,16 +595,24 @@
   <span class="key">"slug"</span>: <span class="str">"bwr-fitzgerald-win-pres-ie"</span>,
   <span class="key">"ticker"</span>: <span class="str">"BWR-FITZGERALD-WIN-PRES_IE-CERTIFIED-ANY-2025"</span>,
   <span class="key">"title"</span>: <span class="str">"Will Frances Fitzgerald win the Irish Presidential Election?"</span>,
-  <span class="key">"price"</span>: <span class="num">0.6234</span>,
-  <span class="key">"total_volume"</span>: <span class="num">18420</span>,
-  <span class="key">"platforms"</span>: {
-    <span class="key">"polymarket"</span>: { <span class="key">"price"</span>: <span class="num">0.63</span>, <span class="key">"volume"</span>: <span class="num">12800</span>, <span class="key">"cost_to_move_5c"</span>: <span class="num">47200</span> },
-    <span class="key">"kalshi"</span>: { <span class="key">"price"</span>: <span class="num">0.61</span>, <span class="key">"volume"</span>: <span class="num">5620</span>, <span class="key">"cost_to_move_5c"</span>: <span class="num">31400</span> }
+  <span class="key">"category"</span>: <span class="str">"ELECTORAL"</span>,
+  <span class="key">"country"</span>: <span class="str">"ie"</span>,
+  <span class="key">"bellwether_price"</span>: <span class="num">0.6234</span>,
+  <span class="key">"price_tier"</span>: <span class="num">1</span>,
+  <span class="key">"price_label"</span>: <span class="str">"6h VWAP across platforms"</span>,
+  <span class="key">"price_source"</span>: <span class="str">"6h_vwap"</span>,
+  <span class="key">"robustness"</span>: {
+    <span class="key">"cost_to_move_5c"</span>: <span class="num">31400</span>,
+    <span class="key">"reportability"</span>: <span class="str">"caution"</span>,
+    <span class="key">"raw_reportability"</span>: <span class="str">"caution"</span>,
+    <span class="key">"weakest_platform"</span>: <span class="str">"kalshi"</span>
   },
-  <span class="key">"reportability"</span>: <span class="str">"caution"</span>,
-  <span class="key">"cost_to_move_5c"</span>: <span class="num">31400</span>,
-  <span class="key">"weakest_platform"</span>: <span class="str">"kalshi"</span>,
-  <span class="key">"tier"</span>: <span class="num">1</span>,
+  <span class="key">"vwap_details"</span>: {
+    <span class="key">"window_hours"</span>: <span class="num">6</span>,
+    <span class="key">"trade_count"</span>: <span class="num">47</span>,
+    <span class="key">"total_volume"</span>: <span class="num">18420</span>
+  },
+  <span class="key">"orderbook_midpoint"</span>: <span class="num">0.62</span>,
   <span class="key">"fetched_at"</span>: <span class="str">"2026-02-26T17:30:00.000Z"</span>
 }</pre>
       </div>
@@ -638,51 +623,14 @@
       <h2>Events</h2>
       <p>Events represent Bellwether's unified view of a market — potentially spanning both platforms. Each event has a slug and an optional canonical ticker.</p>
 
-      <div class="endpoint-card" id="events-list">
-        <div class="endpoint-header">
-          <span class="endpoint-method">GET</span>
-          <span class="endpoint-path">/v1/events</span>
-          <span class="endpoint-desc">List all events</span>
-        </div>
-        <div class="endpoint-body">
-          <p class="muted" style="margin-bottom:16px">Returns a paginated list of all tracked events. Filter by category or country.</p>
-          <table class="param-table">
-            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="param-name">category</span><span class="param-optional">optional</span></td>
-                <td><span class="param-type">string</span></td>
-                <td><span class="param-desc">Filter by category. E.g. <code>electoral</code>, <code>monetary_policy</code>, <code>military_security</code></span></td>
-              </tr>
-              <tr>
-                <td><span class="param-name">country</span><span class="param-optional">optional</span></td>
-                <td><span class="param-type">string</span></td>
-                <td><span class="param-desc">Filter by country code. E.g. <code>us</code>, <code>ie</code>, <code>fr</code></span></td>
-              </tr>
-              <tr>
-                <td><span class="param-name">limit</span><span class="param-optional">optional</span></td>
-                <td><span class="param-type">int</span></td>
-                <td><span class="param-desc">Results per page. Default 50, max 200.</span></td>
-              </tr>
-              <tr>
-                <td><span class="param-name">offset</span><span class="param-optional">optional</span></td>
-                <td><span class="param-type">int</span></td>
-                <td><span class="param-desc">Pagination offset. Default 0.</span></td>
-              </tr>
-            </tbody>
-          </table>
-          <p class="muted" style="margin-top:12px; font-size:12px">Response includes <code>total</code>, <code>limit</code>, <code>offset</code>, and <code>markets[]</code> array with <code>slug</code>, <code>ticker</code>, <code>title</code>, <code>k_ticker</code>, <code>pm_token</code>, <code>category</code>, <code>country</code>, <code>platform</code>, <code>total_volume</code>.</p>
-        </div>
-      </div>
-
       <div class="endpoint-card" id="events-get">
         <div class="endpoint-header">
           <span class="endpoint-method">GET</span>
-          <span class="endpoint-path">/v1/events/{slug}</span>
+          <span class="endpoint-path">/api/metrics/event/{slug}</span>
           <span class="endpoint-desc">Get single event with live data</span>
         </div>
         <div class="endpoint-body">
-          <p class="muted" style="margin-bottom:16px">Returns live price, VWAP, per-platform breakdown, and reportability metrics for an event. Data is fetched from native Polymarket and Kalshi APIs in real time (cached for 30 seconds).</p>
+          <p class="muted" style="margin-bottom:16px">Returns live price, VWAP, robustness metrics, and reportability for an event resolved via the market index. Data is fetched from native Polymarket and Kalshi APIs in real time (cached for 30 seconds).</p>
           <table class="param-table">
             <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
             <tbody>
@@ -697,38 +645,19 @@
           <table class="param-table">
             <thead><tr><th style="width:180px">Field</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
             <tbody>
-              <tr><td><span class="param-name">price</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Volume-weighted cross-platform price (VWAP). Falls back to midpoint if insufficient trades.</span></td></tr>
-              <tr><td><span class="param-name">total_volume</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Combined trade volume across platforms in the VWAP window.</span></td></tr>
-              <tr><td><span class="param-name">platforms</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Per-platform data: <code>price</code>, <code>volume</code>, <code>cost_to_move_5c</code> for each of <code>polymarket</code> and <code>kalshi</code> (null if not on that platform).</span></td></tr>
-              <tr><td><span class="param-name">reportability</span></td><td><span class="param-type">string</span></td><td><span class="param-desc"><code>robust</code>, <code>caution</code>, or <code>fragile</code>. Based on cost to move price 5 cents.</span></td></tr>
-              <tr><td><span class="param-name">cost_to_move_5c</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">USD cost to shift price by $0.05 (minimum of both platforms). Null if no order book data.</span></td></tr>
-              <tr><td><span class="param-name">tier</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">VWAP data quality tier: 1 (6h window, 10+ trades), 2 (12-24h window), 3 (all available trades).</span></td></tr>
+              <tr><td><span class="param-name">bellwether_price</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Volume-weighted price (VWAP). Null if insufficient trade data.</span></td></tr>
+              <tr><td><span class="param-name">price_tier</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Data quality tier: 1 (6h VWAP, 10+ trades), 2 (12-24h VWAP), 3 (stale or no data).</span></td></tr>
+              <tr><td><span class="param-name">price_label</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Human-readable description of the price source. E.g. <code>6h VWAP across platforms</code>.</span></td></tr>
+              <tr><td><span class="param-name">price_source</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Machine-readable source: <code>6h_vwap</code>, <code>12h_vwap</code>, <code>24h_vwap</code>, <code>stale_vwap</code>, or <code>no_data</code>.</span></td></tr>
+              <tr><td><span class="param-name">robustness</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>cost_to_move_5c</code>, <code>reportability</code>, <code>raw_reportability</code>, and <code>weakest_platform</code>.</span></td></tr>
+              <tr><td><span class="param-name">vwap_details</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>window_hours</code>, <code>trade_count</code>, and <code>total_volume</code>.</span></td></tr>
+              <tr><td><span class="param-name">orderbook_midpoint</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Best bid/ask midpoint from current order book.</span></td></tr>
               <tr><td><span class="param-name">fetched_at</span></td><td><span class="param-type">datetime</span></td><td><span class="param-desc">When upstream data was last fetched. Cached for 30 seconds.</span></td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <div class="endpoint-card" id="events-search">
-        <div class="endpoint-header">
-          <span class="endpoint-method">GET</span>
-          <span class="endpoint-path">/v1/search</span>
-          <span class="endpoint-desc">Search events</span>
-        </div>
-        <div class="endpoint-body">
-          <p class="muted" style="margin-bottom:16px">Full-text search across market titles, slugs, tickers, and categories. Minimum 2 characters.</p>
-          <table class="param-table">
-            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="param-name">q</span><span class="param-required">required</span></td>
-                <td><span class="param-type">string</span></td>
-                <td><span class="param-desc">Search query. E.g. <code>california governor 2026</code></span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
 
     <!-- MARKETS (platform-specific) -->
@@ -739,11 +668,11 @@
       <div class="endpoint-card" id="markets-platform">
         <div class="endpoint-header">
           <span class="endpoint-method">GET</span>
-          <span class="endpoint-path">/v1/markets/{platform}/{market_id}</span>
+          <span class="endpoint-path">/api/metrics/{platform}/{token_id}</span>
           <span class="endpoint-desc">Platform market data</span>
         </div>
         <div class="endpoint-body">
-          <p class="muted" style="margin-bottom:16px">Returns VWAP, midpoint, order book depth, and reportability for a single platform market.</p>
+          <p class="muted" style="margin-bottom:16px">Returns tiered VWAP price, midpoint, order book depth, and reportability for a single platform market.</p>
           <table class="param-table">
             <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
             <tbody>
@@ -753,7 +682,7 @@
                 <td><span class="param-desc"><code>polymarket</code> or <code>kalshi</code></span></td>
               </tr>
               <tr>
-                <td><span class="param-name">market_id</span><span class="param-required">required</span></td>
+                <td><span class="param-name">token_id</span><span class="param-required">required</span></td>
                 <td><span class="param-type">string</span></td>
                 <td><span class="param-desc">Polymarket token ID or Kalshi market ticker</span></td>
               </tr>
@@ -763,15 +692,15 @@
           <table class="param-table">
             <thead><tr><th style="width:180px">Field</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
             <tbody>
-              <tr><td><span class="param-name">price</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Best available price (VWAP if sufficient trades, otherwise midpoint)</span></td></tr>
-              <tr><td><span class="param-name">vwap</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Volume-weighted average price. Null if no trades in window.</span></td></tr>
-              <tr><td><span class="param-name">vwap_window_hours</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Window used for VWAP: 6, 12, or 24 hours. Null if using all trades.</span></td></tr>
-              <tr><td><span class="param-name">vwap_trade_count</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Number of trades used in VWAP calculation</span></td></tr>
-              <tr><td><span class="param-name">vwap_volume</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Total trade volume in VWAP window</span></td></tr>
-              <tr><td><span class="param-name">midpoint</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Best bid/ask midpoint from current order book</span></td></tr>
-              <tr><td><span class="param-name">reportability</span></td><td><span class="param-type">string</span></td><td><span class="param-desc"><code>robust</code>, <code>caution</code>, or <code>fragile</code></span></td></tr>
-              <tr><td><span class="param-name">cost_to_move_5c</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">USD cost to move price $0.05 (minimum of up and down)</span></td></tr>
-              <tr><td><span class="param-name">tier</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Data quality tier (1=best, 3=fallback)</span></td></tr>
+              <tr><td><span class="param-name">bellwether_price</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Tiered VWAP price. Null if insufficient trade data.</span></td></tr>
+              <tr><td><span class="param-name">price_tier</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Data quality tier: 1 (6h VWAP), 2 (12-24h VWAP), 3 (stale/no data).</span></td></tr>
+              <tr><td><span class="param-name">price_label</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Human-readable source label. E.g. <code>6h VWAP</code>.</span></td></tr>
+              <tr><td><span class="param-name">price_source</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Machine-readable source: <code>6h_vwap</code>, <code>12h_vwap</code>, <code>24h_vwap</code>, <code>stale_vwap</code>, or <code>no_data</code>.</span></td></tr>
+              <tr><td><span class="param-name">robustness</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>cost_to_move_5c</code>, <code>cost_to_move_up_5c</code>, <code>cost_to_move_down_5c</code>, <code>reportability</code>, and <code>raw_reportability</code>.</span></td></tr>
+              <tr><td><span class="param-name">vwap_details</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>window_hours</code>, <code>trade_count</code>, and <code>total_volume</code>.</span></td></tr>
+              <tr><td><span class="param-name">orderbook_midpoint</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Best bid/ask midpoint from current order book.</span></td></tr>
+              <tr><td><span class="param-name">orderbook_summary</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>bid_levels</code>, <code>ask_levels</code>, <code>best_bid</code>, <code>best_ask</code>, <code>top_5_bids</code>, <code>top_5_asks</code>.</span></td></tr>
+              <tr><td><span class="param-name">fetched_at</span></td><td><span class="param-type">datetime</span></td><td><span class="param-desc">When upstream data was last fetched. Cached for 30 seconds.</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -780,11 +709,11 @@
       <div class="endpoint-card" id="markets-combined">
         <div class="endpoint-header">
           <span class="endpoint-method">GET</span>
-          <span class="endpoint-path">/v1/markets/combined</span>
+          <span class="endpoint-path">/api/metrics/combined</span>
           <span class="endpoint-desc">Cross-platform aggregation</span>
         </div>
         <div class="endpoint-body">
-          <p class="muted" style="margin-bottom:16px">Returns volume-weighted combined data for a matched pair. The combined price is computed per Duffie & Dworczak (2021): weighted by dollar volume across platforms.</p>
+          <p class="muted" style="margin-bottom:16px">Returns volume-weighted combined data for a matched pair. The combined VWAP is computed across trades from both platforms in the same time window.</p>
           <table class="param-table">
             <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
             <tbody>
@@ -808,22 +737,22 @@
     <!-- REPORTABILITY -->
     <div class="doc-section" id="reportability">
       <h2>Reportability</h2>
-      <p>Every market is scored for manipulation resistance based on live order book depth. The <code>cost_to_move_5c</code> field tells you how many dollars it would take to shift the market price by 5 cents — the core metric behind the reportability tiers.</p>
+      <p>Every market is scored for manipulation resistance based on live order book depth. The <code>cost_to_move_5c</code> field (nested inside <code>robustness</code>) tells you how many dollars it would take to shift the market price by 5 cents — the core metric behind the reportability tiers.</p>
       <table class="param-table" style="margin-top: 16px">
         <thead><tr><th>Rating</th><th>Cost to Move 5¢</th><th>Guidance</th></tr></thead>
         <tbody>
-          <tr><td><span style="color:var(--bw-green); font-weight:600">Robust</span></td><td><span class="param-type">&ge; $100,000</span></td><td><span class="param-desc">Safe to cite. Price reflects broad market consensus.</span></td></tr>
+          <tr><td><span style="color:var(--bw-green); font-weight:600">Reportable</span></td><td><span class="param-type">&ge; $100,000</span></td><td><span class="param-desc">Safe to cite. Price reflects broad market consensus.</span></td></tr>
           <tr><td><span style="color:var(--bw-amber); font-weight:600">Caution</span></td><td><span class="param-type">$10,000 – $99,999</span></td><td><span class="param-desc">Cite with context. Note liquidity level.</span></td></tr>
           <tr><td><span style="color:var(--bw-red); font-weight:600">Fragile</span></td><td><span class="param-type">&lt; $10,000</span></td><td><span class="param-desc">Do not cite as consensus. Easily manipulated.</span></td></tr>
         </tbody>
       </table>
-      <p class="muted" style="margin-top:16px">Tier 2 data (12-24h VWAP window) downgrades robust to caution and caution to fragile. Tier 3 data (all available trades) is always rated fragile regardless of depth.</p>
+      <p class="muted" style="margin-top:16px">Tier 2 data (12-24h VWAP window) downgrades reportable to caution and caution to fragile. Tier 3 data (stale VWAP or no data) is always rated fragile regardless of depth.</p>
     </div>
 
     <!-- TICKERS -->
     <div class="doc-section" id="tickers">
       <h2>Tickers</h2>
-      <p>Bellwether assigns a canonical ticker to every market using an LLM-powered classification system. Tickers follow the format:</p>
+      <p>Bellwether assigns a canonical ticker to every market using an automated matching engine. Tickers follow the format:</p>
       <div class="code-block">
         <div class="code-block-header"><span class="code-block-label">Ticker format</span></div>
 <pre><span class="dim">BWR</span>-<span class="str">AGENT</span>-<span class="str">ACTION</span>-<span class="str">TARGET</span>-<span class="str">MECHANISM</span>-<span class="str">THRESHOLD</span>-<span class="str">TIMEFRAME</span>
@@ -851,7 +780,7 @@
     <!-- DATA GLOSSARY -->
     <div class="doc-section" id="glossary">
       <h2>Data Glossary</h2>
-      <p>Bellwether provides daily CSV exports of the full dataset. These are the same data that power the API.</p>
+      <p>Reference for the data fields used across Bellwether's market datasets.</p>
 
       <div class="sub-tabs">
         <button class="sub-tab active" data-glossary="master">Master</button>
@@ -924,15 +853,6 @@
       </div>
     </div>
 
-    <!-- CSV EXPORTS -->
-    <div class="doc-section" id="exports">
-      <h2>CSV Exports</h2>
-      <p>Daily CSV dumps are available for download. Updated every 24 hours at 00:00 UTC.</p>
-      <div class="callout">
-        <p><strong>Access required.</strong> CSV exports are available to all users with an API key. Email <code>paschal@stanford.edu</code> to request access. Academic and research use is free.</p>
-      </div>
-    </div>
-
     <!-- CATEGORIES -->
     <div class="doc-section" id="categories">
       <h2>Categories</h2>
@@ -960,28 +880,6 @@
       <p class="muted" style="margin-top: 12px">Market counts are approximate and change as new markets are listed. Total: 10,726 markets across both platforms.</p>
     </div>
 
-    <!-- RATE LIMITS -->
-    <div class="doc-section" id="rate-limits">
-      <h2>Rate Limits</h2>
-      <table class="param-table">
-        <thead><tr><th>Tier</th><th>Limit</th><th>Notes</th></tr></thead>
-        <tbody>
-          <tr><td><span class="param-name">Research</span></td><td><span class="param-type">100 req/day</span></td><td><span class="param-desc">Academic and non-commercial use</span></td></tr>
-          <tr><td><span class="param-name">Newsroom</span></td><td><span class="param-type">10,000 req/day</span></td><td><span class="param-desc">Commercial media organizations</span></td></tr>
-          <tr><td><span class="param-name">Enterprise</span></td><td><span class="param-type">Unlimited</span></td><td><span class="param-desc">Custom agreement</span></td></tr>
-        </tbody>
-      </table>
-      <p class="muted" style="margin-top:16px">Usage is tracked per API key per day. Contact us to upgrade your tier.</p>
-    </div>
-
-    <!-- CHANGELOG -->
-    <div class="doc-section" id="changelog">
-      <h2>Changelog</h2>
-      <h3>v1.0 — Feb 2026</h3>
-      <p>Complete rewrite. LLM-powered canonical tickers replace NLP matching pipeline. Exact string matching replaces fuzzy probabilistic scoring. Added manipulation resistance endpoints and reportability labels. Live order book and trade data via native Polymarket and Kalshi APIs.</p>
-      <h3>v0.1 — Sep 2025</h3>
-      <p>Initial release. spaCy transformer pipeline for semantic frame extraction. Weighted confidence scoring for cross-platform matching.</p>
-    </div>
   </main>
 </div>
 
@@ -997,7 +895,6 @@
       <h4>Platform</h4>
       <a href="data.html">Data</a>
       <a href="docs.html">Documentation</a>
-      <a href="#">Changelog</a>
     </div>
     <div class="footer-col">
       <h4>Research</h4>
