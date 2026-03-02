@@ -468,7 +468,7 @@
         <span class="stack-layer-name">Bellwether Tape API</span>
         <span class="stack-layer-badge badge-live">Live</span>
       </div>
-      <div class="stack-layer-desc">Canonical tickers · VWAP pricing · Manipulation resistance · Cross-platform matching</div>
+      <div class="stack-layer-desc">Canonical tickers · VWAP pricing · Compliance labels · Cross-platform matching</div>
       <div class="stack-code">
 <pre><span class="dim">GET</span> /v2/markets/BWR-DEM-WIN-PRES-2028
 
@@ -543,28 +543,28 @@
         <div class="product-feature-icon">⟷</div>
         <div>
           <h3>Cross-Platform Canonical Tickers</h3>
-          <p>LLM-generated ticker system matches identical events across Polymarket and Kalshi into a single canonical ID. Same event, one price.</p>
+          <p>Our matching engine maps identical events across Polymarket and Kalshi into a single canonical ID. Same event, one price.</p>
         </div>
       </div>
       <div class="product-feature fade-in">
         <div class="product-feature-icon">△</div>
         <div>
           <h3>Volume-Weighted Pricing</h3>
-          <p>VWAP over configurable windows (1h – 24h) smooths out noise and manipulation attempts. The price that reflects sustained belief, not the last trade.</p>
+          <p>6-hour VWAP with automatic fallbacks to 12h and 24h windows smooths out noise and manipulation attempts. The price that reflects sustained belief, not the last trade.</p>
         </div>
       </div>
       <div class="product-feature fade-in">
         <div class="product-feature-icon">⚑</div>
         <div>
-          <h3>Reportability Labels</h3>
-          <p>Markets flagged as Robust, Moderate, or Fragile based on liquidity depth. Know instantly which numbers are safe to publish.</p>
+          <h3>Compliance Labels</h3>
+          <p>Every market rated Compliant, Partly Compliant, or Non-Compliant based on liquidity depth and data quality. Know instantly which numbers are safe to publish.</p>
         </div>
       </div>
       <div class="product-feature fade-in">
         <div class="product-feature-icon">↻</div>
         <div>
-          <h3>Real-Time & Historical</h3>
-          <p>Live prices updated continuously, plus full time-series data for every matched market. Track how beliefs evolved over weeks or months.</p>
+          <h3>Real-Time Data</h3>
+          <p>Live prices updated continuously with 30-second cache. Current order book depth, VWAP, and compliance scores for every tracked market.</p>
         </div>
       </div>
       <div class="product-feature fade-in">
@@ -588,7 +588,7 @@
   <span class="key">"category"</span>: <span class="str">"us_presidential"</span>,
 
   <span class="key">"bellwether_price"</span>: <span class="num">0.42</span>,
-  <span class="key">"vwap_window"</span>: <span class="str">"12h"</span>,
+  <span class="key">"vwap_window"</span>: <span class="str">"6h"</span>,
 
   <span class="key">"platforms"</span>: {
     <span class="key">"polymarket"</span>: {
@@ -601,10 +601,9 @@
     }
   },
 
-  <span class="key">"manipulation_resistance"</span>: {
+  <span class="key">"compliance"</span>: {
     <span class="key">"cost_to_move_5c"</span>: <span class="num">47200</span>,
-    <span class="key">"rating"</span>: <span class="str">"robust"</span>,
-    <span class="key">"reportable"</span>: <span class="num">true</span>
+    <span class="key">"rating"</span>: <span class="str">"compliant"</span>
   }
 }</pre>
       </div>
@@ -625,11 +624,11 @@
       <div class="platform-card current fade-in">
         <span class="card-badge card-badge-live">Live</span>
         <h3>Tape API</h3>
-        <p>Canonical tickers, manipulation-resistant VWAP pricing, and reportability labels for every political prediction market across platforms.</p>
+        <p>Canonical tickers, manipulation-resistant VWAP pricing, and compliance labels for every political prediction market across platforms.</p>
         <div class="card-detail">
           10,359 markets · 330 matched pairs<br>
           Polymarket + Kalshi<br>
-          REST API · Historical data
+          REST API · Real-time data
         </div>
       </div>
       <div class="platform-card current fade-in" style="transition-delay: 0.08s">
