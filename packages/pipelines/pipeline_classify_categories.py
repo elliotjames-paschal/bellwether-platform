@@ -860,6 +860,11 @@ def main():
     # Load new markets
     log("Loading new markets...")
     df = pd.read_csv(INPUT_FILE)
+    # Ensure political_category is string type (avoids LossySetitemError on NaN-only columns)
+    if 'political_category' in df.columns:
+        df['political_category'] = df['political_category'].astype(object)
+    else:
+        df['political_category'] = pd.Series([None] * len(df), dtype=object)
     log(f"  Total new markets: {len(df):,}")
 
     # Split into already classified (ELECTORAL) and needs classification
