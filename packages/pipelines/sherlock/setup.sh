@@ -28,7 +28,8 @@ fi
 echo ""
 echo "[1/6] Creating directories..."
 
-BELLWETHER_HOME="$HOME/bellwether-platform"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BELLWETHER_HOME="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 LOG_DIR="$HOME/logs"
 mkdir -p "$LOG_DIR"
 
