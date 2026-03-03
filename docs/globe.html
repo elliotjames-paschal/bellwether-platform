@@ -13,7 +13,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Globe - Bellwether</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css?v=20260211a">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://unpkg.com/topojson-client@3"></script>
@@ -24,49 +24,113 @@
             overflow: hidden;
         }
 
-        .globe-page .nav {
-            background: rgba(17, 24, 39, 0.95);
-            border-bottom: 1px solid #374151;
+        /* ══ NAV — V2 design system ══ */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+            background: rgba(17, 24, 39, 0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        .globe-page .nav-logo {
-            color: #fff;
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 32px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        .globe-page .nav-links a {
-            color: #9ca3af;
+        /* Kill the ::before dot from styles.css */
+        .nav-logo::before {
+            display: none !important;
+            content: none !important;
         }
 
-        .globe-page .nav-links a:hover,
-        .globe-page .nav-links a.active {
-            color: #fff;
+        .nav-logo {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            font-family: 'Source Serif 4', Georgia, serif !important;
+            font-weight: 600 !important;
+            font-size: 18px !important;
+            color: #FFFFFF !important;
+            text-decoration: none !important;
+            letter-spacing: 0 !important;
         }
 
-        .globe-page .nav-affiliation {
-            color: #9ca3af;
-        }
-
-        .globe-page .nav-affiliation:hover {
-            color: #d1d5db;
-        }
-
-        .globe-page .nav-affiliation-icon {
-            filter: invert(1) opacity(0.6);
-        }
-
-        .globe-page .nav-affiliation:hover .nav-affiliation-icon {
-            filter: invert(1) opacity(0.8);
-        }
-
-        /* Logo gradient circle for dark mode */
-        .globe-page .nav-logo::before {
-            background: linear-gradient(135deg, #60a5fa, #34d399);
+        .nav-logo .dot {
+            width: 10px;
+            height: 10px;
+            background: #4A90D9;
             border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .nav-links a {
+            font-family: 'DM Sans', -apple-system, sans-serif !important;
+            font-size: 14px !important;
+            font-weight: 400 !important;
+            color: rgba(255, 255, 255, 0.5) !important;
+            text-decoration: none !important;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: rgba(255, 255, 255, 0.85) !important;
+        }
+
+        .nav-links a.active {
+            color: #FFFFFF !important;
+            font-weight: 500 !important;
+        }
+
+        .nav-affil {
+            font-family: 'DM Sans', -apple-system, sans-serif !important;
+            font-size: 12px !important;
+            color: rgba(255, 255, 255, 0.25) !important;
+            font-weight: 300 !important;
+            letter-spacing: 0.02em;
+        }
+
+        .nav-links a.nav-cta {
+            all: unset !important;
+            font-size: 13px !important; color: #FFFFFF !important;
+            background: rgba(255, 255, 255, 0.12) !important;
+            padding: 8px 20px !important; border-radius: 6px !important;
+            cursor: pointer !important; transition: background 0.2s !important;
+            font-family: 'DM Sans', -apple-system, sans-serif !important;
+            text-decoration: none !important; display: inline-block !important;
+            box-sizing: border-box !important;
+        }
+
+        .nav-links a.nav-cta:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        @media (max-width: 900px) {
+            .nav-links a:not(.nav-cta) {
+                display: none;
+            }
+            .nav-affil {
+                display: none;
+            }
         }
 
         .globe-view {
             display: flex;
-            height: calc(100vh - 57px);
+            height: calc(100vh - 60px);
+            margin-top: 60px;
             background: #111827;
         }
 
@@ -891,25 +955,207 @@
         .globe-elections::-webkit-scrollbar-thumb:hover {
             background: #6b7280;
         }
+
+        /* ══ V2 DESIGN SYSTEM OVERRIDES ══ */
+
+        /* Sidebar section labels */
+        .sidebar-label,
+        [class*="section-label"],
+        [class*="sidebar"] h3,
+        [class*="sidebar"] h4,
+        [class*="panel"] h3,
+        [class*="panel"] h4 {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        /* Data layer toggles */
+        .toggle-label,
+        [class*="layer"] label,
+        [class*="toggle"] span {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          font-size: 14px;
+          font-weight: 400;
+        }
+
+        .coming-soon,
+        [class*="coming"],
+        [class*="soon"] {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          font-size: 12px;
+          font-weight: 300;
+          font-style: italic;
+        }
+
+        /* Filter pills */
+        .filter-pill,
+        .chip,
+        [class*="filter"] button,
+        [class*="category"] button,
+        [class*="region"] button,
+        [class*="tag"] {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          font-size: 13px;
+          font-weight: 400;
+        }
+        .filter-pill.active,
+        .chip.active,
+        [class*="filter"] button.active,
+        [class*="category"] button.active,
+        [class*="region"] button.active {
+          font-weight: 500;
+        }
+
+        /* Market list */
+        .market-count-header,
+        [class*="market"] [class*="header"] {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+        }
+
+        .sort-label,
+        [class*="sort"] {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px;
+          font-weight: 400;
+        }
+
+        .market-title,
+        .market-name,
+        .market-question,
+        [class*="market"] [class*="title"],
+        [class*="market"] [class*="name"],
+        [class*="market"] [class*="question"] {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          font-size: 14px;
+          font-weight: 500;
+          line-height: 1.4;
+        }
+
+        .market-meta,
+        .market-subtitle,
+        [class*="market"] [class*="meta"],
+        [class*="market"] [class*="sub"],
+        [class*="market"] [class*="category"] {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          font-size: 12px;
+          font-weight: 400;
+        }
+
+        /* All numbers: monospace */
+        .market-price,
+        .price,
+        .volume,
+        .market-count,
+        [class*="price"],
+        [class*="vol"],
+        [class*="percent"],
+        [class*="count"] {
+          font-family: 'JetBrains Mono', monospace;
+          font-weight: 500;
+        }
+
+        .active-count,
+        [class*="active-market"],
+        [class*="total"] {
+          font-family: 'JetBrains Mono', monospace;
+          font-weight: 500;
+        }
+
+        /* Market buttons */
+        .market-link,
+        [class*="market"] a[class*="btn"],
+        [class*="market"] button {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          font-size: 13px;
+          font-weight: 500;
+          border-radius: 6px;
+        }
+
+        /* Globe tooltip */
+        .globe-tooltip,
+        [class*="tooltip"],
+        [class*="popup"],
+        [class*="hover-card"] {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          border-radius: 8px;
+        }
+
+        .globe-tooltip h3,
+        .globe-tooltip h4,
+        [class*="tooltip"] h3,
+        [class*="tooltip"] h4,
+        [class*="tooltip"] [class*="title"],
+        [class*="popup"] [class*="title"],
+        [class*="hover-card"] [class*="title"] {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .globe-tooltip [class*="category"],
+        [class*="tooltip"] [class*="tag"],
+        [class*="tooltip"] [class*="category"] {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .globe-tooltip [class*="count"],
+        [class*="tooltip"] [class*="count"],
+        [class*="tooltip"] [class*="number"] {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 12px;
+          font-weight: 400;
+        }
+
+        .globe-tooltip a,
+        [class*="tooltip"] a,
+        [class*="popup"] a,
+        [class*="hover-card"] a {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          font-size: 13px;
+          font-weight: 500;
+          color: #4A90D9;
+          text-decoration: none;
+        }
+
+        .globe-tooltip a:hover,
+        [class*="tooltip"] a:hover {
+          color: #A8C8E8;
+        }
+
+        /* Search input */
+        input[type="text"],
+        input[type="search"],
+        [class*="search"] input {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          font-size: 13px;
+          font-weight: 400;
+        }
+        input::placeholder {
+          font-family: 'DM Sans', -apple-system, sans-serif;
+        }
     </style>
 </head>
 <body class="globe-page">
-    <nav class="nav">
+    <nav>
         <div class="nav-inner">
-            <div class="nav-left">
-                <a href="./" class="nav-logo"><span class="nav-logo-text">Bellwether</span></a>
-                <div class="nav-links">
-                    <a href="./">Home</a>
-                    <a href="globe.html" class="active">Globe</a>
-                    <a href="research.html">Research</a>
-                    <a href="data.html">Data</a>
-                    <a href="about.html">About</a>
-                </div>
-            </div>
-            <a href="https://www.hoover.org" target="_blank" rel="noopener" class="nav-affiliation">
-                <img src="assets/hoover-tower.svg" alt="" class="nav-affiliation-icon">
-                <span>Hoover Institution</span>
+            <a href="./" class="nav-logo">
+                <span class="dot"></span>
+                Bellwether
             </a>
+            <div class="nav-links">
+                <a href="monitor.html">Live Data</a>
+                <a href="globe.html" class="active">Globe</a>
+                <a href="blueprints.html">Blueprints</a>
+                <a href="research.html">Research</a>
+                <a href="docs.html">Docs</a>
+                <span class="nav-affil">Stanford &middot; Hoover Institution</span>
+                <a href="mailto:paschal@stanford.edu" class="nav-cta">Request Access</a>
+            </div>
         </div>
     </nav>
 
