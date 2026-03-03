@@ -712,6 +712,11 @@ def main():
                 else:
                     market_info = "Updated market data"
 
+                # Pull latest first to avoid rejected pushes
+                subprocess.run(
+                    ["git", "pull", "--rebase", "--ff-only"],
+                    cwd=repo_root, check=True
+                )
                 subprocess.run(
                     ["git", "add", "docs/data/"],
                     cwd=repo_root, check=True
