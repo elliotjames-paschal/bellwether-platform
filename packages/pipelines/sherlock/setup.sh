@@ -106,7 +106,10 @@ pip install -q --only-binary=scipy,numpy \
     'sentence-transformers>=2.2.0' \
     'python-dotenv>=1.0.0' \
     'tqdm>=4.65.0' \
-    'statsmodels>=0.14.0'
+    'statsmodels>=0.14.0' \
+    'aiohttp>=3.9.0' \
+    'reportlab>=4.0.0' \
+    'python-Levenshtein>=0.25.0'
 
 echo "  Installed $(pip list --format=columns | wc -l) packages"
 
