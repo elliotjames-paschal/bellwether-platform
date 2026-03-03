@@ -577,26 +577,18 @@ def main():
     # =========================================================================
 
     log("\n" + "=" * 50)
-    log("FETCHING KALSHI + POLYMARKET IN PARALLEL")
+    log("FETCHING KALSHI THEN POLYMARKET (sequential to limit memory)")
     log("=" * 50)
 
     kalshi_status = "open" if active_only else None
 
-    from concurrent.futures import ThreadPoolExecutor
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        kalshi_future = executor.submit(
-            fetch_kalshi_political_markets,
-            status=kalshi_status,
-            existing_ids=kalshi_existing,
-        )
-        pm_future = executor.submit(
-            fetch_polymarket_political_markets,
-            existing_ids=pm_existing,
-        )
-
-        kalshi_result = kalshi_future.result()
-        pm_markets = pm_future.result()
+    kalshi_result = fetch_kalshi_political_markets(
+        status=kalshi_status,
+        existing_ids=kalshi_existing,
+    )
+    pm_markets = fetch_polymarket_political_markets(
+        existing_ids=pm_existing,
+    )
 
     # Markets are already processed to CSV format by the fetch functions
     kalshi_markets = kalshi_result["markets"]

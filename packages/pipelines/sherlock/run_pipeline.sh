@@ -19,7 +19,7 @@
 #SBATCH --job-name=bellwether
 #SBATCH --partition=normal
 #SBATCH --time=06:00:00
-#SBATCH --mem=16G
+#SBATCH --mem=32G
 #SBATCH --cpus-per-task=2
 #SBATCH --output=/home/users/%u/logs/bellwether_%j.out
 #SBATCH --error=/home/users/%u/logs/bellwether_%j.err
