@@ -73,8 +73,13 @@ def log(msg):
 
 def election_date_to_unix(date_str):
     """Convert election date string (YYYY-MM-DD) to Unix timestamp at UTC midnight."""
-    dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    return int(dt.timestamp())
+    if not isinstance(date_str, str) or not date_str.strip():
+        return None
+    try:
+        dt = datetime.strptime(str(date_str).strip()[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return int(dt.timestamp())
+    except (ValueError, TypeError):
+        return None
 
 
 def lookup_pm_price(token_id, unix_ts, pm_local):
@@ -224,6 +229,9 @@ def main():
                 continue
 
             unix_ts = election_date_to_unix(election_date)
+            if unix_ts is None:
+                pm_failed += 1
+                continue
             price = lookup_pm_price(token_id, unix_ts, pm_local)
 
             if price is not None:
@@ -254,6 +262,9 @@ def main():
                 continue
 
             unix_ts = election_date_to_unix(election_date)
+            if unix_ts is None:
+                kalshi_failed += 1
+                continue
             price = lookup_kalshi_price(str(market_ticker), unix_ts, kal_local)
 
             if price is not None:
