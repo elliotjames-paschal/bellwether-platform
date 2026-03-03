@@ -16,7 +16,7 @@ Input:
 Output:
     KV key `market_map:latest` - JSON market index uploaded to Cloudflare KV
     packages/api/market_map.json - Local copy for backward compat
-    packages/website/data/market_map.json - Local copy for website
+    docs/data/market_map.json - Local copy for website
 """
 
 import json

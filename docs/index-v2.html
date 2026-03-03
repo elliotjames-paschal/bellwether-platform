@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4JTSRBJBY5"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-4JTSRBJBY5');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bellwether — Prediction Market Infrastructure</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bw-blue: #4A90D9;
+    --bw-blue-light: #EBF2FC;
+    --bw-blue-muted: #A8C8E8;
+    --bw-dark: #1A1A1A;
+    --bw-text: #2C2C2C;
+    --bw-text-secondary: #6B6B6B;
+    --bw-border: #E8E8E8;
+    --bw-bg: #FAFAFA;
+    --bw-white: #FFFFFF;
+    --bw-red: #D94A4A;
+    --bw-green: #3A8A5C;
+    --bw-amber: #D4950A;
+    --font-serif: 'Source Serif 4', Georgia, serif;
+    --font-sans: 'DM Sans', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    color: var(--bw-text);
+    background: var(--bw-white);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--bw-border);
+    transition: box-shadow 0.3s;
+  }
+  nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
+  .nav-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 32px;
+    height: 60px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-serif); font-weight: 600; font-size: 18px;
+    color: var(--bw-dark); text-decoration: none;
+  }
+  .nav-logo .dot { width: 10px; height: 10px; background: var(--bw-blue); border-radius: 50%; }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a {
+    font-size: 14px; color: var(--bw-text-secondary); text-decoration: none;
+    font-weight: 400; transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--bw-dark); }
+  .nav-affil {
+    font-size: 12px; color: var(--bw-text-secondary); opacity: 0.6;
+    font-weight: 300; letter-spacing: 0.02em;
+  }
+  .nav-cta {
+    font-size: 13px !important; color: var(--bw-white) !important;
+    background: var(--bw-dark); padding: 8px 20px; border-radius: 6px;
+    transition: background 0.2s !important;
+  }
+  .nav-cta:hover { background: #333 !important; }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 160px 32px 100px; max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center;
+    min-height: 100vh;
+  }
+  .hero-text h1 {
+    font-family: var(--font-serif); font-size: 50px; font-weight: 300;
+    line-height: 1.15; color: var(--bw-dark); letter-spacing: -0.02em; margin-bottom: 28px;
+  }
+  .hero-text h1 strong { font-weight: 600; }
+  .hero-text .subtitle {
+    font-size: 18px; line-height: 1.7; color: var(--bw-text-secondary);
+    margin-bottom: 20px; max-width: 480px;
+  }
+  .hero-text .hero-detail {
+    font-size: 14px; line-height: 1.7; color: var(--bw-text-secondary);
+    margin-bottom: 40px; max-width: 460px; opacity: 0.8;
+  }
+  .hero-actions { display: flex; gap: 16px; align-items: center; }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; background: var(--bw-dark); color: var(--bw-white);
+    border: none; border-radius: 8px; font-size: 15px;
+    font-family: var(--font-sans); font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-primary:hover { background: #333; transform: translateY(-1px); }
+  .btn-secondary {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; background: transparent; color: var(--bw-text);
+    border: 1px solid var(--bw-border); border-radius: 8px; font-size: 15px;
+    font-family: var(--font-sans); font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--bw-text-secondary); }
+
+  /* ── HERO STACK DIAGRAM ── */
+  .hero-stack {
+    display: flex; flex-direction: column; gap: 0;
+    position: relative;
+  }
+  .stack-layer {
+    border: 1px solid var(--bw-border);
+    padding: 24px 28px;
+    background: var(--bw-white);
+    position: relative;
+    transition: all 0.3s;
+  }
+  .stack-layer:first-child { border-radius: 12px 12px 0 0; }
+  .stack-layer:last-child { border-radius: 0 0 12px 12px; }
+  .stack-layer + .stack-layer { border-top: none; }
+  .stack-layer.active {
+    background: var(--bw-dark);
+    border-color: var(--bw-dark);
+    z-index: 2;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  }
+  .stack-layer.active + .stack-layer { border-top: none; }
+  .stack-layer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .stack-layer-name {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+  }
+  .stack-layer.active .stack-layer-name { color: var(--bw-white); }
+  .stack-layer-badge {
+    font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 3px 10px; border-radius: 4px;
+  }
+  .badge-live { background: rgba(58,138,92,0.15); color: var(--bw-green); }
+  .stack-layer.active .badge-live { background: rgba(58,138,92,0.25); }
+  .badge-soon { background: rgba(74,144,217,0.1); color: var(--bw-blue-muted); }
+  .stack-layer-desc {
+    font-size: 13px; line-height: 1.5;
+    color: var(--bw-text-secondary);
+  }
+  .stack-layer.active .stack-layer-desc { color: rgba(255,255,255,0.55); }
+
+  /* mini code preview inside active layer */
+  .stack-code {
+    margin-top: 16px; padding: 14px 16px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 6px; overflow-x: auto;
+  }
+  .stack-code pre {
+    font-family: var(--font-mono); font-size: 11.5px;
+    line-height: 1.6; color: rgba(255,255,255,0.8);
+  }
+  .stack-code .key { color: var(--bw-blue-muted); }
+  .stack-code .str { color: #8BC89F; }
+  .stack-code .num { color: #E8B87A; }
+  .stack-code .dim { color: rgba(255,255,255,0.3); }
+
+  /* ── WHY SECTION ── */
+  .why-section {
+    background: var(--bw-bg);
+    border-top: 1px solid var(--bw-border); border-bottom: 1px solid var(--bw-border);
+  }
+  .why-section section {
+    max-width: 1200px; margin: 0 auto; padding: 100px 32px;
+  }
+  .section-label {
+    font-size: 12px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--bw-blue); margin-bottom: 16px;
+  }
+  .section-title {
+    font-family: var(--font-serif); font-size: 36px; font-weight: 400;
+    color: var(--bw-dark); line-height: 1.25; margin-bottom: 16px; letter-spacing: -0.01em;
+  }
+  .section-subtitle {
+    font-size: 17px; color: var(--bw-text-secondary); line-height: 1.6;
+    max-width: 560px; margin-bottom: 56px;
+  }
+  .why-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px;
+  }
+  .why-card .why-num {
+    font-family: var(--font-mono); font-size: 48px; font-weight: 500;
+    color: var(--bw-blue); line-height: 1; margin-bottom: 16px;
+    opacity: 0.3;
+  }
+  .why-card h3 {
+    font-size: 17px; font-weight: 600; color: var(--bw-dark); margin-bottom: 10px;
+  }
+  .why-card p {
+    font-size: 14px; color: var(--bw-text-secondary); line-height: 1.65;
+  }
+
+  /* ── PRODUCT: TAPE API ── */
+  .product-section {
+    max-width: 1200px; margin: 0 auto; padding: 100px 32px;
+  }
+  .product-two-col {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start;
+  }
+  .product-features { display: flex; flex-direction: column; gap: 28px; }
+  .product-feature {
+    display: flex; gap: 16px; align-items: flex-start;
+  }
+  .product-feature-icon {
+    width: 36px; height: 36px; flex-shrink: 0;
+    background: var(--bw-blue-light); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bw-blue); font-size: 15px;
+  }
+  .product-feature h3 {
+    font-size: 15px; font-weight: 600; color: var(--bw-dark); margin-bottom: 4px;
+  }
+  .product-feature p {
+    font-size: 14px; color: var(--bw-text-secondary); line-height: 1.6;
+  }
+  .api-block {
+    background: var(--bw-dark); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08);
+    position: sticky; top: 80px;
+  }
+  .api-header {
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .api-header .method {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    color: var(--bw-green); background: rgba(58,138,92,0.15);
+    padding: 3px 8px; border-radius: 4px;
+  }
+  .api-header .endpoint {
+    font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.6);
+  }
+  .api-body { padding: 20px; }
+  .api-body pre {
+    font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7;
+    color: rgba(255,255,255,0.85); overflow-x: hidden; white-space: pre-wrap; word-break: break-all;
+  }
+  .api-body .key { color: var(--bw-blue-muted); }
+  .api-body .str { color: #8BC89F; }
+  .api-body .num { color: #E8B87A; }
+  .api-body .dim { color: rgba(255,255,255,0.3); }
+
+  /* ── PLATFORM VISION ── */
+  .platform-section {
+    background: var(--bw-bg);
+    border-top: 1px solid var(--bw-border); border-bottom: 1px solid var(--bw-border);
+  }
+  .platform-section section {
+    max-width: 1200px; margin: 0 auto; padding: 100px 32px;
+  }
+  .platform-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;
+  }
+  .platform-card {
+    border: 1px solid var(--bw-border); border-radius: 10px; padding: 32px 28px;
+    transition: all 0.3s; position: relative; background: var(--bw-white);
+  }
+  .platform-card:hover {
+    border-color: var(--bw-blue-muted);
+    box-shadow: 0 4px 16px rgba(74,144,217,0.06);
+    transform: translateY(-2px);
+  }
+  .platform-card.current { border-color: var(--bw-blue); }
+  .platform-card .card-badge {
+    font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 3px 10px; border-radius: 4px; display: inline-block; margin-bottom: 20px;
+  }
+  .card-badge-live { background: rgba(58,138,92,0.1); color: var(--bw-green); }
+  .card-badge-building { background: rgba(74,144,217,0.1); color: var(--bw-blue); }
+  .platform-card h3 {
+    font-size: 18px; font-weight: 600; color: var(--bw-dark); margin-bottom: 12px;
+    font-family: var(--font-serif);
+  }
+  .platform-card p {
+    font-size: 14px; color: var(--bw-text-secondary); line-height: 1.65;
+  }
+  .platform-card .card-detail {
+    margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--bw-border);
+    font-family: var(--font-mono); font-size: 12px; color: var(--bw-text-secondary);
+    line-height: 1.7;
+  }
+  .platform-card.current .card-detail { color: var(--bw-text); }
+
+  /* ── RESEARCH ── */
+  .research-section {
+    max-width: 1200px; margin: 0 auto; padding: 100px 32px;
+  }
+  .research-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+  .research-card {
+    border: 1px solid var(--bw-border); border-radius: 10px; padding: 32px;
+    transition: all 0.3s; text-decoration: none; display: block;
+  }
+  .research-card:hover {
+    border-color: var(--bw-blue-muted);
+    box-shadow: 0 4px 16px rgba(74,144,217,0.06);
+  }
+  .research-card .date {
+    font-size: 12px; color: var(--bw-text-secondary); margin-bottom: 12px;
+    font-family: var(--font-mono);
+  }
+  .research-card h3 {
+    font-family: var(--font-serif); font-size: 20px; font-weight: 600;
+    color: var(--bw-dark); margin-bottom: 10px; line-height: 1.3;
+  }
+  .research-card p { font-size: 14px; color: var(--bw-text-secondary); line-height: 1.6; }
+  .research-card .read-more {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 16px;
+    font-size: 14px; font-weight: 500; color: var(--bw-blue);
+  }
+
+  /* ── CTA ── */
+  .cta-section {
+    border-top: 1px solid var(--bw-border);
+    background: var(--bw-dark);
+  }
+  .cta-section section {
+    max-width: 1200px; margin: 0 auto;
+    text-align: center;
+    padding: 80px 32px;
+  }
+  .cta-section h2 {
+    font-family: var(--font-serif); font-size: 32px; font-weight: 400;
+    color: var(--bw-white); margin-bottom: 16px; letter-spacing: -0.01em;
+  }
+  .cta-section p {
+    font-size: 16px; color: rgba(255,255,255,0.5); margin-bottom: 36px;
+    max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.6;
+  }
+  .cta-actions { display: flex; gap: 16px; justify-content: center; }
+  .btn-white {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; background: var(--bw-white); color: var(--bw-dark);
+    border: none; border-radius: 8px; font-size: 15px;
+    font-family: var(--font-sans); font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-white:hover { background: #f0f0f0; transform: translateY(-1px); }
+  .btn-ghost {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; background: transparent; color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; font-size: 15px;
+    font-family: var(--font-sans); font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .btn-ghost:hover { border-color: rgba(255,255,255,0.35); color: var(--bw-white); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 60px 32px; background: var(--bw-dark);
+  }
+  .footer-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px;
+  }
+  .footer-brand .logo {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-serif); font-weight: 600; font-size: 16px;
+    color: var(--bw-white); margin-bottom: 12px;
+  }
+  .footer-brand .logo .dot { width: 8px; height: 8px; background: var(--bw-blue); border-radius: 50%; }
+  .footer-brand p {
+    font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6;
+    max-width: 280px; margin-bottom: 16px;
+  }
+  .footer-affil { font-size: 12px; color: rgba(255,255,255,0.25); }
+  .footer-col h4 {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.35); margin-bottom: 16px;
+  }
+  .footer-col a {
+    display: block; font-size: 14px; color: rgba(255,255,255,0.6);
+    text-decoration: none; padding: 4px 0; transition: color 0.2s;
+  }
+  .footer-col a:hover { color: var(--bw-white); }
+
+  /* ── ANIMATIONS ── */
+  .fade-in {
+    opacity: 0; transform: translateY(16px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+  @media (max-width: 900px) {
+    .nav-links a:not(.nav-cta) { display: none; }
+    .hero { grid-template-columns: 1fr; gap: 48px; min-height: auto; padding-top: 120px; }
+    .hero-text h1 { font-size: 36px; }
+    .why-grid { grid-template-columns: 1fr; }
+    .product-two-col { grid-template-columns: 1fr; gap: 48px; }
+    .api-block { position: static; }
+    .platform-grid { grid-template-columns: 1fr; }
+    .research-grid { grid-template-columns: 1fr; }
+    .footer-inner { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="./" class="nav-logo"><span class="dot"></span>Bellwether</a>
+    <div class="nav-links">
+      <a href="monitor.html">Live Data</a>
+      <a href="globe.html">Globe</a>
+      <a href="research.html">Research</a>
+      <a href="data.html">Docs</a>
+      <span class="nav-affil">Stanford &middot; Hoover Institution</span>
+      <a href="#contact" class="nav-cta">Request Access</a>
+    </div>
+  </div>
+</nav>
+
+<script>
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 10), { passive: true });
+</script>
+
+<!-- ════════════ HERO ════════════ -->
+<div class="hero">
+  <div class="hero-text fade-in">
+    <h1>Infrastructure for <strong>prediction markets</strong></h1>
+    <p class="subtitle">
+      Bellwether makes prediction markets reliable, comparable, and citable. We monitor markets across platforms — cleaning, matching, and scoring every price in real time.
+    </p>
+    <p class="hero-detail">
+      A research platform from Stanford GSB and the Hoover Institution, built to study how prediction markets process information — and to make that data useful.
+    </p>
+    <div class="hero-actions">
+      <a href="#data-api" class="btn-primary">Explore the API →</a>
+      <a href="#data" class="btn-secondary">See Live Data</a>
+    </div>
+  </div>
+
+  <!-- Stack diagram showing the layers -->
+  <div class="hero-stack fade-in" style="transition-delay: 0.15s">
+    <div class="stack-layer" style="opacity: 0.5;">
+      <div class="stack-layer-header">
+        <span class="stack-layer-name">Applications</span>
+      </div>
+      <div class="stack-layer-desc">Newsrooms, researchers, traders, LLMs</div>
+    </div>
+
+    <div class="stack-layer active">
+      <div class="stack-layer-header">
+        <span class="stack-layer-name">Bellwether Tape API</span>
+        <span class="stack-layer-badge badge-live">Live</span>
+      </div>
+      <div class="stack-layer-desc">Canonical tickers · VWAP pricing · Manipulation resistance · Cross-platform matching</div>
+      <div class="stack-code">
+<pre><span class="dim">GET</span> /v2/markets/BWR-DEM-WIN-PRES-2028
+
+{
+  <span class="key">"bellwether_price"</span>: <span class="num">0.42</span>,
+  <span class="key">"cost_to_move_5c"</span>: <span class="str">"$47,200"</span>, <span class="dim">// robust</span>
+  <span class="key">"platforms"</span>: { <span class="str">"polymarket"</span>: <span class="num">0.43</span>, <span class="str">"kalshi"</span>: <span class="num">0.41</span> }
+}</pre>
+      </div>
+    </div>
+
+    <div class="stack-layer">
+      <div class="stack-layer-header">
+        <span class="stack-layer-name">Ingestion & Matching Engine</span>
+      </div>
+      <div class="stack-layer-desc">Ticker generation, event deduplication, VWAP calculation</div>
+    </div>
+
+    <div class="stack-layer">
+      <div class="stack-layer-header">
+        <span class="stack-layer-name">Raw Market Data</span>
+      </div>
+      <div class="stack-layer-desc"><a href="https://polymarket.com" target="_blank" rel="noopener" style="color: var(--bw-text-secondary); text-decoration: underline;">Polymarket</a> · <a href="https://kalshi.com" target="_blank" rel="noopener" style="color: var(--bw-text-secondary); text-decoration: underline;">Kalshi</a> · trade-level data</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ WHY ════════════ -->
+<div class="why-section">
+  <section>
+    <div class="section-label fade-in">The Problem</div>
+    <h2 class="section-title fade-in">Prediction markets are powerful.<br>The data layer is missing.</h2>
+    <p class="section-subtitle fade-in">
+      Markets across platforms can't be compared, most prices are trivially manipulable, and there's no standard way to identify what event a market is actually about.
+    </p>
+    <div class="why-grid">
+      <div class="why-card fade-in">
+        <div class="why-num">01</div>
+        <h3>No canonical identifiers</h3>
+        <p>The same event — "Will Democrats win the 2026 CA governor's race?" — appears differently on every platform. Without a shared ID, you can't compare, aggregate, or track across sources.</p>
+      </div>
+      <div class="why-card fade-in" style="transition-delay: 0.08s">
+        <div class="why-num">02</div>
+        <h3>Most prices aren't trustworthy</h3>
+        <p>98.7% of political markets lack the liquidity to resist manipulation. Citing these as "what the market thinks" is misleading at best.</p>
+      </div>
+      <div class="why-card fade-in" style="transition-delay: 0.16s">
+        <div class="why-num">03</div>
+        <h3>Spot prices are noisy</h3>
+        <p>A market's current price is just its last trade. That can be a momentary blip, a fat finger, or a manipulation attempt. The real signal needs volume-weighting over time.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ════════════ TAPE API (product detail) ════════════ -->
+<section id="data-api" class="product-section">
+  <div class="section-label fade-in">Tape API</div>
+  <h2 class="section-title fade-in">Every market scored, matched,<br>and ready to use</h2>
+  <p class="section-subtitle fade-in">One endpoint returns a canonical ticker, a manipulation-resistant price, and cross-platform context for any political prediction market.</p>
+
+  <div class="product-two-col">
+    <div class="product-features">
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">◉</div>
+        <div>
+          <h3>Manipulation Resistance Scoring</h3>
+          <p>Every market includes the dollar cost to move its price by 5¢. Instantly know whether a prediction reflects deep conviction or thin liquidity.</p>
+        </div>
+      </div>
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">⟷</div>
+        <div>
+          <h3>Cross-Platform Canonical Tickers</h3>
+          <p>LLM-generated ticker system matches identical events across Polymarket and Kalshi into a single canonical ID. Same event, one price.</p>
+        </div>
+      </div>
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">△</div>
+        <div>
+          <h3>Volume-Weighted Pricing</h3>
+          <p>VWAP over configurable windows (1h – 24h) smooths out noise and manipulation attempts. The price that reflects sustained belief, not the last trade.</p>
+        </div>
+      </div>
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">⚑</div>
+        <div>
+          <h3>Reportability Labels</h3>
+          <p>Markets flagged as Robust, Moderate, or Fragile based on liquidity depth. Know instantly which numbers are safe to publish.</p>
+        </div>
+      </div>
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">↻</div>
+        <div>
+          <h3>Real-Time & Historical</h3>
+          <p>Live prices updated continuously, plus full time-series data for every matched market. Track how beliefs evolved over weeks or months.</p>
+        </div>
+      </div>
+      <div class="product-feature fade-in">
+        <div class="product-feature-icon">⊞</div>
+        <div>
+          <h3>Accuracy Tracking</h3>
+          <p>Calibration metrics updated daily as events resolve. Did markets that said 80% actually happen 80% of the time? We track it.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="api-block fade-in">
+      <div class="api-header">
+        <span class="method">GET</span>
+        <span class="endpoint">/v2/markets/BWR-DEM-WIN-PRES-2028</span>
+      </div>
+      <div class="api-body">
+<pre>{
+  <span class="key">"ticker"</span>: <span class="str">"BWR-DEM-WIN-PRES-2028"</span>,
+  <span class="key">"question"</span>: <span class="str">"Will the Democratic nominee win the 2028 presidential election?"</span>,
+  <span class="key">"category"</span>: <span class="str">"us_presidential"</span>,
+
+  <span class="key">"bellwether_price"</span>: <span class="num">0.42</span>,
+  <span class="key">"vwap_window"</span>: <span class="str">"12h"</span>,
+
+  <span class="key">"platforms"</span>: {
+    <span class="key">"polymarket"</span>: {
+      <span class="key">"price"</span>: <span class="num">0.43</span>,
+      <span class="key">"volume_24h"</span>: <span class="num">1_640_000</span>
+    },
+    <span class="key">"kalshi"</span>: {
+      <span class="key">"price"</span>: <span class="num">0.41</span>,
+      <span class="key">"volume_24h"</span>: <span class="num">1_200_000</span>
+    }
+  },
+
+  <span class="key">"manipulation_resistance"</span>: {
+    <span class="key">"cost_to_move_5c"</span>: <span class="num">47200</span>,
+    <span class="key">"rating"</span>: <span class="str">"robust"</span>,
+    <span class="key">"reportable"</span>: <span class="num">true</span>
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ PLATFORM VISION ════════════ -->
+<div class="platform-section" id="platform">
+  <section>
+    <div class="section-label fade-in">Platform</div>
+    <h2 class="section-title fade-in">Cleaning up the prediction<br>market stack, one layer at a time</h2>
+    <p class="section-subtitle fade-in">
+      The Tape API is where we started. These are the problems we're solving next.
+    </p>
+
+    <div class="platform-grid">
+      <div class="platform-card current fade-in">
+        <span class="card-badge card-badge-live">Live</span>
+        <h3>Tape API</h3>
+        <p>Canonical tickers, manipulation-resistant VWAP pricing, and reportability labels for every political prediction market across platforms.</p>
+        <div class="card-detail">
+          10,359 markets · 330 matched pairs<br>
+          Polymarket + Kalshi<br>
+          REST API · Historical data
+        </div>
+      </div>
+      <div class="platform-card fade-in" style="transition-delay: 0.08s">
+        <span class="card-badge card-badge-building">Building</span>
+        <h3>Market Blueprints</h3>
+        <p>Open-source market designs for questions that serve the public interest. Event definitions, resolution criteria, and settlement rules that any platform can list — so the markets democracy needs actually exist, and work the same everywhere.</p>
+        <div class="card-detail">
+          Open specs, not an exchange<br>
+          Platforms list · Bellwether designs<br>
+          Election accountability & policy tracking
+        </div>
+      </div>
+      <div class="platform-card fade-in" style="transition-delay: 0.16s">
+        <span class="card-badge card-badge-building">Building</span>
+        <h3>Market Agents</h3>
+        <p>Autonomous agents that provide liquidity to thin markets, making low-volume predictions more accurate by supplying informed prices where humans won't trade.</p>
+        <div class="card-detail">
+          Targeted at fragile markets<br>
+          Informed by cross-platform data<br>
+          Improving the markets we measure
+        </div>
+      </div>
+      <div class="platform-card fade-in" style="transition-delay: 0.24s">
+        <span class="card-badge card-badge-building">Building</span>
+        <h3>Information Feed</h3>
+        <p>Trade-level behavioral analysis that separates informed trading from noise. Extracted "pure information" signals delivered as a real-time feed for LLMs and world models.</p>
+        <div class="card-detail">
+          Behavioral signal extraction<br>
+          Trade-level granularity<br>
+          Built for machine consumption
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ════════════ RESEARCH ════════════ -->
+<section id="research" class="research-section">
+  <div class="section-label fade-in">Research</div>
+  <h2 class="section-title fade-in">Methodology & findings</h2>
+  <p class="section-subtitle fade-in">Every metric in the API is backed by published research from the Hall Lab at Stanford GSB and the Hoover Institution.</p>
+
+  <div class="research-grid">
+    <a href="papers/liquidity-accuracy/" class="research-card fade-in">
+      <div class="date">Feb 2026</div>
+      <h3>How We Built a Trustworthy Price</h3>
+      <p>Volume-weighted averaging and manipulation resistance scoring for prediction market prices.</p>
+      <span class="read-more">Read →</span>
+    </a>
+    <a href="papers/election-eve-methodology/" class="research-card fade-in" style="transition-delay: 0.08s">
+      <div class="date">Jan 2026</div>
+      <h3>When You Measure Matters</h3>
+      <p>A methodological note on truncation timing — recent applied work increasingly relies on resolution-relative prices, often without explicit discussion of the implications.</p>
+      <span class="read-more">Read →</span>
+    </a>
+    <a href="papers/inside-the-markets/" class="research-card fade-in" style="transition-delay: 0.16s">
+      <div class="date">Nov 2025</div>
+      <h3>Inside the Markets Aggregating Political Reality</h3>
+      <p>Examining the rapid growth of political prediction markets, their governance challenges, and what they mean for how we understand political information.</p>
+      <span class="read-more">Read →</span>
+    </a>
+  </div>
+</section>
+
+<!-- ════════════ CTA ════════════ -->
+<div class="cta-section" id="contact">
+  <section>
+    <h2 class="fade-in">Built at Stanford. Free for research.<br>Open for partnerships.</h2>
+    <p class="fade-in">The Tape API is live. If you're a newsroom, researcher, or builder working with prediction market data, we'd like to hear from you.</p>
+    <div class="cta-actions fade-in">
+      <a href="mailto:bellwether@stanford.edu" class="btn-white">Request API Access</a>
+      <a href="data.html" class="btn-ghost">Read the Docs</a>
+    </div>
+  </section>
+</div>
+
+<!-- ════════════ FOOTER ════════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="logo"><span class="dot"></span> Bellwether</div>
+      <p>Prediction market infrastructure for research, journalism, and intelligent systems.</p>
+      <div class="footer-affil">Stanford GSB · Hall Lab · Hoover Institution</div>
+    </div>
+    <div class="footer-col">
+      <h4>Platform</h4>
+      <a href="data.html">Tape API</a>
+      <a href="data.html">Documentation</a>
+      <a href="globe.html">Globe</a>
+    </div>
+    <div class="footer-col">
+      <h4>Research</h4>
+      <a href="research.html">Dashboard</a>
+      <a href="papers/liquidity-accuracy/">Trustworthy Price</a>
+      <a href="papers/election-eve-methodology/">Measurement Timing</a>
+      <a href="papers/inside-the-markets/">Inside the Markets</a>
+    </div>
+    <div class="footer-col">
+      <h4>About</h4>
+      <a href="about.html">Team</a>
+      <a href="mailto:bellwether@stanford.edu">Contact</a>
+      <a href="https://github.com/elliotjames-paschal/bellwether-platform" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Scroll-triggered fade-in
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+</script>
+
+</body>
+</html>

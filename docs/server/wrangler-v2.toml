@@ -1,0 +1,12 @@
+name = "bellwether-api-v2"
+main = "worker-v2.js"
+compatibility_date = "2024-01-01"
+workers_dev = true
+
+# Shares the same KV namespace as V1 and commercial API worker
+[[kv_namespaces]]
+binding = "BELLWETHER_KV"
+id = "2ce167f19ce748e0bf09b513eaafe9ad"
+
+[vars]
+ENVIRONMENT = "production"
