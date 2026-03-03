@@ -230,50 +230,53 @@ def main():
 
     now = datetime.now().isoformat()
 
-    for series in political_series:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+
+    lock = threading.Lock()
+
+    def fetch_series_events(series):
         series_ticker = series.get("ticker", "")
-        series_category = series.get("category", "")
-        series_title = series.get("title", "")
-
         if not series_ticker:
-            continue
-
-        # Fetch events for this series
+            return []
         events = fetch_events_for_series(series_ticker)
-        total_events += len(events)
-        series_checked += 1
-
-        for event in events:
-            event_ticker = event.get("event_ticker", "")
-            if not event_ticker:
-                continue
-
-            if event_ticker not in existing:
-                existing[event_ticker] = {
-                    "is_political": True,
-                    "sample_title": event.get("title", ""),
-                    "category": series_category,
-                    "series_ticker": series_ticker,
-                    "series_title": series_title,
-                    "classified_at": now,
-                    "source": "category",
-                    "votes": 3,
-                }
-                new_political += 1
-            else:
-                # Update existing entry to mark as political if it wasn't
-                entry = existing[event_ticker]
-                if not entry.get("is_political"):
-                    entry["is_political"] = True
-                    entry["source"] = "category"
-                    entry["classified_at"] = now
-                    new_political += 1
-
-        if series_checked % 100 == 0:
-            log(f"  Checked {series_checked:,}/{len(political_series):,} series "
-                f"({total_events:,} events, {new_political:,} new)")
-
         time.sleep(RATE_LIMIT)
+        return [(series, e) for e in events]
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(fetch_series_events, s): s for s in political_series}
+        for future in as_completed(futures):
+            pairs = future.result()
+            with lock:
+                series_checked += 1
+                total_events += len(pairs)
+                for series, event in pairs:
+                    event_ticker = event.get("event_ticker", "")
+                    if not event_ticker:
+                        continue
+                    if event_ticker not in existing:
+                        existing[event_ticker] = {
+                            "is_political": True,
+                            "sample_title": event.get("title", ""),
+                            "category": series.get("category", ""),
+                            "series_ticker": series.get("ticker", ""),
+                            "series_title": series.get("title", ""),
+                            "classified_at": now,
+                            "source": "category",
+                            "votes": 3,
+                        }
+                        new_political += 1
+                    else:
+                        entry = existing[event_ticker]
+                        if not entry.get("is_political"):
+                            entry["is_political"] = True
+                            entry["source"] = "category"
+                            entry["classified_at"] = now
+                            new_political += 1
+
+                if series_checked % 100 == 0:
+                    log(f"  Checked {series_checked:,}/{len(political_series):,} series "
+                        f"({total_events:,} events, {new_political:,} new)")
 
     log(f"  Done: {series_checked:,} series, {total_events:,} events, {new_political:,} new political")
 

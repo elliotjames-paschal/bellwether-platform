@@ -413,20 +413,28 @@ Return JSON: {"results": [{"index": 0, "category": "5.", "confidence": 0.9}, ...
 Use category numbers only (e.g., "1.", "2.", "16.", etc.)."""
 
 
+def _parallel_gpt_batches(client, batches_with_args, max_workers=5):
+    """Run GPT batch calls in parallel. Each item: (callable, args) -> list of results."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    all_results = []
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {pool.submit(fn, *args): i for i, (fn, args) in enumerate(batches_with_args)}
+        for future in as_completed(futures):
+            all_results.extend(future.result())
+    return all_results
+
+
 def stage1_batch(client, questions, batch_size=50, show_progress=True):
     """Stage 1: Batch classify for high recall."""
-    results = []
     total = len(questions)
 
     if show_progress:
-        log(f"  Stage 1: Classifying {total} markets (batch={batch_size})...")
+        log(f"  Stage 1: Classifying {total} markets (batch={batch_size}, parallel)...")
 
-    for start in range(0, total, batch_size):
-        batch = questions[start:start + batch_size]
+    def classify_one_batch(start, batch):
         prompt = "Classify these markets:\n" + "\n".join(
             f"{i}. \"{q}\"" for i, q in enumerate(batch)
         )
-
         try:
             resp = client.chat.completions.create(
                 model=MODEL,
@@ -437,37 +445,35 @@ def stage1_batch(client, questions, batch_size=50, show_progress=True):
                 temperature=TEMPERATURE,
                 response_format={"type": "json_object"}
             )
-
             parsed = json.loads(resp.choices[0].message.content)
+            batch_results = []
             for r in parsed.get("results", []):
                 cat = r.get("category", "NEEDS_REVIEW")
-                # Normalize category format - flag for review if invalid
                 if not any(cat.startswith(v) for v in VALID_CATEGORIES):
                     cat = "NEEDS_REVIEW"
-
-                results.append({
+                batch_results.append({
                     "index": start + r.get("index", 0),
                     "category": cat,
                     "confidence": float(r.get("confidence", 0.5)),
                     "stage": 1
                 })
-
+            return batch_results
         except Exception as e:
             log(f"    Batch error: {e}")
-            for i in range(len(batch)):
-                results.append({
-                    "index": start + i,
-                    "category": "NEEDS_REVIEW",  # Flag for review on error
-                    "confidence": 0,
-                    "stage": 1,
-                    "error": str(e)
-                })
+            return [{
+                "index": start + i,
+                "category": "NEEDS_REVIEW",
+                "confidence": 0,
+                "stage": 1,
+                "error": str(e)
+            } for i in range(len(batch))]
 
-        if show_progress and (start + batch_size) % 200 == 0:
-            log(f"    {min(start + batch_size, total)}/{total}...")
+    batches = []
+    for start in range(0, total, batch_size):
+        batch = questions[start:start + batch_size]
+        batches.append((classify_one_batch, (start, batch)))
 
-        time.sleep(0.5)  # Rate limiting
-
+    results = _parallel_gpt_batches(client, batches, max_workers=5)
     results.sort(key=lambda x: x["index"])
 
     if show_progress:
@@ -513,22 +519,17 @@ Use category numbers only (e.g., "1.", "2.", "16.", etc.)."""
 
 def stage2_verify(client, questions, stage1_results, batch_size=50, show_progress=True):
     """Stage 2: Batch verify classifications (same batch size as Stage 1)."""
-    # Verify all markets
     all_idx = [r["index"] for r in stage1_results]
     total = len(all_idx)
 
     if show_progress:
-        log(f"  Stage 2: Verifying {total} markets (batch={batch_size})...")
+        log(f"  Stage 2: Verifying {total} markets (batch={batch_size}, parallel)...")
 
-    results = []
-    for start in range(0, total, batch_size):
-        batch_indices = all_idx[start:start + batch_size]
+    def verify_one_batch(start, batch_indices):
         batch_questions = [questions[idx] for idx in batch_indices]
-
         prompt = "Verify categories for these markets:\n" + "\n".join(
             f"{i}. \"{q}\"" for i, q in enumerate(batch_questions)
         )
-
         try:
             resp = client.chat.completions.create(
                 model=MODEL,
@@ -539,39 +540,37 @@ def stage2_verify(client, questions, stage1_results, batch_size=50, show_progres
                 temperature=TEMPERATURE,
                 response_format={"type": "json_object"}
             )
-
             parsed = json.loads(resp.choices[0].message.content)
+            batch_results = []
             for r in parsed.get("results", []):
                 local_idx = r.get("index", 0)
                 cat = r.get("category", "NEEDS_REVIEW")
-
-                # Normalize - flag for review if invalid
                 if not any(cat.startswith(v) for v in VALID_CATEGORIES):
                     cat = "NEEDS_REVIEW"
-
                 if local_idx < len(batch_indices):
-                    results.append({
+                    batch_results.append({
                         "index": batch_indices[local_idx],
                         "category": cat,
                         "confidence": float(r.get("confidence", 0.5)),
                         "stage": 2
                     })
-
+            return batch_results
         except Exception as e:
             log(f"    Batch error: {e}")
-            for idx in batch_indices:
-                results.append({
-                    "index": idx,
-                    "category": "NEEDS_REVIEW",  # Flag for review on error
-                    "confidence": 0,
-                    "stage": 2,
-                    "error": str(e)
-                })
+            return [{
+                "index": idx,
+                "category": "NEEDS_REVIEW",
+                "confidence": 0,
+                "stage": 2,
+                "error": str(e)
+            } for idx in batch_indices]
 
-        if show_progress and (start + batch_size) % 200 == 0:
-            log(f"    {min(start + batch_size, total)}/{total}...")
+    batches = []
+    for start in range(0, total, batch_size):
+        batch_indices = all_idx[start:start + batch_size]
+        batches.append((verify_one_batch, (start, batch_indices)))
 
-        time.sleep(0.5)  # Rate limiting
+    results = _parallel_gpt_batches(client, batches, max_workers=5)
 
     if show_progress:
         log(f"  Stage 2 done: {len(results)} markets verified")
@@ -607,15 +606,12 @@ def stage3_batch_tiebreak(client, disagreements, batch_size=50, show_progress=Tr
         return []
 
     if show_progress:
-        log(f"  Stage 3: {total} tiebreakers (batch={batch_size})...")
+        log(f"  Stage 3: {total} tiebreakers (batch={batch_size}, parallel)...")
 
-    results = []
-    for start in range(0, total, batch_size):
-        batch = disagreements[start:start + batch_size]
+    def tiebreak_one_batch(start, batch):
         prompt = "Tiebreaker for these markets:\n" + "\n".join(
             f'{i}. "{d["question"]}"' for i, d in enumerate(batch)
         )
-
         try:
             resp = client.chat.completions.create(
                 model=MODEL,
@@ -626,36 +622,37 @@ def stage3_batch_tiebreak(client, disagreements, batch_size=50, show_progress=Tr
                 temperature=TEMPERATURE,
                 response_format={"type": "json_object"}
             )
-
             parsed = json.loads(resp.choices[0].message.content)
+            batch_results = []
             for r in parsed.get("results", []):
                 local_idx = r.get("index", 0)
                 cat = r.get("category", "NEEDS_REVIEW")
-
-                # Normalize - flag for review if invalid
                 if not any(cat.startswith(v) for v in VALID_CATEGORIES):
                     cat = "NEEDS_REVIEW"
-
                 if local_idx < len(batch):
-                    results.append({
+                    batch_results.append({
                         "disagreement_idx": start + local_idx,
                         "category": cat,
                         "confidence": float(r.get("confidence", 0.5)),
                         "stage": 3
                     })
-
+            return batch_results
         except Exception as e:
             log(f"    Batch error: {e}")
-            for i in range(len(batch)):
-                results.append({
-                    "disagreement_idx": start + i,
-                    "category": "NEEDS_REVIEW",
-                    "confidence": 0,
-                    "stage": 3,
-                    "error": str(e)
-                })
+            return [{
+                "disagreement_idx": start + i,
+                "category": "NEEDS_REVIEW",
+                "confidence": 0,
+                "stage": 3,
+                "error": str(e)
+            } for i in range(len(batch))]
 
-        time.sleep(0.5)  # Rate limiting
+    batches = []
+    for start in range(0, total, batch_size):
+        batch = disagreements[start:start + batch_size]
+        batches.append((tiebreak_one_batch, (start, batch)))
+
+    results = _parallel_gpt_batches(client, batches, max_workers=5)
 
     if show_progress:
         log(f"  Stage 3 done: {len(results)} tiebreakers resolved")

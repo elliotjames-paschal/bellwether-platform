@@ -386,30 +386,42 @@ def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> li
     processed_markets = []
     tags_with_markets = 0
 
-    for i, tag in enumerate(political_tags):
-        tag_slug = tag.get("slug", "")
-        if not tag_slug:
-            continue
+    # Parallelize tag fetching (Polymarket has no strict rate limit)
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+    pm_lock = threading.Lock()
 
-        tag_markets = fetch_markets_for_tag(tag_slug)
+    tag_slugs = [tag.get("slug", "") for tag in political_tags if tag.get("slug")]
 
-        for market in tag_markets:
-            condition_id = market.get("conditionId") or market.get("condition_id")
-            if not condition_id or condition_id in seen_condition_ids:
-                continue
-            seen_condition_ids.add(condition_id)
-            # Skip markets already in the index
-            slug = market.get("slug")
-            if condition_id in existing_ids or (slug and slug in existing_ids):
-                continue
-            processed_markets.append(process_polymarket_market_native(market))
+    def fetch_one_tag(tag_slug):
+        markets = fetch_markets_for_tag(tag_slug)
+        time.sleep(POLYMARKET_RATE_LIMIT)
+        return tag_slug, markets
 
-        if tag_markets:
-            tags_with_markets += 1
+    completed_tags = [0]
 
-        if (i + 1) % 50 == 0 or (i + 1) == len(political_tags):
-            log(f"  Tags processed: {i + 1}/{len(political_tags)}, "
-                f"unique markets: {len(processed_markets)}")
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(fetch_one_tag, slug): slug for slug in tag_slugs}
+        for future in as_completed(futures):
+            tag_slug, tag_markets = future.result()
+            with pm_lock:
+                completed_tags[0] += 1
+                for market in tag_markets:
+                    condition_id = market.get("conditionId") or market.get("condition_id")
+                    if not condition_id or condition_id in seen_condition_ids:
+                        continue
+                    seen_condition_ids.add(condition_id)
+                    slug = market.get("slug")
+                    if condition_id in existing_ids or (slug and slug in existing_ids):
+                        continue
+                    processed_markets.append(process_polymarket_market_native(market))
+
+                if tag_markets:
+                    tags_with_markets += 1
+
+                if completed_tags[0] % 50 == 0 or completed_tags[0] == len(tag_slugs):
+                    log(f"  Tags processed: {completed_tags[0]}/{len(tag_slugs)}, "
+                        f"unique markets: {len(processed_markets)}")
 
     log(f"  Tags with markets: {tags_with_markets}/{len(political_tags)}")
     log(f"  Total unique political markets: {len(processed_markets)}")

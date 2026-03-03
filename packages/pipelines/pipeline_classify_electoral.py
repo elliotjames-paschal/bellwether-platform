@@ -367,27 +367,32 @@ Be INCLUSIVE in Stage 1. Extract what you can determine.
 Return JSON: {"results": [{"index": 0, "country": "...", "office": "...", "location": "...", "election_year": 2024, "is_primary": false, "party": "Republican"}, ...]}"""
 
 
+def _parallel_gpt_batches(client, batches_with_args, max_workers=5):
+    """Run GPT batch calls in parallel."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    all_results = []
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {pool.submit(fn, *args): i for i, (fn, args) in enumerate(batches_with_args)}
+        for future in as_completed(futures):
+            all_results.extend(future.result())
+    return all_results
+
+
 def stage1_batch(client, questions, market_ids=None, batch_size=20, show_progress=True):
     """Stage 1: Batch classify electoral details for high recall."""
-    results = []
     total = len(questions)
 
-    # Default to empty identifiers if not provided
     if market_ids is None:
         market_ids = [""] * total
 
     if show_progress:
-        log(f"  Stage 1: Classifying {total} electoral markets (batch={batch_size})...")
+        log(f"  Stage 1: Classifying {total} electoral markets (batch={batch_size}, parallel)...")
 
-    for start in range(0, total, batch_size):
-        batch_q = questions[start:start + batch_size]
-        batch_ids = market_ids[start:start + batch_size]
-        # Include market identifier if available (helps GPT determine year from ticker)
+    def classify_one_batch(start, batch_q, batch_ids):
         prompt = "Extract election details:\n" + "\n".join(
             f'{i}. [{mid}] "{q}"' if mid else f'{i}. "{q}"'
             for i, (q, mid) in enumerate(zip(batch_q, batch_ids))
         )
-
         try:
             resp = client.chat.completions.create(
                 model=MODEL,
@@ -398,42 +403,33 @@ def stage1_batch(client, questions, market_ids=None, batch_size=20, show_progres
                 temperature=TEMPERATURE,
                 response_format={"type": "json_object"}
             )
-
             parsed = json.loads(resp.choices[0].message.content)
-            for r in parsed.get("results", []):
-                results.append({
-                    "index": start + r.get("index", 0),
-                    "country": r.get("country"),
-                    "office": r.get("office"),
-                    "location": r.get("location"),
-                    "election_year": r.get("election_year"),
-                    "is_primary": r.get("is_primary"),
-                    "party": r.get("party"),
-                    "confidence": float(r.get("confidence", 0.7)),
-                    "stage": 1
-                })
-
+            return [{
+                "index": start + r.get("index", 0),
+                "country": r.get("country"),
+                "office": r.get("office"),
+                "location": r.get("location"),
+                "election_year": r.get("election_year"),
+                "is_primary": r.get("is_primary"),
+                "party": r.get("party"),
+                "confidence": float(r.get("confidence", 0.7)),
+                "stage": 1
+            } for r in parsed.get("results", [])]
         except Exception as e:
             log(f"    Batch error: {e}")
-            for i in range(len(batch)):
-                results.append({
-                    "index": start + i,
-                    "country": None,
-                    "office": None,
-                    "location": None,
-                    "election_year": None,
-                    "is_primary": None,
-                    "party": None,
-                    "confidence": 0,
-                    "stage": 1,
-                    "error": str(e)
-                })
+            return [{
+                "index": start + i, "country": None, "office": None,
+                "location": None, "election_year": None, "is_primary": None,
+                "party": None, "confidence": 0, "stage": 1, "error": str(e)
+            } for i in range(len(batch_q))]
 
-        if show_progress and (start + batch_size) % 100 == 0:
-            log(f"    {min(start + batch_size, total)}/{total}...")
+    batches = []
+    for start in range(0, total, batch_size):
+        batch_q = questions[start:start + batch_size]
+        batch_ids = market_ids[start:start + batch_size]
+        batches.append((classify_one_batch, (start, batch_q, batch_ids)))
 
-        time.sleep(0.5)
-
+    results = _parallel_gpt_batches(client, batches, max_workers=5)
     results.sort(key=lambda x: x["index"])
 
     if show_progress:
@@ -484,18 +480,13 @@ def stage2_verify(client, questions, stage1_results, market_ids=None, batch_size
     if show_progress:
         log(f"  Stage 2: Verifying {total} US elections (batch={batch_size})...")
 
-    results = []
-    for start in range(0, total, batch_size):
-        batch_indices = us_idx[start:start + batch_size]
+    def verify_one_batch(start, batch_indices):
         batch_questions = [questions[idx] for idx in batch_indices]
         batch_ids = [market_ids[idx] for idx in batch_indices]
-
-        # Include market identifier if available
         prompt = "Verify these US elections:\n" + "\n".join(
             f'{i}. [{mid}] "{q}"' if mid else f'{i}. "{q}"'
             for i, (q, mid) in enumerate(zip(batch_questions, batch_ids))
         )
-
         try:
             resp = client.chat.completions.create(
                 model=MODEL,
@@ -506,12 +497,12 @@ def stage2_verify(client, questions, stage1_results, market_ids=None, batch_size
                 temperature=TEMPERATURE,
                 response_format={"type": "json_object"}
             )
-
             parsed = json.loads(resp.choices[0].message.content)
+            batch_results = []
             for r in parsed.get("results", []):
                 local_idx = r.get("index", 0)
                 if local_idx < len(batch_indices):
-                    results.append({
+                    batch_results.append({
                         "index": batch_indices[local_idx],
                         "country": "United States",
                         "office": r.get("office"),
@@ -522,20 +513,17 @@ def stage2_verify(client, questions, stage1_results, market_ids=None, batch_size
                         "confidence": float(r.get("confidence", 0.8)),
                         "stage": 2
                     })
-
+            return batch_results
         except Exception as e:
             log(f"    Batch error: {e}")
-            for idx in batch_indices:
-                results.append({
-                    "index": idx,
-                    "stage": 2,
-                    "error": str(e)
-                })
+            return [{"index": idx, "stage": 2, "error": str(e)} for idx in batch_indices]
 
-        if show_progress and (start + batch_size) % 100 == 0:
-            log(f"    {min(start + batch_size, total)}/{total}...")
+    batches = []
+    for start in range(0, total, batch_size):
+        batch_indices = us_idx[start:start + batch_size]
+        batches.append((verify_one_batch, (start, batch_indices)))
 
-        time.sleep(0.5)
+    results = _parallel_gpt_batches(client, batches, max_workers=5)
 
     if show_progress:
         log(f"  Stage 2 done: {len(results)} verified")
@@ -574,15 +562,11 @@ def stage3_batch_tiebreak(client, disagreements, batch_size=20, show_progress=Tr
     if show_progress:
         log(f"  Stage 3: {total} tiebreakers (batch={batch_size})...")
 
-    results = []
-    for start in range(0, total, batch_size):
-        batch = disagreements[start:start + batch_size]
-        # Include market_id if available
+    def tiebreak_one_batch(start, batch):
         prompt = "Tiebreaker for these US elections:\n" + "\n".join(
             f'{i}. [{d.get("market_id", "")}] "{d["question"]}"' if d.get("market_id") else f'{i}. "{d["question"]}"'
             for i, d in enumerate(batch)
         )
-
         try:
             resp = client.chat.completions.create(
                 model=MODEL,
@@ -593,33 +577,30 @@ def stage3_batch_tiebreak(client, disagreements, batch_size=20, show_progress=Tr
                 temperature=TEMPERATURE,
                 response_format={"type": "json_object"}
             )
-
             parsed = json.loads(resp.choices[0].message.content)
-            for r in parsed.get("results", []):
-                local_idx = r.get("index", 0)
-                if local_idx < len(batch):
-                    results.append({
-                        "disagreement_idx": start + local_idx,
-                        "country": "United States",
-                        "office": r.get("office"),
-                        "location": r.get("location"),
-                        "election_year": r.get("election_year"),
-                        "is_primary": r.get("is_primary"),
-                        "party": r.get("party"),
-                        "confidence": float(r.get("confidence", 0.8)),
-                        "stage": 3
-                    })
-
+            return [{
+                "disagreement_idx": start + r.get("index", 0),
+                "country": "United States",
+                "office": r.get("office"),
+                "location": r.get("location"),
+                "election_year": r.get("election_year"),
+                "is_primary": r.get("is_primary"),
+                "party": r.get("party"),
+                "confidence": float(r.get("confidence", 0.8)),
+                "stage": 3
+            } for r in parsed.get("results", []) if r.get("index", 0) < len(batch)]
         except Exception as e:
             log(f"    Batch error: {e}")
-            for i in range(len(batch)):
-                results.append({
-                    "disagreement_idx": start + i,
-                    "stage": 3,
-                    "error": str(e)
-                })
+            return [{
+                "disagreement_idx": start + i, "stage": 3, "error": str(e)
+            } for i in range(len(batch))]
 
-        time.sleep(0.5)
+    batches = []
+    for start in range(0, total, batch_size):
+        batch = disagreements[start:start + batch_size]
+        batches.append((tiebreak_one_batch, (start, batch)))
+
+    results = _parallel_gpt_batches(client, batches, max_workers=5)
 
     if show_progress:
         log(f"  Stage 3 done: {len(results)} tiebreakers resolved")
