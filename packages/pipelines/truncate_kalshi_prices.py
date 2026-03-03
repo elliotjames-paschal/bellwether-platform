@@ -123,7 +123,10 @@ for _, row in election_dates_df.iterrows():
     # Include country in key (default to 'United States' for backwards compatibility)
     country = row.get('country', 'United States') if 'country' in election_dates_df.columns else 'United States'
     key = (country, row['office'], row['location'], int(row['election_year']))
-    election_date = pd.to_datetime(row['election_date']).date()
+    try:
+        election_date = pd.to_datetime(row['election_date'], format='mixed').date()
+    except Exception:
+        continue
     election_lookup[key] = election_date
 
 print(f"   Built lookup with {len(election_lookup):,} election dates")
