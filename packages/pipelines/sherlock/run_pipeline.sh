@@ -29,8 +29,18 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BELLWETHER_HOME="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# SLURM copies scripts to /var/spool, so we can't use BASH_SOURCE for paths.
+# Use GROUP_HOME or fall back to HOME to find the repo.
+if [[ -d "${GROUP_HOME:-}/bellwether-platform" ]]; then
+    BELLWETHER_HOME="$GROUP_HOME/bellwether-platform"
+elif [[ -d "$HOME/bellwether-platform" ]]; then
+    BELLWETHER_HOME="$HOME/bellwether-platform"
+else
+    echo "ERROR: Cannot find bellwether-platform in \$GROUP_HOME or \$HOME"
+    exit 1
+fi
+
+SCRIPT_DIR="$BELLWETHER_HOME/packages/pipelines/sherlock"
 
 # --------------------------------------------------------------------------
 # Load Sherlock config
