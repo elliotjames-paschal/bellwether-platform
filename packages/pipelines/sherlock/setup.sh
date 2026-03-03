@@ -89,10 +89,11 @@ echo "[3/6] Installing Python dependencies..."
 pip install --upgrade pip wheel setuptools -q
 
 # Core pipeline dependencies
-pip install -q \
+# Use --only-binary for scipy/numpy to avoid compiling from source (needs OpenBLAS)
+pip install -q --only-binary=scipy,numpy \
     'pandas>=2.0.0' \
-    'numpy>=1.24.0' \
-    'scipy>=1.10.0' \
+    'numpy>=1.24.0,<2.5' \
+    'scipy>=1.10.0,<1.15' \
     'requests>=2.28.0' \
     'openai>=1.0.0' \
     'matplotlib>=3.7.0' \
