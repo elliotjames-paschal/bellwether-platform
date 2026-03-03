@@ -46,7 +46,10 @@ for _, row in election_dates_df.iterrows():
         int(row['election_year']) if pd.notna(row['election_year']) else None
     )
     # Parse as midnight UTC on election day
-    dt = pd.to_datetime(row['election_date'])
+    try:
+        dt = pd.to_datetime(row['election_date'], format='mixed')
+    except Exception:
+        continue
     election_dates_lookup[key] = dt.replace(hour=0, minute=0, second=0, tzinfo=timezone.utc)
 
 print(f"   ✓ Created lookup with {len(election_dates_lookup):,} unique election date entries")
