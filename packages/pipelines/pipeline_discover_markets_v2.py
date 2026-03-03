@@ -161,17 +161,72 @@ def load_kalshi_political_event_tickers() -> set:
     return political
 
 
+def _fetch_markets_for_event_ticker(
+    event_ticker: str,
+    status: Optional[str] = None,
+    existing_ids: Optional[set] = None,
+) -> list:
+    """
+    Fetch all markets for a single Kalshi event ticker.
+
+    Uses the event_ticker query parameter so the API only returns markets
+    belonging to that event — no scanning of unrelated markets.
+    """
+    if existing_ids is None:
+        existing_ids = set()
+
+    params = {"limit": 1000, "event_ticker": event_ticker}
+    if status:
+        params["status"] = status
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(
+                f"{KALSHI_API_BASE}/markets",
+                params=params,
+                headers={"Accept": "application/json"},
+                timeout=30,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                markets = data.get("markets", [])
+                results = []
+                for m in markets:
+                    ticker = m.get("ticker")
+                    if ticker and ticker in existing_ids:
+                        continue
+                    results.append(process_kalshi_market_native(m))
+                return results
+
+            elif response.status_code == 429:
+                wait = 10 * (2 ** attempt)
+                time.sleep(wait)
+            else:
+                if attempt == MAX_RETRIES - 1:
+                    return []
+                time.sleep(5)
+
+        except Exception as e:
+            if attempt == MAX_RETRIES - 1:
+                return []
+            time.sleep(5)
+
+    return []
+
+
 def fetch_kalshi_political_markets(
     status: Optional[str] = None,
     existing_ids: Optional[set] = None,
     limit: int = 1000,
 ) -> dict:
     """
-    Fetch Kalshi markets, filtering to political event tickers during pagination.
+    Fetch Kalshi political markets by querying per event ticker.
 
-    Each page of results is filtered immediately so non-political markets are
-    never accumulated in memory. Markets whose ticker is already in
-    existing_ids are also skipped.
+    Instead of paginating ALL Kalshi markets and filtering, this uses the
+    event_ticker API parameter to fetch only markets belonging to known
+    political events. Much faster and avoids scanning 100K+ non-political
+    markets.
 
     Returns:
         Dict with 'markets' list (processed CSV-format dicts) and count metadata
@@ -190,77 +245,36 @@ def fetch_kalshi_political_markets(
     political_markets = []
     political_event_set = set()
     total_scanned = 0
-    cursor = None
-    page = 0
+    errors = 0
+    ticker_list = sorted(political_tickers)
 
-    log(f"Fetching Kalshi political markets (status={status or 'all'})...")
+    log(f"Fetching Kalshi political markets for {len(ticker_list)} event tickers "
+        f"(status={status or 'all'})...")
 
-    done = False
-    while not done:
-        params = {"limit": limit}
-        if cursor:
-            params["cursor"] = cursor
-        if status:
-            params["status"] = status
+    for i, event_ticker in enumerate(ticker_list):
+        markets = _fetch_markets_for_event_ticker(
+            event_ticker, status=status, existing_ids=existing_ids
+        )
 
-        for attempt in range(MAX_RETRIES):
-            try:
-                response = requests.get(
-                    f"{KALSHI_API_BASE}/markets",
-                    params=params,
-                    headers={"Accept": "application/json"},
-                    timeout=30,
-                )
+        if markets:
+            political_markets.extend(markets)
+            political_event_set.add(event_ticker)
+            total_scanned += len(markets)
+        elif markets is not None:
+            # Empty list — event exists but no markets matched filters
+            pass
+        else:
+            errors += 1
 
-                if response.status_code == 200:
-                    data = response.json()
-                    markets = data.get("markets", [])
-                    total_scanned += len(markets)
+        time.sleep(KALSHI_RATE_LIMIT)
 
-                    # Filter this page immediately — discard non-political
-                    for m in markets:
-                        event_ticker = m.get("event_ticker")
-                        ticker = m.get("ticker")
-                        if event_ticker in political_tickers:
-                            if ticker and ticker in existing_ids:
-                                continue
-                            political_markets.append(
-                                process_kalshi_market_native(m)
-                            )
-                            if event_ticker:
-                                political_event_set.add(event_ticker)
+        if (i + 1) % 500 == 0:
+            log(f"  Progress: {i+1}/{len(ticker_list)} events, "
+                f"{len(political_markets)} markets found")
 
-                    cursor = data.get("cursor")
-                    page += 1
-
-                    if page % 10 == 0 or not cursor:
-                        log(f"  Page {page}: scanned {total_scanned}, "
-                            f"kept {len(political_markets)} political")
-
-                    if not cursor:
-                        done = True
-
-                    time.sleep(KALSHI_RATE_LIMIT)
-                    break
-
-                elif response.status_code == 429:
-                    wait = 10 * (2 ** attempt)
-                    log(f"  Rate limited, waiting {wait}s...")
-                    time.sleep(wait)
-                else:
-                    log(f"  Error {response.status_code}: {response.text[:200]}")
-                    if attempt == MAX_RETRIES - 1:
-                        done = True
-                    time.sleep(5)
-
-            except Exception as e:
-                log(f"  Exception: {e}")
-                if attempt == MAX_RETRIES - 1:
-                    done = True
-                time.sleep(5)
-
-    log(f"Filtered to {len(political_markets)} political markets "
-        f"({len(political_event_set)} events) from {total_scanned} scanned")
+    log(f"Fetched {len(political_markets)} political markets "
+        f"({len(political_event_set)} events) from {len(ticker_list)} event tickers"
+        f"{f' ({errors} errors)' if errors else ''}")
 
     return {
         "markets": political_markets,

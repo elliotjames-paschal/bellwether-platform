@@ -1,0 +1,14 @@
+# ============================================================================
+# NOTE: We use self-resubmitting jobs instead of scrontab so the pipeline
+# runs every 6 hours AFTER the previous run finishes (not on a fixed clock).
+#
+# To start the cycle:
+#   sbatch ~/bellwether-platform/packages/pipelines/sherlock/run_pipeline.sh
+#
+# To stop the cycle:
+#   squeue --me                 # find the pending job ID
+#   scancel <jobid>             # cancel it
+#
+# To run once without resubmitting:
+#   BELLWETHER_RESUBMIT=false sbatch ~/bellwether-platform/packages/pipelines/sherlock/run_pipeline.sh
+# ============================================================================
