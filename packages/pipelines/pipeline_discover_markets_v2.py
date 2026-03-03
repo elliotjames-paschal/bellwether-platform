@@ -251,26 +251,36 @@ def fetch_kalshi_political_markets(
     log(f"Fetching Kalshi political markets for {len(ticker_list)} event tickers "
         f"(status={status or 'all'})...")
 
-    for i, event_ticker in enumerate(ticker_list):
+    # Parallelize: Kalshi allows 10 req/sec, use 5 workers to stay safe
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+
+    lock = threading.Lock()
+    completed = [0]
+
+    def fetch_one(event_ticker):
         markets = _fetch_markets_for_event_ticker(
             event_ticker, status=status, existing_ids=existing_ids
         )
-
-        if markets:
-            political_markets.extend(markets)
-            political_event_set.add(event_ticker)
-            total_scanned += len(markets)
-        elif markets is not None:
-            # Empty list — event exists but no markets matched filters
-            pass
-        else:
-            errors += 1
-
         time.sleep(KALSHI_RATE_LIMIT)
+        return event_ticker, markets
 
-        if (i + 1) % 500 == 0:
-            log(f"  Progress: {i+1}/{len(ticker_list)} events, "
-                f"{len(political_markets)} markets found")
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        futures = {pool.submit(fetch_one, t): t for t in ticker_list}
+        for future in as_completed(futures):
+            event_ticker, markets = future.result()
+            with lock:
+                completed[0] += 1
+                if markets:
+                    political_markets.extend(markets)
+                    political_event_set.add(event_ticker)
+                    total_scanned += len(markets)
+                elif markets is None:
+                    errors += 1
+
+                if completed[0] % 500 == 0:
+                    log(f"  Progress: {completed[0]}/{len(ticker_list)} events, "
+                        f"{len(political_markets)} markets found")
 
     log(f"Fetched {len(political_markets)} political markets "
         f"({len(political_event_set)} events) from {len(ticker_list)} event tickers"
