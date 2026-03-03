@@ -682,26 +682,30 @@ def main():
     if start_phase <= 6:
         log_phase(6, "DEPLOY TO GITHUB")
 
-        # Commit and push website data
+        # Deploy website data to gh-pages branch
         def deploy_website():
-            """Commit and push website data to GitHub."""
+            """
+            Copy website data files to gh-pages and push.
+
+            Uses a temporary git worktree so we never switch branches in the
+            main working tree. Pipeline generates data in packages/website/data/
+            on v2/data-full; the live site serves from data/ on gh-pages.
+            """
             import subprocess
-            website_dir = WEBSITE_DIR
+            import shutil
+
+            website_data_dir = WEBSITE_DIR / "data"
+            repo_root = BASE_DIR
+            worktree_path = repo_root / ".deploy-gh-pages"
 
             try:
-                # Check if there are changes to commit
-                status = subprocess.run(
-                    ["git", "status", "--porcelain", "data/"],
-                    cwd=website_dir,
-                    capture_output=True,
-                    text=True
-                )
-
-                if not status.stdout.strip():
-                    logger.info("No website data changes to deploy")
+                # Check if there are data files to deploy
+                data_files = list(website_data_dir.glob("*.json"))
+                if not data_files:
+                    logger.info("No website data files to deploy")
                     return True
 
-                # Get market counts for commit message
+                # Build commit message
                 master_file = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
                 if master_file.exists():
                     import pandas as pd
@@ -713,29 +717,82 @@ def main():
                 else:
                     market_info = "Updated market data"
 
-                # Stage changes
+                # Step 1: Commit data to v2/data-full
+                status = subprocess.run(
+                    ["git", "status", "--porcelain", "packages/website/data/"],
+                    cwd=repo_root,
+                    capture_output=True,
+                    text=True
+                )
+                if status.stdout.strip():
+                    subprocess.run(
+                        ["git", "add", "packages/website/data/"],
+                        cwd=repo_root, check=True
+                    )
+                    subprocess.run(
+                        ["git", "commit", "-m",
+                         f"Update website data - pipeline run\n\n- {market_info}"],
+                        cwd=repo_root, check=True
+                    )
+                    subprocess.run(
+                        ["git", "push", "origin", "v2/data-full"],
+                        cwd=repo_root, check=True
+                    )
+                    logger.info(f"Committed data to v2/data-full: {market_info}")
+
+                # Step 2: Create temporary worktree for gh-pages
+                if worktree_path.exists():
+                    subprocess.run(
+                        ["git", "worktree", "remove", "--force", str(worktree_path)],
+                        cwd=repo_root, capture_output=True
+                    )
+
                 subprocess.run(
-                    ["git", "add", "data/"],
-                    cwd=website_dir,
-                    check=True
+                    ["git", "worktree", "add", str(worktree_path), "gh-pages"],
+                    cwd=repo_root, check=True
                 )
 
-                # Commit
-                commit_msg = f"Update website data - daily pipeline run\n\n- {market_info}\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
-                subprocess.run(
-                    ["git", "commit", "-m", commit_msg],
-                    cwd=website_dir,
-                    check=True
+                # Step 3: Copy data files to gh-pages worktree
+                ghp_data_dir = worktree_path / "data"
+                ghp_data_dir.mkdir(exist_ok=True)
+
+                copied = 0
+                for f in data_files:
+                    shutil.copy2(f, ghp_data_dir / f.name)
+                    copied += 1
+
+                logger.info(f"Copied {copied} data files to gh-pages worktree")
+
+                # Step 4: Commit and push gh-pages
+                status = subprocess.run(
+                    ["git", "status", "--porcelain", "data/"],
+                    cwd=worktree_path,
+                    capture_output=True,
+                    text=True
                 )
 
-                # Push
-                subprocess.run(
-                    ["git", "push"],
-                    cwd=website_dir,
-                    check=True
-                )
+                if not status.stdout.strip():
+                    logger.info("No changes to deploy to gh-pages (data unchanged)")
+                else:
+                    subprocess.run(
+                        ["git", "add", "data/"],
+                        cwd=worktree_path, check=True
+                    )
+                    commit_msg = (
+                        f"Update website data - pipeline run\n\n"
+                        f"- {market_info}\n- {copied} data files updated\n\n"
+                        f"Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+                    )
+                    subprocess.run(
+                        ["git", "commit", "-m", commit_msg],
+                        cwd=worktree_path, check=True
+                    )
+                    subprocess.run(
+                        ["git", "push", "origin", "gh-pages"],
+                        cwd=worktree_path, check=True
+                    )
+                    logger.info(f"Deployed to gh-pages: {market_info}")
 
-                logger.info(f"Deployed website data: {market_info}")
                 return True
 
             except subprocess.CalledProcessError as e:
@@ -744,6 +801,13 @@ def main():
             except Exception as e:
                 logger.error(f"Deploy error: {e}")
                 return False
+            finally:
+                # Always clean up the worktree
+                if worktree_path.exists():
+                    subprocess.run(
+                        ["git", "worktree", "remove", "--force", str(worktree_path)],
+                        cwd=repo_root, capture_output=True
+                    )
 
         log_step_start("Deploy website to GitHub")
         deploy_start = time.time()
