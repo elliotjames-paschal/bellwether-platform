@@ -153,7 +153,7 @@ def clean_election_dates_csv(path=None):
     df["election_year"] = pd.to_numeric(df["election_year"], errors="coerce").fillna(0).astype(int)
 
     df.to_csv(path, index=False)
-    return original_len - len(df)
+    return 0
 
 
 def atomic_write_json(path, data, **json_kwargs):
