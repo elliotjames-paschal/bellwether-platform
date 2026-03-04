@@ -139,13 +139,7 @@ def clean_election_dates_csv(path=None):
     """
     Clean election_dates_lookup.csv in place.
 
-    Fixes:
-    - Partial dates like '2025-09-' → dropped (no day = unreliable)
-    - NaN/empty election_date rows → dropped
-    - election_year float (2026.0) → int (2026)
-    - Deduplicates on (country, office, location, election_year, is_primary)
-
-    Returns number of rows dropped.
+    Fixes partial dates ('2025-09-'), NaN dates, and float election_year (2026.0 → 2026).
     """
     import pandas as pd
 
@@ -156,34 +150,18 @@ def clean_election_dates_csv(path=None):
     df = pd.read_csv(path)
     original_len = len(df)
 
-    # Drop rows with missing key fields
-    df = df.dropna(subset=["office", "location", "election_year"])
-
-    # Try parsing dates — anything that doesn't parse to a valid date gets dropped
+    # Drop rows where election_date can't be parsed (partial dates like '2025-09-', NaN)
     parsed = pd.to_datetime(df["election_date"], errors="coerce", format="mixed")
     bad = parsed.isna()
     if bad.any():
         print(f"  Dropping {bad.sum()} rows with bad/missing election_date")
     df = df[~bad].copy()
 
-    # Cast election_year to int
+    # Cast election_year to int so downstream int() calls don't hit float issues
     df["election_year"] = df["election_year"].astype(int)
 
-    # Deduplicate
-    dedup_cols = ["country", "office", "location", "election_year", "is_primary"]
-    before_dedup = len(df)
-    df = df.drop_duplicates(subset=dedup_cols, keep="last")
-    dupes = before_dedup - len(df)
-    if dupes:
-        print(f"  Removed {dupes} duplicate rows")
-
-    # Save
     df.to_csv(path, index=False)
-
-    dropped = original_len - len(df)
-    if dropped:
-        print(f"  Cleaned election_dates_lookup.csv: {original_len} → {len(df)} rows ({dropped} removed)")
-    return dropped
+    return original_len - len(df)
 
 
 def atomic_write_json(path, data, **json_kwargs):
