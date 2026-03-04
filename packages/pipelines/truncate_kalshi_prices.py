@@ -190,15 +190,18 @@ for ticker, candlesticks in kalshi_all_prices.items():
 
             if election_date:
                 # Truncate at end of election day (23:59:59)
-                election_end = datetime(
-                    int(election_date.year),
-                    int(election_date.month),
-                    int(election_date.day),
-                    23, 59, 59,
-                    tzinfo=timezone.utc
-                )
-                market_cutoff_ts = int(election_end.timestamp())
-                cutoff_reason = 'election_date'
+                try:
+                    election_end = datetime(
+                        int(election_date.year),
+                        int(election_date.month),
+                        int(election_date.day),
+                        23, 59, 59,
+                        tzinfo=timezone.utc
+                    )
+                    market_cutoff_ts = int(election_end.timestamp())
+                    cutoff_reason = 'election_date'
+                except (ValueError, TypeError, OverflowError):
+                    pass  # Skip invalid dates, fall through to trading_close_time
 
     # If no election date found or not an election, use trading_close_time - 12 hours
     # This gives us the "final prediction" price before the event
