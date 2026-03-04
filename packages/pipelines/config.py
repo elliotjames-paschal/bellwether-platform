@@ -139,7 +139,7 @@ def clean_election_dates_csv(path=None):
     """
     Clean election_dates_lookup.csv in place.
 
-    Fixes partial dates ('2025-09-'), NaN dates, and float election_year (2026.0 → 2026).
+    Fixes float election_year (2026.0 → 2026). Does not drop rows.
     """
     import pandas as pd
 
@@ -148,17 +148,9 @@ def clean_election_dates_csv(path=None):
         return 0
 
     df = pd.read_csv(path)
-    original_len = len(df)
-
-    # Drop rows where election_date can't be parsed (partial dates like '2025-09-', NaN)
-    parsed = pd.to_datetime(df["election_date"], errors="coerce", format="mixed")
-    bad = parsed.isna()
-    if bad.any():
-        print(f"  Dropping {bad.sum()} rows with bad/missing election_date")
-    df = df[~bad].copy()
 
     # Cast election_year to int so downstream int() calls don't hit float issues
-    df["election_year"] = df["election_year"].astype(int)
+    df["election_year"] = pd.to_numeric(df["election_year"], errors="coerce").fillna(0).astype(int)
 
     df.to_csv(path, index=False)
     return original_len - len(df)
