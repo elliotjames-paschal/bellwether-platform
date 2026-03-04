@@ -380,21 +380,24 @@ def fetch_kalshi_political_markets(
 # POLYMARKET API FUNCTIONS
 # =============================================================================
 
-def fetch_markets_for_tag(tag_slug: str, limit: int = 100) -> list:
+def fetch_markets_for_tag(tag_slug: str, limit: int = 100, max_pages: int = 10) -> list:
     """
-    Fetch all markets for a single Polymarket tag slug.
+    Fetch markets for a single Polymarket tag slug.
 
     Args:
         tag_slug: The tag slug to filter by (e.g. "elections", "us-politics")
         limit: Results per page (max 100)
+        max_pages: Maximum number of pages to fetch per tag (prevents unbounded
+                   pagination — some tags like "elections" have 50K+ markets)
 
     Returns:
         List of market dicts
     """
     markets = []
     offset = 0
+    pages = 0
 
-    while True:
+    while pages < max_pages:
         params = {"limit": limit, "offset": offset, "tag": tag_slug}
 
         for attempt in range(MAX_RETRIES):
@@ -413,6 +416,7 @@ def fetch_markets_for_tag(tag_slug: str, limit: int = 100) -> list:
                         return markets
 
                     markets.extend(page_markets)
+                    pages += 1
 
                     if len(page_markets) < limit:
                         return markets
@@ -468,10 +472,8 @@ def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> li
     processed_markets = []
     tags_with_markets = 0
 
-    # Parallelize tag fetching (Polymarket has no strict rate limit)
+    # Process tags in batches to limit peak memory
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    import threading
-    pm_lock = threading.Lock()
 
     tag_slugs = [tag.get("slug", "") for tag in political_tags if tag.get("slug")]
 
@@ -480,14 +482,17 @@ def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> li
         time.sleep(POLYMARKET_RATE_LIMIT)
         return tag_slug, markets
 
-    completed_tags = [0]
+    completed_tags = 0
+    TAG_BATCH_SIZE = 100
 
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        futures = {pool.submit(fetch_one_tag, slug): slug for slug in tag_slugs}
-        for future in as_completed(futures):
-            tag_slug, tag_markets = future.result()
-            with pm_lock:
-                completed_tags[0] += 1
+    for batch_start in range(0, len(tag_slugs), TAG_BATCH_SIZE):
+        batch = tag_slugs[batch_start:batch_start + TAG_BATCH_SIZE]
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = {pool.submit(fetch_one_tag, slug): slug for slug in batch}
+            for future in as_completed(futures):
+                tag_slug, tag_markets = future.result()
+                completed_tags += 1
                 for market in tag_markets:
                     condition_id = market.get("conditionId") or market.get("condition_id")
                     if not condition_id or condition_id in seen_condition_ids:
@@ -501,9 +506,8 @@ def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> li
                 if tag_markets:
                     tags_with_markets += 1
 
-                if completed_tags[0] % 50 == 0 or completed_tags[0] == len(tag_slugs):
-                    log(f"  Tags processed: {completed_tags[0]}/{len(tag_slugs)}, "
-                        f"unique markets: {len(processed_markets)}")
+        log(f"  Tags processed: {completed_tags}/{len(tag_slugs)}, "
+            f"unique markets: {len(processed_markets)}")
 
     log(f"  Tags with markets: {tags_with_markets}/{len(political_tags)}")
     log(f"  Total unique political markets: {len(processed_markets)}")
