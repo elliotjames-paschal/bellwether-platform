@@ -295,19 +295,34 @@ def main():
             existing_prices = json.load(f)
         log(f"Loaded {len(existing_prices)} existing price records")
 
-    # Filter out old closed markets in incremental mode
+    # Filter out markets that don't need fetching
     skipped = 0
+    skipped_uptodate = 0
     work_items = []
 
     for idx, row in kalshi_markets.iterrows():
         ticker = str(row['market_id'])
 
         if not full_refresh:
+            # Skip markets that closed long ago
             close_time = pd.to_datetime(row.get('k_expiration_time'), errors='coerce')
             if pd.notna(close_time):
                 close_time_naive = close_time.tz_localize(None) if close_time.tzinfo else close_time
                 if close_time_naive < start_dt - timedelta(days=7):
                     skipped += 1
+                    continue
+
+            # Skip closed/settled markets that already have prices
+            k_status = str(row.get('k_status', '')).lower()
+            if k_status in ('closed', 'settled', 'finalized') and ticker in existing_prices and existing_prices[ticker]:
+                skipped_uptodate += 1
+                continue
+
+            # Skip open markets whose last price is already recent (within 2 days)
+            if ticker in existing_prices and existing_prices[ticker]:
+                last_ts = max(p.get('end_period_ts', p.get('t', 0)) for p in existing_prices[ticker])
+                if end_ts - last_ts < 2 * 86400:
+                    skipped_uptodate += 1
                     continue
 
         work_items.append((ticker, existing_prices, default_start_ts, end_ts, full_history_start_ts, full_refresh))
