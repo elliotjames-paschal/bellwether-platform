@@ -20,6 +20,7 @@ Output:
 """
 
 import json
+import math
 import re
 import subprocess
 import sys
@@ -60,6 +61,24 @@ def _infer_category(ticker: str) -> str:
     if 'LEAVE' in ticker_upper or 'RESIGN' in ticker_upper:
         return 'PERSONNEL'
     return 'OTHER'
+
+
+def _sanitize_nans(obj):
+    """Recursively replace NaN/Infinity floats with None for valid JSON."""
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
+    if isinstance(obj, dict):
+        return {k: _sanitize_nans(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_nans(v) for v in obj]
+    return obj
+
+
+def _json_default(obj):
+    """Fallback serializer for types json.dumps doesn't handle."""
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
+    return str(obj)
 
 
 def load_master_csv():
@@ -288,7 +307,8 @@ def main():
         'markets': entries,
     }
 
-    output_json = json.dumps(output)
+    output = _sanitize_nans(output)
+    output_json = json.dumps(output, default=_json_default, allow_nan=False)
 
     # Write local files
     API_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
