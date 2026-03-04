@@ -136,9 +136,11 @@ def main():
     df = pd.read_csv(MASTER_FILE, low_memory=False)
     log(f"  Master CSV: {len(df):,} markets")
 
-    # Ensure column exists
+    # Ensure column exists and is float (prevents LossySetitemError)
     if "election_eve_price" not in df.columns:
         df["election_eve_price"] = np.nan
+    else:
+        df["election_eve_price"] = pd.to_numeric(df["election_eve_price"], errors="coerce")
 
     # Load election dates
     dates = pd.read_csv(ELECTION_DATES_FILE)

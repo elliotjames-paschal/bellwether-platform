@@ -119,14 +119,16 @@ def get_market_anchor_time(market_row, is_election, election_date_lookup_fn=None
 
     if is_election and election_date_lookup_fn is not None:
         election_date = election_date_lookup_fn(market_row)
-        if election_date is not None:
+        if election_date is not None and pd.notna(election_date):
             return election_date
 
     # Non-electoral (or electoral fallback): use trading_close_time directly
     trading_close_time = market_row.get('trading_close_time')
     if pd.notna(trading_close_time):
         try:
-            return pd.to_datetime(trading_close_time, utc=True)
+            result = pd.to_datetime(trading_close_time, utc=True)
+            if pd.notna(result):
+                return result
         except Exception:
             pass
 

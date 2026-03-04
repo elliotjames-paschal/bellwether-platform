@@ -12,6 +12,10 @@ openai>=1.0.0
 
 # Scientific computing
 scipy>=1.10.0
+statsmodels>=0.14.0
+
+# Async HTTP (for market enrichment)
+aiohttp>=3.9.0
 
 # Visualization (for paper generation)
 matplotlib>=3.7.0

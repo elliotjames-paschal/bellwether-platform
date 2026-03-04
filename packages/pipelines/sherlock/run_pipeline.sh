@@ -82,6 +82,11 @@ fi
 source "$VENV_DIR/bin/activate"
 
 # --------------------------------------------------------------------------
+# Ensure dependencies are installed
+# --------------------------------------------------------------------------
+pip install -q -r "$BELLWETHER_HOME/packages/pipelines/requirements.txt" 2>/dev/null || echo "WARNING: pip install failed (some packages may be missing)"
+
+# --------------------------------------------------------------------------
 # Run pipeline
 # --------------------------------------------------------------------------
 echo "======================================================================"

@@ -191,9 +191,9 @@ for ticker, candlesticks in kalshi_all_prices.items():
             if election_date:
                 # Truncate at end of election day (23:59:59)
                 election_end = datetime(
-                    election_date.year,
-                    election_date.month,
-                    election_date.day,
+                    int(election_date.year),
+                    int(election_date.month),
+                    int(election_date.day),
                     23, 59, 59,
                     tzinfo=timezone.utc
                 )

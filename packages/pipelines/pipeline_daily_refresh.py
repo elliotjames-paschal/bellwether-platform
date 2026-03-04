@@ -712,13 +712,13 @@ def main():
                 else:
                     market_info = "Updated market data"
 
-                # Pull latest first to avoid rejected pushes
+                # Stage first, then pull (unstaged changes block rebase)
                 subprocess.run(
-                    ["git", "pull", "--rebase", "--ff-only"],
+                    ["git", "add", "docs/data/"],
                     cwd=repo_root, check=True
                 )
                 subprocess.run(
-                    ["git", "add", "docs/data/"],
+                    ["git", "pull", "--rebase", "--autostash"],
                     cwd=repo_root, check=True
                 )
                 subprocess.run(
