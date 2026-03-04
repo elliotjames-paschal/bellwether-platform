@@ -275,9 +275,14 @@ def classify_new_tags(new_tags: list) -> tuple[list, list]:
         }
 
         for future in as_completed(futures):
-            political, rejected = future.result()
-            all_political.extend(political)
-            all_rejected.extend(rejected)
+            try:
+                political, rejected = future.result()
+                all_political.extend(political)
+                all_rejected.extend(rejected)
+            except Exception as e:
+                batch_idx = futures[future]
+                log(f"  WARNING: Batch {batch_idx + 1}/{total_batches} failed: {e}")
+                # Tags in this batch won't be classified — they'll be retried next run
 
     return all_political, all_rejected
 
