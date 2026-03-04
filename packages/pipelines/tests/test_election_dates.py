@@ -285,6 +285,18 @@ class TestElectionEvePriceColumn:
         df = pd.DataFrame({"election_eve_price": ["1", "bad", "0.5"]})
         df["election_eve_price"] = pd.to_numeric(df["election_eve_price"], errors="coerce")
         assert df["election_eve_price"].dtype == np.float64
+
+    def test_try_except_fallback_on_int_column(self):
+        """Our nuclear fix: try df.loc, fall back to df.at with explicit float()."""
+        df = pd.DataFrame({"election_eve_price": [1, 0, 1]})
+        price = 0.63
+        idx = 0
+        try:
+            df.loc[idx, "election_eve_price"] = float(price)
+        except Exception:
+            df.at[idx, "election_eve_price"] = float(price)
+        # Should succeed either way
+        assert abs(df.loc[idx, "election_eve_price"] - 0.63) < 0.01
         df.loc[0, "election_eve_price"] = 0.63
         assert df.loc[0, "election_eve_price"] == 0.63
 
