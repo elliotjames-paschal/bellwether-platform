@@ -43,7 +43,7 @@ from openai import OpenAI
 # CONFIGURATION
 # =============================================================================
 
-from config import BASE_DIR, DATA_DIR, get_openai_client
+from config import BASE_DIR, DATA_DIR, get_openai_client, clean_election_dates_csv
 
 # Input/Output files
 MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
@@ -569,6 +569,11 @@ def main():
             # Save updated lookup
             dates_df.to_csv(DATES_LOOKUP_FILE, index=False)
             log(f"Updated {DATES_LOOKUP_FILE.name} with {len(new_entries)} new entries")
+
+            # Clean up any bad data (partial dates, NaN, float years)
+            dropped = clean_election_dates_csv(DATES_LOOKUP_FILE)
+            if dropped:
+                log(f"Cleaned {dropped} invalid rows from lookup")
 
     # Clean up checkpoint on successful completion
     if CHECKPOINT_FILE.exists():

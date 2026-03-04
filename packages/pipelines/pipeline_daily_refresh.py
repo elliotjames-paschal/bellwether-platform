@@ -335,6 +335,13 @@ def main():
         results["election_dates"] = success
         step_results["get_election_dates"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
+        # Clean election dates CSV (fix partial dates, NaN, float years)
+        try:
+            from config import clean_election_dates_csv
+            clean_election_dates_csv()
+        except Exception as e:
+            logger.warning(f"Election dates cleanup failed: {e}")
+
         # Select election winner markets (combined: vote shares + winner selection per election)
         if has_openai:
             success = run_script(

@@ -135,6 +135,57 @@ def get_market_anchor_time(market_row, is_election, election_date_lookup_fn=None
     return None
 
 
+def clean_election_dates_csv(path=None):
+    """
+    Clean election_dates_lookup.csv in place.
+
+    Fixes:
+    - Partial dates like '2025-09-' → dropped (no day = unreliable)
+    - NaN/empty election_date rows → dropped
+    - election_year float (2026.0) → int (2026)
+    - Deduplicates on (country, office, location, election_year, is_primary)
+
+    Returns number of rows dropped.
+    """
+    import pandas as pd
+
+    path = Path(path) if path else (DATA_DIR / "election_dates_lookup.csv")
+    if not path.exists():
+        return 0
+
+    df = pd.read_csv(path)
+    original_len = len(df)
+
+    # Drop rows with missing key fields
+    df = df.dropna(subset=["office", "location", "election_year"])
+
+    # Try parsing dates — anything that doesn't parse to a valid date gets dropped
+    parsed = pd.to_datetime(df["election_date"], errors="coerce", format="mixed")
+    bad = parsed.isna()
+    if bad.any():
+        print(f"  Dropping {bad.sum()} rows with bad/missing election_date")
+    df = df[~bad].copy()
+
+    # Cast election_year to int
+    df["election_year"] = df["election_year"].astype(int)
+
+    # Deduplicate
+    dedup_cols = ["country", "office", "location", "election_year", "is_primary"]
+    before_dedup = len(df)
+    df = df.drop_duplicates(subset=dedup_cols, keep="last")
+    dupes = before_dedup - len(df)
+    if dupes:
+        print(f"  Removed {dupes} duplicate rows")
+
+    # Save
+    df.to_csv(path, index=False)
+
+    dropped = original_len - len(df)
+    if dropped:
+        print(f"  Cleaned election_dates_lookup.csv: {original_len} → {len(df)} rows ({dropped} removed)")
+    return dropped
+
+
 def atomic_write_json(path, data, **json_kwargs):
     """Write JSON atomically via temp file + os.replace()."""
     import json
