@@ -74,7 +74,10 @@ async function loadMarketMap(kv) {
 }
 
 function getMarketBySlug(markets, slug) {
-  return markets.find(m => m.slug === slug);
+  return markets.find(m =>
+    m.slug === slug ||
+    (m.ticker && m.ticker.toLowerCase().replace(/_/g, "-") === slug)
+  );
 }
 
 // =============================================================================

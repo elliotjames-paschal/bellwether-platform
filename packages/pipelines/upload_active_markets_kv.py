@@ -17,8 +17,10 @@
 """
 
 import os
+import re
 import subprocess
 import sys
+import tempfile
 
 NAMESPACE_ID = "2ce167f19ce748e0bf09b513eaafe9ad"
 KV_KEY = "active_markets:latest"
@@ -28,24 +30,25 @@ REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 FILE_PATH = os.path.join(REPO_ROOT, "docs", "data", "active_markets.json")
 
 
-def main():
-    if not os.path.exists(FILE_PATH):
-        print(f"ERROR: File not found: {FILE_PATH}", file=sys.stderr)
-        sys.exit(1)
+def sanitize_json(raw: str) -> str:
+    """Replace NaN, Infinity, -Infinity with null for valid JSON."""
+    return re.sub(r'\bNaN\b', 'null', raw)
 
-    file_size = os.path.getsize(FILE_PATH)
-    print(f"File: {FILE_PATH}")
+
+def upload_to_kv(kv_key: str, file_path: str):
+    """Upload a file to Cloudflare KV."""
+    file_size = os.path.getsize(file_path)
     print(f"Size: {file_size:,} bytes ({file_size / (1024 * 1024):.1f} MB)")
 
     cmd = [
         "npx", "wrangler", "kv", "key", "put",
         f"--namespace-id={NAMESPACE_ID}",
         "--remote",
-        KV_KEY,
-        f"--path={FILE_PATH}",
+        kv_key,
+        f"--path={file_path}",
     ]
 
-    print(f"\nUploading to KV key: {KV_KEY}")
+    print(f"Uploading to KV key: {kv_key}")
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
@@ -55,7 +58,32 @@ def main():
         sys.exit(1)
 
     print(result.stdout.strip())
-    print(f"\nUpload successful: {KV_KEY} ({file_size:,} bytes)")
+    print(f"Upload successful: {kv_key} ({file_size:,} bytes)")
+
+
+def main():
+    if not os.path.exists(FILE_PATH):
+        print(f"ERROR: File not found: {FILE_PATH}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"File: {FILE_PATH}")
+
+    with open(FILE_PATH, "r") as f:
+        raw = f.read()
+
+    sanitized = sanitize_json(raw)
+    nan_fixes = len(re.findall(r'\bnull\b', sanitized)) - len(re.findall(r'\bnull\b', raw))
+    if nan_fixes > 0:
+        print(f"Sanitized {nan_fixes} NaN values → null")
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        tmp.write(sanitized)
+        tmp_path = tmp.name
+
+    try:
+        upload_to_kv(KV_KEY, tmp_path)
+    finally:
+        os.unlink(tmp_path)
 
 
 if __name__ == "__main__":

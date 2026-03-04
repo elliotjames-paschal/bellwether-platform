@@ -1,0 +1,32 @@
+{
+  "name": "bellwether-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Bellwether prediction market data. Live prices, VWAP, and reportability scores for political markets on Polymarket and Kalshi.",
+  "main": "dist/index.js",
+  "bin": {
+    "bellwether-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "keywords": [
+    "mcp",
+    "prediction-markets",
+    "bellwether",
+    "polymarket",
+    "kalshi",
+    "political-markets",
+    "anthropic"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^20.0.0"
+  }
+}
