@@ -542,6 +542,10 @@
       <a href="#tickers" class="sidebar-link">Tickers</a>
     </div>
     <div class="sidebar-section">
+      <div class="sidebar-section-title">Embeds</div>
+      <a href="#embeds" class="sidebar-link">Embed a Market</a>
+    </div>
+    <div class="sidebar-section">
       <div class="sidebar-section-title">Data</div>
       <a href="#glossary" class="sidebar-link">Data Glossary</a>
       <a href="#categories" class="sidebar-link">Categories</a>
@@ -777,6 +781,39 @@
       </table>
     </div>
 
+    <!-- EMBEDS -->
+    <div class="doc-section" id="embeds">
+      <h2>Embed a Market</h2>
+      <p>Drop a live Bellwether market card into any article. Paste a ticker below to preview the embed and copy the iframe snippet for your CMS.</p>
+
+      <div style="display:flex; gap:8px; max-width:560px; margin-bottom:24px">
+        <input type="text" id="embed-ticker" placeholder="e.g. BWR-NEWSOM-WIN-DEM_NOMINATION-CERTIFIED-ANY-NOV2028" style="flex:1; padding:10px 14px; font-family:var(--font-mono); font-size:12px; border:1px solid var(--bw-border); border-radius:6px; background:var(--bw-white); color:var(--bw-dark)">
+        <button id="embed-preview-btn" style="padding:10px 20px; font-family:var(--font-sans); font-size:13px; font-weight:500; background:var(--bw-dark); color:var(--bw-white); border:none; border-radius:6px; cursor:pointer; white-space:nowrap">Preview</button>
+      </div>
+
+      <div id="embed-preview-area" style="display:none; margin-bottom:24px">
+        <div style="font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:0.06em; color:var(--bw-text-secondary); margin-bottom:10px">Preview</div>
+        <div style="border:1px solid var(--bw-border); border-radius:8px; padding:20px; background:var(--bw-bg); display:inline-block">
+          <iframe id="embed-iframe" width="400" height="320" style="display:block; border:none"></iframe>
+        </div>
+      </div>
+
+      <div id="embed-snippet-area" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+          <span style="font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:0.06em; color:var(--bw-text-secondary)">Embed Code</span>
+          <button id="embed-copy-btn" style="padding:5px 12px; font-family:var(--font-sans); font-size:12px; font-weight:500; background:var(--bw-white); color:var(--bw-text-secondary); border:1px solid var(--bw-border); border-radius:4px; cursor:pointer">Copy Embed Code</button>
+        </div>
+        <div class="code-block"><pre id="embed-snippet-code" style="word-break:break-all; white-space:pre-wrap"></pre></div>
+      </div>
+
+      <h3>Example tickers</h3>
+      <p class="muted">Click a ticker to preview it.</p>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px">
+        <code class="embed-example" style="cursor:pointer">BWR-NEWSOM-WIN-DEM_NOMINATION-CERTIFIED-ANY-NOV2028</code>
+        <code class="embed-example" style="cursor:pointer">BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-FEB2027</code>
+      </div>
+    </div>
+
     <!-- DATA GLOSSARY -->
     <div class="doc-section" id="glossary">
       <h2>Data Glossary</h2>
@@ -941,6 +978,49 @@
       document.getElementById('glossary-' + tab.dataset.glossary).classList.add('active');
     });
   });
+
+  // Embed preview
+  (function() {
+    const input = document.getElementById('embed-ticker');
+    const btn = document.getElementById('embed-preview-btn');
+    const previewArea = document.getElementById('embed-preview-area');
+    const iframe = document.getElementById('embed-iframe');
+    const snippetArea = document.getElementById('embed-snippet-area');
+    const snippetCode = document.getElementById('embed-snippet-code');
+    const copyBtn = document.getElementById('embed-copy-btn');
+
+    const baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+
+    function doPreview() {
+      const ticker = input.value.trim();
+      if (!ticker) return;
+      const embedUrl = 'embed.html?ticker=' + encodeURIComponent(ticker);
+      const fullUrl = baseUrl + embedUrl;
+      iframe.src = embedUrl;
+      previewArea.style.display = 'block';
+      const snippet = '<iframe src="' + fullUrl + '" width="400" height="320" frameborder="0" style="border:1px solid #d4d4d4;border-radius:2px;max-width:100%"></iframe>';
+      snippetCode.textContent = snippet;
+      snippetArea.style.display = 'block';
+    }
+
+    btn.addEventListener('click', doPreview);
+    input.addEventListener('keydown', function(e) { if (e.key === 'Enter') doPreview(); });
+
+    copyBtn.addEventListener('click', function() {
+      navigator.clipboard.writeText(snippetCode.textContent).then(function() {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(function() { copyBtn.textContent = 'Copy Embed Code'; }, 2000);
+      });
+    });
+
+    document.querySelectorAll('.embed-example').forEach(function(el) {
+      el.addEventListener('click', function() {
+        input.value = el.textContent;
+        doPreview();
+        document.getElementById('embeds').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  })();
 </script>
 </body>
 </html>

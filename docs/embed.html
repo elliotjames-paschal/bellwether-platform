@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Bellwether Embed</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --card-bg:      #ffffff;
+  --border:       #d4d4d4;
+  --border-light: #e8e8e8;
+  --text-black:   #1a1a1a;
+  --text-dark:    #3a3a3a;
+  --text-mid:     #6b6b6b;
+  --text-light:   #999999;
+  --surface:      #f5f5f5;
+  --footer-bg:    #fafafa;
+  --radius:       2px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:transparent;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
+
+.card{
+  max-width:400px;
+  min-width:280px;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:var(--card-bg);
+  overflow:hidden;
+}
+
+/* Meta row */
+.card-meta{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:16px 18px 0;
+}
+.card-category{
+  font-family:'DM Sans',sans-serif;
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  color:var(--text-light);
+}
+.card-source{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  font-weight:500;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  color:var(--text-light);
+  background:transparent;
+  border:1px solid var(--border-light);
+  padding:2px 6px;
+  border-radius:1px;
+}
+
+/* Question */
+.card-question{
+  font-family:'Source Serif 4',Georgia,serif;
+  font-size:16px;
+  font-weight:600;
+  line-height:1.3;
+  color:var(--text-black);
+  padding:8px 18px 14px;
+}
+
+/* Bellwether price block */
+.card-price-block{
+  padding:14px 18px 14px;
+  border-bottom:1px solid var(--border-light);
+}
+.card-price-line{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+}
+.card-price-value{
+  font-family:'JetBrains Mono',monospace;
+  font-size:36px;
+  font-weight:600;
+  color:var(--text-black);
+  line-height:1;
+  letter-spacing:-0.02em;
+}
+.card-price-annotation{
+  font-family:'DM Sans',sans-serif;
+  font-size:11px;
+  font-weight:500;
+  color:var(--text-mid);
+  display:flex;
+  align-items:center;
+  gap:5px;
+  white-space:nowrap;
+}
+.card-price-annotation .bw-dot{
+  width:4px;height:4px;
+  background:var(--text-mid);
+  border-radius:50%;
+  display:inline-block;
+  flex-shrink:0;
+}
+.card-vwap-label{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  font-weight:500;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  color:var(--text-light);
+  margin-top:4px;
+}
+
+/* Platform prices */
+.card-platforms{
+  display:grid;
+  grid-template-columns:1fr 1px 1fr;
+}
+.card-platform{
+  padding:12px 18px;
+}
+.card-platform-name{
+  font-family:'DM Sans',sans-serif;
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  color:var(--text-light);
+  margin-bottom:4px;
+}
+.card-platform-price{
+  font-family:'JetBrains Mono',monospace;
+  font-size:16px;
+  font-weight:500;
+  color:var(--text-dark);
+}
+.card-platform-price.no-market{
+  font-family:'DM Sans',sans-serif;
+  font-size:12px;
+  font-style:italic;
+  color:var(--text-light);
+  font-weight:400;
+}
+.card-divider-v{
+  background:var(--border-light);
+  margin:8px 0;
+}
+
+/* Stats row */
+.card-stats{
+  display:flex;
+  align-items:center;
+  padding:10px 18px;
+  border-top:1px solid var(--border-light);
+}
+.card-stats-left{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.card-badge{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+  color:var(--text-mid);
+  background:var(--surface);
+  padding:2px 6px;
+  border-radius:1px;
+  flex-shrink:0;
+}
+.card-stat{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  color:var(--text-light);
+  white-space:nowrap;
+}
+.card-stat-value{
+  font-weight:600;
+  color:var(--text-mid);
+}
+.card-stat-vol{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  color:var(--text-light);
+  margin-left:auto;
+  white-space:nowrap;
+}
+
+/* Footer */
+.card-footer{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:8px 18px;
+  background:var(--footer-bg);
+  border-top:1px solid var(--border);
+}
+.card-footer-left{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.card-footer-brand{
+  font-family:'Source Serif 4',Georgia,serif;
+  font-size:12px;
+  font-weight:600;
+  color:var(--text-dark);
+  text-decoration:none;
+}
+.card-footer-brand:hover{
+  color:var(--text-black);
+}
+.card-footer-sep{
+  width:1px;
+  height:10px;
+  background:var(--border);
+}
+.card-footer-affil{
+  font-family:'DM Sans',sans-serif;
+  font-size:10px;
+  color:var(--text-light);
+}
+.card-footer-link{
+  font-family:'DM Sans',sans-serif;
+  font-size:10px;
+  font-weight:500;
+  color:var(--text-light);
+  text-decoration:none;
+}
+.card-footer-link:hover{
+  color:var(--text-dark);
+}
+
+/* Error state */
+.card-error{
+  padding:32px 18px;
+  text-align:center;
+  font-size:13px;
+  color:var(--text-light);
+}
+
+/* Skeleton */
+.skeleton .card-price-value,
+.skeleton .card-platform-price,
+.skeleton .card-question{
+  background:var(--surface);
+  color:transparent;
+  border-radius:var(--radius);
+}
+.skeleton .card-question{min-height:42px}
+.skeleton .card-price-value{min-height:40px;max-width:120px}
+.skeleton .card-platform-price{min-height:22px;max-width:60px}
+</style>
+</head>
+<body>
+<div class="card skeleton" id="card">
+  <div class="card-meta">
+    <span class="card-category" id="category">&nbsp;</span>
+    <span class="card-source" id="source">&nbsp;</span>
+  </div>
+  <div class="card-question" id="question">&nbsp;</div>
+  <div class="card-price-block">
+    <div class="card-price-line">
+      <span class="card-price-value" id="bw-price">&nbsp;</span>
+      <span class="card-price-annotation" id="bw-annotation"><span class="bw-dot"></span> Bellwether Price</span>
+    </div>
+    <div class="card-vwap-label" id="bw-label">&nbsp;</div>
+  </div>
+  <div class="card-platforms">
+    <div class="card-platform">
+      <div class="card-platform-name">Polymarket</div>
+      <div class="card-platform-price" id="pm-price">&nbsp;</div>
+    </div>
+    <div class="card-divider-v"></div>
+    <div class="card-platform">
+      <div class="card-platform-name">Kalshi</div>
+      <div class="card-platform-price" id="k-price">&nbsp;</div>
+    </div>
+  </div>
+  <div class="card-stats" id="stats-row" style="display:none">
+    <div class="card-stats-left" id="stats-left"></div>
+    <span class="card-stat-vol" id="stats-right"></span>
+  </div>
+  <div class="card-footer">
+    <div class="card-footer-left">
+      <a class="card-footer-brand" href="https://bellwethermetrics.com" target="_blank" rel="noopener">Bellwether</a>
+      <span class="card-footer-sep"></span>
+      <span class="card-footer-affil">Stanford GSB</span>
+    </div>
+    <a class="card-footer-link" href="https://bellwethermetrics.com/monitor.html" target="_blank" rel="noopener">bellwethermetrics.com &rarr;</a>
+  </div>
+</div>
+
+<script>
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var ticker = params.get('ticker');
+  var card = document.getElementById('card');
+
+  if (!ticker) {
+    showError('No ticker specified');
+    return;
+  }
+
+  var BASE = getBasePath();
+  var WORKER = 'https://bellwether-api.paschal-145.workers.dev/api/metrics/combined';
+
+  fetch(BASE + 'data/active_markets.json')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      var markets = data.markets || data;
+      var m = null;
+      for (var i = 0; i < markets.length; i++) {
+        if (markets[i].ticker === ticker || markets[i].key === ticker) {
+          m = markets[i];
+          break;
+        }
+      }
+      if (!m) {
+        showError('Market not found: ' + ticker);
+        return;
+      }
+      renderStatic(m);
+      fetchLive(m);
+    })
+    .catch(function(){
+      showError('Failed to load market data');
+    });
+
+  function getBasePath() {
+    var path = window.location.pathname;
+    var idx = path.lastIndexOf('/');
+    return path.substring(0, idx + 1);
+  }
+
+  function footerHtml() {
+    return '<div class="card-footer">' +
+      '<div class="card-footer-left">' +
+        '<a class="card-footer-brand" href="https://bellwethermetrics.com" target="_blank" rel="noopener">Bellwether</a>' +
+        '<span class="card-footer-sep"></span>' +
+        '<span class="card-footer-affil">Stanford GSB</span>' +
+      '</div>' +
+      '<a class="card-footer-link" href="https://bellwethermetrics.com/monitor.html" target="_blank" rel="noopener">bellwethermetrics.com &rarr;</a>' +
+    '</div>';
+  }
+
+  function showError(msg) {
+    card.classList.remove('skeleton');
+    card.innerHTML = '<div class="card-error">' + escHtml(msg) + '</div>' + footerHtml();
+  }
+
+  function escHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function fmtPrice(p) {
+    if (p === null || p === undefined || isNaN(p)) return null;
+    return Math.round(p * 100) + '%';
+  }
+
+  function fmtVolume(v) {
+    if (!v) return '$0';
+    if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+    if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
+    return '$' + Math.round(v);
+  }
+
+  function fmtCost(c) {
+    if (!c) return null;
+    if (c >= 1e6) return '$' + (c / 1e6).toFixed(1) + 'M';
+    if (c >= 1e3) return '$' + (c / 1e3).toFixed(0) + 'K';
+    return '$' + Math.round(c);
+  }
+
+  function sourceTag(m) {
+    if (m.has_both) return 'CROSS-PLATFORM';
+    if (m.has_pm && !m.has_k) return 'POLYMARKET';
+    if (m.has_k && !m.has_pm) return 'KALSHI';
+    return '';
+  }
+
+  function renderStatic(m) {
+    card.classList.remove('skeleton');
+
+    document.getElementById('category').textContent = m.category_display || '';
+    document.getElementById('source').textContent = sourceTag(m);
+    document.getElementById('question').textContent = m.label || '';
+
+    // Static platform prices
+    var pm = fmtPrice(m.pm_price);
+    var k = fmtPrice(m.k_price);
+    var pmEl = document.getElementById('pm-price');
+    var kEl = document.getElementById('k-price');
+
+    if (pm) { pmEl.textContent = pm; pmEl.className = 'card-platform-price'; }
+    else { pmEl.textContent = 'No market'; pmEl.className = 'card-platform-price no-market'; }
+
+    if (k) { kEl.textContent = k; kEl.className = 'card-platform-price'; }
+    else { kEl.textContent = 'No market'; kEl.className = 'card-platform-price no-market'; }
+
+    // Bellwether price placeholder from static data
+    var staticPrice = m.pm_price != null ? m.pm_price : m.k_price;
+    if (staticPrice != null) {
+      document.getElementById('bw-price').textContent = fmtPrice(staticPrice);
+    } else {
+      document.getElementById('bw-price').textContent = '--';
+    }
+    document.getElementById('bw-label').textContent = '';
+
+    // Show stats with volume only
+    var statsRow = document.getElementById('stats-row');
+    statsRow.style.display = 'flex';
+    document.getElementById('stats-left').innerHTML = '';
+    document.getElementById('stats-right').textContent = fmtVolume(m.total_volume) + ' vol';
+  }
+
+  function fetchLive(m) {
+    var qp = [];
+    if (m.pm_token_id) qp.push('pm_token=' + encodeURIComponent(m.pm_token_id));
+    if (m.k_ticker) qp.push('k_ticker=' + encodeURIComponent(m.k_ticker));
+    if (qp.length === 0) return;
+
+    fetch(WORKER + '?' + qp.join('&'))
+      .then(function(r){ return r.json(); })
+      .then(function(live){
+        if (!live) return;
+
+        // Update bellwether price
+        if (live.bellwether_price != null) {
+          document.getElementById('bw-price').textContent = fmtPrice(live.bellwether_price);
+        }
+
+        // VWAP label: "6-HOUR VWAP · LIVE" or "6-HOUR VWAP · STALE"
+        var labelEl = document.getElementById('bw-label');
+        var vwapText = live.price_label ? live.price_label.toUpperCase() : '';
+        var isLive = live.vwap_details ? true : false;
+        if (vwapText) {
+          labelEl.textContent = vwapText + ' \u00B7 ' + (isLive ? 'LIVE' : 'STALE');
+        }
+
+        // Update platform prices from live data
+        if (live.platform_prices) {
+          if (live.platform_prices.polymarket != null) {
+            var pmEl = document.getElementById('pm-price');
+            pmEl.textContent = fmtPrice(live.platform_prices.polymarket);
+            pmEl.className = 'card-platform-price';
+          }
+          if (live.platform_prices.kalshi != null) {
+            var kEl = document.getElementById('k-price');
+            kEl.textContent = fmtPrice(live.platform_prices.kalshi);
+            kEl.className = 'card-platform-price';
+          }
+        }
+
+        // Stats row
+        var leftHtml = '';
+
+        // Reportability badge (same gray style for all tiers)
+        var rep = live.robustness && live.robustness.reportability;
+        if (rep) {
+          leftHtml += '<span class="card-badge">' + escHtml(rep) + '</span>';
+        }
+
+        // Cost to move 5¢
+        var cost = live.robustness && live.robustness.cost_to_move_5c;
+        var costStr = fmtCost(cost);
+        if (costStr) {
+          leftHtml += '<span class="card-stat"><span class="card-stat-value">' + costStr + '</span> to move 5\u00A2</span>';
+        }
+
+        document.getElementById('stats-left').innerHTML = leftHtml;
+        document.getElementById('stats-right').textContent = fmtVolume(m.total_volume) + ' vol';
+      })
+      .catch(function(){
+        // Worker failed — static prices stay, no VWAP/reportability
+      });
+  }
+})();
+</script>
+</body>
+</html>
