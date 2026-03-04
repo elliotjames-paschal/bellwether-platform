@@ -78,6 +78,105 @@ function getMarketBySlug(markets, slug) {
 }
 
 // =============================================================================
+// ACTIVE MARKETS - Loaded from KV (for /api/markets/* endpoints)
+// =============================================================================
+
+const VALID_CATEGORIES = [
+  "ELECTORAL", "MONETARY_POLICY", "INTERNATIONAL", "POLITICAL_SPEECH",
+  "MILITARY_SECURITY", "APPOINTMENTS", "TIMING_EVENTS", "JUDICIAL",
+  "PARTY_POLITICS", "GOVERNMENT_OPERATIONS", "REGULATORY", "LEGISLATIVE",
+  "POLLING_APPROVAL", "STATE_LOCAL", "CRISIS_EMERGENCY",
+];
+
+let cachedActiveMarkets = null;
+let activeMarketsTimestamp = 0;
+const ACTIVE_MARKETS_CACHE_TTL = 300000; // 5 minutes
+
+async function loadActiveMarkets(kv) {
+  const now = Date.now();
+
+  if (cachedActiveMarkets && (now - activeMarketsTimestamp) < ACTIVE_MARKETS_CACHE_TTL) {
+    return cachedActiveMarkets;
+  }
+
+  if (!kv) throw new Error("KV not configured");
+
+  const data = await kv.get("active_markets:latest", { type: "json" });
+  if (data && data.markets) {
+    cachedActiveMarkets = data.markets;
+    activeMarketsTimestamp = now;
+    return cachedActiveMarkets;
+  }
+
+  // Return stale cache if KV read returned empty
+  if (cachedActiveMarkets) return cachedActiveMarkets;
+
+  return null;
+}
+
+/**
+ * Extract bare category name from prefixed format.
+ * e.g. "6. INTERNATIONAL" → "INTERNATIONAL"
+ */
+function extractCategory(rawCategory) {
+  if (!rawCategory) return null;
+  const dotIndex = rawCategory.indexOf(". ");
+  if (dotIndex >= 0) return rawCategory.slice(dotIndex + 2);
+  return rawCategory;
+}
+
+/**
+ * Format a raw market record into the API response shape.
+ */
+function formatMarketResult(m) {
+  const ticker = m.ticker || m.key || "";
+  const slug = ticker.toLowerCase().replace(/_/g, "-");
+  const isMatched = !!m.has_both;
+  const platformRaw = m.platform || "";
+
+  let platforms;
+  if (isMatched) {
+    platforms = ["polymarket", "kalshi"];
+  } else if (platformRaw.toLowerCase() === "polymarket") {
+    platforms = ["polymarket"];
+  } else {
+    platforms = ["kalshi"];
+  }
+
+  return {
+    slug,
+    ticker,
+    title: m.label || "",
+    category: extractCategory(m.category) || "",
+    volume_usd: m.total_volume || 0,
+    is_matched: isMatched,
+    platforms,
+  };
+}
+
+/**
+ * Optional API key check for /api/markets/* routes.
+ * Returns null if auth passes, or an error object { status, body } if it fails.
+ */
+function checkOptionalApiKey(request, env) {
+  const expectedKey = env.BELLWETHER_API_KEY;
+  if (!expectedKey) return null; // env var not set — skip auth
+
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader) return null; // no header — proceed unauthenticated
+
+  const parts = authHeader.split(" ");
+  if (parts.length === 2 && parts[0] === "Bearer" && parts[1] === expectedKey) {
+    return null; // valid key
+  }
+
+  return {
+    status: 401,
+    body: { error: "invalid_api_key" },
+  };
+}
+
+// =============================================================================
 // NATIVE API FUNCTIONS (Kalshi Elections API + Polymarket CLOB)
 // =============================================================================
 
@@ -694,7 +793,7 @@ export default {
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Content-Type": "application/json",
     };
 
@@ -731,6 +830,8 @@ export default {
             "/api/metrics/:platform/:token_id": "Get tiered price + robustness for a single-platform market",
             "/api/metrics/combined": "Get cross-platform tiered price + min robustness (query: pm_token, k_ticker)",
             "/api/metrics/event/:slug": "Get live data for an event by Bellwether slug",
+            "/api/markets/search": "Search markets by keyword (query: q, category, limit)",
+            "/api/markets/top": "Top markets by volume (query: category, limit)",
           },
           price_tiers: {
             1: "6h VWAP (10+ trades) - Full reportability",
@@ -904,10 +1005,137 @@ export default {
       return new Response(JSON.stringify(combined), { headers: corsHeaders });
     }
 
+    // =================================================================
+    // MARKETS API — /api/markets/search and /api/markets/top
+    // =================================================================
+
+    if (url.pathname === "/api/markets/search" || url.pathname === "/api/markets/top") {
+      // Optional API key check (only for /api/markets/* routes)
+      const apiKeyResult = checkOptionalApiKey(request, env);
+      if (apiKeyResult) {
+        return new Response(JSON.stringify(apiKeyResult.body), {
+          status: apiKeyResult.status,
+          headers: corsHeaders,
+        });
+      }
+
+      // Category validation (shared by both endpoints)
+      const category = url.searchParams.get("category") || null;
+      if (category && !VALID_CATEGORIES.includes(category)) {
+        return new Response(
+          JSON.stringify({
+            error: "invalid_category",
+            message: "Invalid category. Valid values: " + VALID_CATEGORIES.join(", "),
+            valid_categories: VALID_CATEGORIES,
+          }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+
+      // Limit validation (shared by both endpoints)
+      const limitParam = url.searchParams.get("limit");
+      let limit = 10;
+      if (limitParam !== null) {
+        limit = parseInt(limitParam, 10);
+        if (isNaN(limit) || limit < 1) limit = 10;
+        if (limit > 50) {
+          return new Response(
+            JSON.stringify({
+              error: "limit_exceeded",
+              message: "Maximum limit is 50",
+            }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+      }
+
+      // Load active markets from KV
+      let activeData;
+      try {
+        activeData = await loadActiveMarkets(kv);
+      } catch (err) {
+        return new Response(
+          JSON.stringify({
+            error: "data_unavailable",
+            message: "Market data is temporarily unavailable",
+          }),
+          { status: 503, headers: corsHeaders }
+        );
+      }
+
+      if (!activeData) {
+        return new Response(
+          JSON.stringify({
+            error: "data_unavailable",
+            message: "Market data is temporarily unavailable",
+          }),
+          { status: 503, headers: corsHeaders }
+        );
+      }
+
+      let filtered = activeData;
+
+      // Filter by category if provided
+      if (category) {
+        filtered = filtered.filter(m => extractCategory(m.category) === category);
+      }
+
+      // --- SEARCH endpoint ---
+      if (url.pathname === "/api/markets/search") {
+        const q = url.searchParams.get("q");
+        if (!q || q.trim() === "") {
+          return new Response(
+            JSON.stringify({
+              error: "empty_query",
+              message: "Search query cannot be empty",
+            }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        const queryLower = q.toLowerCase();
+        filtered = filtered.filter(m => {
+          const ticker = (m.ticker || "").toLowerCase();
+          const label = (m.label || "").toLowerCase();
+          return ticker.includes(queryLower) || label.includes(queryLower);
+        });
+
+        filtered.sort((a, b) => (b.total_volume || 0) - (a.total_volume || 0));
+        const total = filtered.length;
+        const results = filtered.slice(0, limit).map(formatMarketResult);
+
+        return new Response(
+          JSON.stringify({
+            results,
+            total,
+            query: q,
+            category: category,
+          }),
+          { headers: corsHeaders }
+        );
+      }
+
+      // --- TOP endpoint ---
+      if (url.pathname === "/api/markets/top") {
+        const totalActive = filtered.length;
+        filtered.sort((a, b) => (b.total_volume || 0) - (a.total_volume || 0));
+        const results = filtered.slice(0, limit).map(formatMarketResult);
+
+        return new Response(
+          JSON.stringify({
+            results,
+            category: category,
+            total_active: totalActive,
+          }),
+          { headers: corsHeaders }
+        );
+      }
+    }
+
     return new Response(
       JSON.stringify({
         error: "Not found",
-        available_endpoints: ["/", "/health", "/api/metrics/:platform/:token_id", "/api/metrics/combined", "/api/metrics/event/:slug"]
+        available_endpoints: ["/", "/health", "/api/metrics/:platform/:token_id", "/api/metrics/combined", "/api/metrics/event/:slug", "/api/markets/search", "/api/markets/top"]
       }),
       { status: 404, headers: corsHeaders }
     );
