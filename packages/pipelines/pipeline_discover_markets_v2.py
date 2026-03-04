@@ -380,46 +380,41 @@ def fetch_kalshi_political_markets(
 # POLYMARKET API FUNCTIONS
 # =============================================================================
 
-def fetch_markets_for_tag(tag_slug: str, limit: int = 100, max_pages: int = 10) -> list:
+def _fetch_events_for_tag(tag_slug: str, limit: int = 100) -> list:
     """
-    Fetch markets for a single Polymarket tag slug.
+    Fetch all events for a Polymarket tag slug via GET /events?tag_slug={slug}.
 
-    Args:
-        tag_slug: The tag slug to filter by (e.g. "elections", "us-politics")
-        limit: Results per page (max 100)
-        max_pages: Maximum number of pages to fetch per tag (prevents unbounded
-                   pagination — some tags like "elections" have 50K+ markets)
+    The /events endpoint (not /markets) supports tag_slug filtering.
+    Each returned event contains its markets nested inside.
 
     Returns:
-        List of market dicts
+        List of event dicts (each with a 'markets' array)
     """
-    markets = []
+    all_events = []
     offset = 0
-    pages = 0
 
-    while pages < max_pages:
-        params = {"limit": limit, "offset": offset, "tag": tag_slug}
+    while True:
+        params = {"limit": limit, "offset": offset, "tag_slug": tag_slug}
 
         for attempt in range(MAX_RETRIES):
             try:
                 response = requests.get(
-                    f"{POLYMARKET_API_BASE}/markets",
+                    f"{POLYMARKET_API_BASE}/events",
                     params=params,
                     headers={"Accept": "application/json"},
-                    timeout=30
+                    timeout=30,
                 )
 
                 if response.status_code == 200:
-                    page_markets = response.json()
+                    events = response.json()
 
-                    if not page_markets:
-                        return markets
+                    if not isinstance(events, list) or not events:
+                        return all_events
 
-                    markets.extend(page_markets)
-                    pages += 1
+                    all_events.extend(events)
 
-                    if len(page_markets) < limit:
-                        return markets
+                    if len(events) < limit:
+                        return all_events
 
                     offset += limit
                     time.sleep(POLYMARKET_RATE_LIMIT)
@@ -427,28 +422,29 @@ def fetch_markets_for_tag(tag_slug: str, limit: int = 100, max_pages: int = 10) 
 
                 elif response.status_code == 429:
                     wait = 10 * (2 ** attempt)
-                    log(f"    Rate limited on tag={tag_slug}, waiting {wait}s...")
                     time.sleep(wait)
                 else:
                     if attempt == MAX_RETRIES - 1:
-                        return markets
+                        return all_events
                     time.sleep(5)
 
-            except Exception as e:
+            except Exception:
                 if attempt == MAX_RETRIES - 1:
-                    return markets
+                    return all_events
                 time.sleep(5)
 
-    return markets
+    return all_events
 
 
 def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> list:
     """
-    Fetch Polymarket markets by iterating through political tag slugs.
+    Fetch Polymarket political markets via the /events?tag_slug= endpoint.
 
-    Loads political tags from polymarket_political_tags.json, fetches all
-    markets for each tag via GET /markets?tag={slug}, deduplicates
-    by condition_id, and skips markets already in existing_ids.
+    For each political tag slug, fetches events (with nested markets) from
+    the Gamma API. Deduplicates by condition_id and skips known markets.
+
+    The /events endpoint properly supports tag filtering (unlike /markets
+    which ignores the tag parameter entirely).
 
     Returns:
         List of processed market dicts (CSV-format)
@@ -462,25 +458,27 @@ def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> li
     with open(political_tags_file, "r") as f:
         political_tags = json.load(f)
 
-    log(f"Loaded {len(political_tags)} political tags")
+    tag_slugs = [tag.get("slug", "") for tag in political_tags if tag.get("slug")]
+    log(f"Loaded {len(tag_slugs)} political tag slugs")
 
     if existing_ids is None:
         existing_ids = set()
 
-    # Deduplicate markets by condition_id across all tags
     seen_condition_ids = set()
     processed_markets = []
     tags_with_markets = 0
 
-    # Process tags in batches to limit peak memory
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    tag_slugs = [tag.get("slug", "") for tag in political_tags if tag.get("slug")]
-
-    def fetch_one_tag(tag_slug):
-        markets = fetch_markets_for_tag(tag_slug)
+    def fetch_one_tag(slug):
+        events = _fetch_events_for_tag(slug)
         time.sleep(POLYMARKET_RATE_LIMIT)
-        return tag_slug, markets
+        # Extract markets from events
+        markets = []
+        for event in events:
+            for market in (event.get("markets") or []):
+                markets.append(market)
+        return slug, markets
 
     completed_tags = 0
     TAG_BATCH_SIZE = 100
@@ -509,7 +507,7 @@ def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> li
         log(f"  Tags processed: {completed_tags}/{len(tag_slugs)}, "
             f"unique markets: {len(processed_markets)}")
 
-    log(f"  Tags with markets: {tags_with_markets}/{len(political_tags)}")
+    log(f"  Tags with markets: {tags_with_markets}/{len(tag_slugs)}")
     log(f"  Total unique political markets: {len(processed_markets)}")
 
     return processed_markets
