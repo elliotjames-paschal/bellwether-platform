@@ -161,6 +161,80 @@ def load_kalshi_political_event_tickers() -> set:
     return political
 
 
+def _find_active_event_tickers(political_tickers: list) -> set:
+    """
+    Query the Kalshi events API with status=open to find which political
+    event tickers actually have active events. This avoids querying ~6,000
+    closed/settled event tickers one by one.
+
+    Returns:
+        Set of event ticker strings that have open events
+    """
+    active_tickers = set()
+    cursor = None
+    page = 0
+
+    while True:
+        params = {"limit": 200, "status": "open"}
+        if cursor:
+            params["cursor"] = cursor
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = requests.get(
+                    f"{KALSHI_API_BASE}/events",
+                    params=params,
+                    headers={"Accept": "application/json"},
+                    timeout=30,
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    events = data.get("events", [])
+
+                    for event in events:
+                        ticker = event.get("event_ticker", "")
+                        if ticker:
+                            active_tickers.add(ticker)
+
+                    cursor = data.get("cursor")
+                    page += 1
+
+                    if not cursor or not events:
+                        # Intersect with our political tickers
+                        political_set = set(political_tickers)
+                        result = active_tickers & political_set
+                        log(f"  Kalshi open events total: {len(active_tickers)}, "
+                            f"political overlap: {len(result)}")
+                        return result
+
+                    time.sleep(KALSHI_RATE_LIMIT)
+                    break
+
+                elif response.status_code == 429:
+                    wait = 10 * (2 ** attempt)
+                    log(f"  Rate limited fetching events, waiting {wait}s...")
+                    time.sleep(wait)
+                else:
+                    log(f"  Events API error {response.status_code}: {response.text[:200]}")
+                    if attempt == MAX_RETRIES - 1:
+                        # Fall back to all political tickers
+                        log("  WARNING: Could not filter active events, using all political tickers")
+                        return set(political_tickers)
+                    time.sleep(5)
+
+            except Exception as e:
+                log(f"  Events API exception: {e}")
+                if attempt == MAX_RETRIES - 1:
+                    log("  WARNING: Could not filter active events, using all political tickers")
+                    return set(political_tickers)
+                time.sleep(5)
+
+    # Intersect with political tickers
+    political_set = set(political_tickers)
+    return active_tickers & political_set
+
+
 def _fetch_markets_for_event_ticker(
     event_ticker: str,
     status: Optional[str] = None,
@@ -248,15 +322,22 @@ def fetch_kalshi_political_markets(
     errors = 0
     ticker_list = sorted(political_tickers)
 
+    # When fetching only active markets, first check which events have open markets
+    # to avoid querying ~5,500 closed events (saves memory + time)
+    if status == "open":
+        log(f"Filtering {len(ticker_list)} event tickers to those with active markets...")
+        active_tickers = _find_active_event_tickers(ticker_list)
+        log(f"  {len(active_tickers)} of {len(ticker_list)} event tickers have active markets")
+        ticker_list = sorted(active_tickers)
+
     log(f"Fetching Kalshi political markets for {len(ticker_list)} event tickers "
         f"(status={status or 'all'})...")
 
-    # Parallelize: Kalshi allows 10 req/sec, use 5 workers to stay safe
+    # Process in batches to limit peak memory (don't submit all 6000 at once)
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    import threading
 
-    lock = threading.Lock()
-    completed = [0]
+    BATCH_SIZE = 200
+    completed_total = 0
 
     def fetch_one(event_ticker):
         markets = _fetch_markets_for_event_ticker(
@@ -265,12 +346,14 @@ def fetch_kalshi_political_markets(
         time.sleep(KALSHI_RATE_LIMIT)
         return event_ticker, markets
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
-        futures = {pool.submit(fetch_one, t): t for t in ticker_list}
-        for future in as_completed(futures):
-            event_ticker, markets = future.result()
-            with lock:
-                completed[0] += 1
+    for batch_start in range(0, len(ticker_list), BATCH_SIZE):
+        batch = ticker_list[batch_start:batch_start + BATCH_SIZE]
+
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            futures = {pool.submit(fetch_one, t): t for t in batch}
+            for future in as_completed(futures):
+                event_ticker, markets = future.result()
+                completed_total += 1
                 if markets:
                     political_markets.extend(markets)
                     political_event_set.add(event_ticker)
@@ -278,9 +361,8 @@ def fetch_kalshi_political_markets(
                 elif markets is None:
                     errors += 1
 
-                if completed[0] % 500 == 0:
-                    log(f"  Progress: {completed[0]}/{len(ticker_list)} events, "
-                        f"{len(political_markets)} markets found")
+        log(f"  Progress: {min(completed_total, len(ticker_list))}/{len(ticker_list)} events, "
+            f"{len(political_markets)} markets found")
 
     log(f"Fetched {len(political_markets)} political markets "
         f"({len(political_event_set)} events) from {len(ticker_list)} event tickers"
