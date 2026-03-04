@@ -236,7 +236,10 @@ def main():
             price = lookup_pm_price(token_id, unix_ts, pm_local)
 
             if price is not None:
-                df.loc[row["_orig_idx"], "election_eve_price"] = price
+                try:
+                    df.loc[row["_orig_idx"], "election_eve_price"] = float(price)
+                except Exception:
+                    df.at[row["_orig_idx"], "election_eve_price"] = float(price)
                 pm_success += 1
             else:
                 pm_failed += 1
@@ -269,7 +272,10 @@ def main():
             price = lookup_kalshi_price(str(market_ticker), unix_ts, kal_local)
 
             if price is not None:
-                df.loc[row["_orig_idx"], "election_eve_price"] = price
+                try:
+                    df.loc[row["_orig_idx"], "election_eve_price"] = float(price)
+                except Exception:
+                    df.at[row["_orig_idx"], "election_eve_price"] = float(price)
                 kalshi_success += 1
             else:
                 kalshi_failed += 1
