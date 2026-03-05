@@ -1,7 +1,7 @@
 import type { ToolError } from "../types.js";
 
 const DEFAULT_BASE_URL =
-  "https://bellwether-api-v2.paschal-145.workers.dev/api";
+  "https://api.bellwethermetrics.com/api";
 
 function getBaseUrl(): string {
   return process.env.BELLWETHER_API_BASE_URL || DEFAULT_BASE_URL;
