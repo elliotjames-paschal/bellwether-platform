@@ -719,18 +719,20 @@ def main():
                 else:
                     market_info = "Updated market data"
 
-                # Stage first, then pull (unstaged changes block rebase)
+                # Stage docs/data/ and commit
                 subprocess.run(
                     ["git", "add", "docs/data/"],
                     cwd=repo_root, check=True
                 )
                 subprocess.run(
-                    ["git", "pull", "--rebase", "--autostash"],
-                    cwd=repo_root, check=True
-                )
-                subprocess.run(
                     ["git", "commit", "-m",
                      f"Update website data - pipeline run\n\n- {market_info}"],
+                    cwd=repo_root, check=True
+                )
+                # Pull with rebase, then push
+                # Use autostash to handle any other uncommitted files (e.g. data/ symlink)
+                subprocess.run(
+                    ["git", "-c", "rebase.autoStash=true", "pull", "--rebase"],
                     cwd=repo_root, check=True
                 )
                 subprocess.run(
