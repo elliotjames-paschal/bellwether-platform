@@ -6,34 +6,34 @@
       "accuracy": 0.8614
     },
     "kalshi": {
-      "n": 130,
-      "brier": 0.1212,
-      "accuracy": 0.8462
+      "n": 131,
+      "brier": 0.1206,
+      "accuracy": 0.8473
     }
   },
   "shared_elections": {
     "polymarket": {
-      "n": 71,
-      "brier": 0.119,
-      "accuracy": 0.8028
+      "n": 72,
+      "brier": 0.1175,
+      "accuracy": 0.8056
     },
     "kalshi": {
-      "n": 71,
-      "brier": 0.1108,
-      "accuracy": 0.8732
+      "n": 72,
+      "brier": 0.1099,
+      "accuracy": 0.875
     },
     "combined": {
-      "n": 69,
-      "brier": 0.1101,
-      "accuracy": 0.8551
+      "n": 70,
+      "brier": 0.1089,
+      "accuracy": 0.8571
     }
   },
   "head_to_head": {
-    "n_shared": 71,
-    "correlation": 0.8175,
-    "pm_wins": 40,
+    "n_shared": 72,
+    "correlation": 0.8179,
+    "pm_wins": 41,
     "kalshi_wins": 31,
     "ties": 0,
-    "p_value": 0.5238
+    "p_value": 0.5494
   }
 }
