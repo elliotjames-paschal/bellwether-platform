@@ -160,7 +160,7 @@ def cmd_duplicates():
 
     # Create election key
     election_cols = ['country', 'office', 'location', 'election_year', 'is_primary']
-    vote_df['election_key'] = vote_df[election_cols].astype(str).agg('|'.join, axis=1)
+    vote_df['election_key'] = vote_df[election_cols].fillna('').astype(str).agg('|'.join, axis=1)
 
     # Get unique elections
     elections = vote_df.groupby('election_key').agg({

@@ -156,7 +156,7 @@ class AnomalyDetector:
         # Create election key
         election_cols = ['country', 'office', 'location', 'election_year', 'is_primary']
         available_cols = [c for c in election_cols if c in df.columns]
-        vote_df['election_key'] = vote_df[available_cols].astype(str).agg('|'.join, axis=1)
+        vote_df['election_key'] = vote_df[available_cols].fillna('').astype(str).agg('|'.join, axis=1)
 
         # Get unique elections
         elections = vote_df.groupby('election_key').agg({
