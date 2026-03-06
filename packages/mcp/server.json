@@ -1,0 +1,48 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.bellwethermetrics/bellwether-mcp",
+  "description": "Live prediction market data from Polymarket and Kalshi with VWAP pricing and reportability.",
+  "repository": {
+    "url": "https://github.com/elliotjames-paschal/bellwether-platform",
+    "source": "github",
+    "subfolder": "packages/mcp"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "bellwether-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Optional API key for authenticated access",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true,
+          "name": "BELLWETHER_API_KEY"
+        }
+      ]
+    }
+  ],
+  "keywords": [
+    "prediction-markets",
+    "polymarket",
+    "kalshi",
+    "forecasting",
+    "probability",
+    "vwap",
+    "market-data",
+    "finance",
+    "real-time-data",
+    "research",
+    "journalism",
+    "agents",
+    "stanford"
+  ],
+  "homepage": "https://bellwethermetrics.com",
+  "docs": "https://bellwethermetrics.com/docs.html",
+  "contact": "paschal@stanford.edu"
+}
