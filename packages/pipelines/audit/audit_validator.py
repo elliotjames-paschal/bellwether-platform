@@ -223,7 +223,7 @@ class DataValidator:
             return None
 
         # Create election key
-        vote_df['election_key'] = vote_df[available_cols].astype(str).agg('|'.join, axis=1)
+        vote_df['election_key'] = vote_df[available_cols].fillna('').astype(str).agg('|'.join, axis=1)
 
         # Get unique elections with their vote shares
         elections = vote_df.groupby('election_key').agg({
