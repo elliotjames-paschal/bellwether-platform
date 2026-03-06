@@ -583,6 +583,15 @@ def main():
         results["worker_index"] = success
         step_results["generate_worker_index"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
+        # Step 5: Upload active_markets.json to KV (for /api/markets/search and /top)
+        success = run_script(
+            "upload_active_markets_kv.py",
+            "Upload active_markets.json to Cloudflare KV",
+            required=False
+        )
+        results["upload_active_markets_kv"] = success
+        step_results["upload_active_markets_kv"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
         # Export liquidity data for website
         success = run_script(
             "export_liquidity_for_website.py",

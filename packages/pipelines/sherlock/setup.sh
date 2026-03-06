@@ -157,6 +157,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
 # This file is chmod 600 (owner-only). Do NOT relax permissions.
 # Do NOT commit this file to git.
 export OPENAI_API_KEY="sk-REPLACE_ME"
+export CLOUDFLARE_API_TOKEN="REPLACE_ME"
 ENVEOF
     )
     echo "  Created $ENV_FILE"
