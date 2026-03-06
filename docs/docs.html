@@ -546,6 +546,12 @@
       <a href="#embeds" class="sidebar-link">Embed a Market</a>
     </div>
     <div class="sidebar-section">
+      <div class="sidebar-section-title">MCP</div>
+      <a href="#mcp" class="sidebar-link">MCP Server</a>
+      <a href="#mcp-tools" class="sidebar-link nested">Tools</a>
+      <a href="#mcp-setup" class="sidebar-link nested">Setup</a>
+    </div>
+    <div class="sidebar-section">
       <div class="sidebar-section-title">Data</div>
       <a href="#glossary" class="sidebar-link">Data Glossary</a>
       <a href="#categories" class="sidebar-link">Categories</a>
@@ -812,6 +818,117 @@
         <code class="embed-example" style="cursor:pointer">BWR-NEWSOM-WIN-DEM_NOMINATION-CERTIFIED-ANY-NOV2028</code>
         <code class="embed-example" style="cursor:pointer">BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-FEB2027</code>
       </div>
+    </div>
+
+    <!-- MCP SERVER -->
+    <div class="doc-section" id="mcp">
+      <h2>MCP Server</h2>
+      <p>The Bellwether MCP server gives AI agents direct access to live prediction market data. Compatible with Claude Desktop, Claude Code, Cursor, and any MCP-compatible client.</p>
+
+      <p>Published on <a href="https://www.npmjs.com/package/bellwether-mcp" target="_blank" rel="noopener">npm</a> and the <a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noopener">official MCP registry</a>.</p>
+
+      <h3 id="mcp-tools">Tools</h3>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="method get">TOOL</span>
+          <span class="endpoint-path">search_markets</span>
+        </div>
+        <p>Search active political prediction markets by topic or keyword.</p>
+        <table class="params-table">
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>query</code></td><td>string</td><td>yes</td><td>Topic or keyword (e.g., "senate", "federal reserve")</td></tr>
+            <tr><td><code>category</code></td><td>string</td><td>no</td><td>Filter by category</td></tr>
+            <tr><td><code>limit</code></td><td>number</td><td>no</td><td>Max results (default 10, max 50)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="method get">TOOL</span>
+          <span class="endpoint-path">get_market</span>
+        </div>
+        <p>Get live price, VWAP, and data quality tier for a specific market.</p>
+        <table class="params-table">
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>ticker</code></td><td>string</td><td>yes</td><td>Bellwether ticker</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="method get">TOOL</span>
+          <span class="endpoint-path">get_top_markets</span>
+        </div>
+        <p>Get the most actively traded markets, optionally filtered by category.</p>
+        <table class="params-table">
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>category</code></td><td>string</td><td>no</td><td>Filter by category</td></tr>
+            <tr><td><code>limit</code></td><td>number</td><td>no</td><td>Max results (default 10, max 50)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="method get">TOOL</span>
+          <span class="endpoint-path">get_platform_spread</span>
+        </div>
+        <p>Compare prices between Kalshi and Polymarket for cross-platform matched markets.</p>
+        <table class="params-table">
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>ticker</code></td><td>string</td><td>yes</td><td>Bellwether ticker for a matched market</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="method get">TOOL</span>
+          <span class="endpoint-path">get_reportability</span>
+        </div>
+        <p>Check whether a market is safe to cite in published content. Returns reportability tier, cost to move price 5 cents, and editorial guidance.</p>
+        <table class="params-table">
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>ticker</code></td><td>string</td><td>yes</td><td>Bellwether ticker</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="mcp-setup">Setup</h3>
+
+      <p>Run directly with npx:</p>
+      <div class="code-block"><pre>npx bellwether-mcp</pre></div>
+
+      <p style="margin-top:20px"><strong>Claude Desktop</strong> &mdash; add to <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>:</p>
+      <div class="code-block"><pre>{
+  "mcpServers": {
+    "bellwether": {
+      "command": "npx",
+      "args": ["bellwether-mcp"]
+    }
+  }
+}</pre></div>
+
+      <p style="margin-top:20px"><strong>Claude Code</strong> &mdash; add via the CLI:</p>
+      <div class="code-block"><pre>claude mcp add bellwether -- npx bellwether-mcp</pre></div>
+
+      <p style="margin-top:20px"><strong>Example agent workflow:</strong></p>
+      <div class="code-block"><pre>Step 1: search_markets("2026 midterms")
+  → Find relevant markets and their tickers
+
+Step 2: get_market("BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-2026")
+  → Get live VWAP price and trading data
+
+Step 3: get_reportability("BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-2026")
+  → Check if the price is safe to cite in a report</pre></div>
     </div>
 
     <!-- DATA GLOSSARY -->
