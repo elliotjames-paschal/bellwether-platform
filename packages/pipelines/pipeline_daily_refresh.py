@@ -491,14 +491,6 @@ def main():
         results["fetch_pm_slugs"] = success
         step_results["fetch_pm_slugs"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
-        success = run_script(
-            "generate_web_data.py",
-            "Generate JSON data for dashboard",
-            required=False
-        )
-        results["web_data"] = success
-        step_results["generate_web_data"] = "OK" if success else ("FAIL" if success is False else "SKIP")
-
         # === V2 TICKER-BASED MATCHING ===
         # Step 1: Enrich markets with full API data
         success = run_script(
@@ -583,7 +575,16 @@ def main():
         results["worker_index"] = success
         step_results["generate_worker_index"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
-        # Step 5: Upload active_markets.json to KV (for /api/markets/search and /top)
+        # Step 5: Generate web data and monitor (AFTER tickers so active_markets.json has BWR IDs)
+        success = run_script(
+            "generate_web_data.py",
+            "Generate JSON data for dashboard",
+            required=False
+        )
+        results["web_data"] = success
+        step_results["generate_web_data"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # Step 6: Upload active_markets.json to KV (for /api/markets/search and /top)
         success = run_script(
             "upload_active_markets_kv.py",
             "Upload active_markets.json to Cloudflare KV",
