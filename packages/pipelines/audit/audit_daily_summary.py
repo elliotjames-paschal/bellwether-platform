@@ -65,9 +65,10 @@ def get_new_markets_summary(df, days=1):
     # Sample 5 random markets per category
     samples = {}
     for cat in by_category.index:
-        questions = by_category.loc[cat, 'question']
+        questions = [str(q) for q in by_category.loc[cat, 'question'] if pd.notna(q)]
         sample_size = min(5, len(questions))
-        samples[cat] = random.sample(questions, sample_size)
+        if questions:
+            samples[cat] = random.sample(questions, sample_size)
 
     # Summary stats
     summary = {

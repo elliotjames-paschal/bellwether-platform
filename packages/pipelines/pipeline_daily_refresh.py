@@ -740,9 +740,8 @@ def main():
                     cwd=repo_root, check=True
                 )
                 # Pull with rebase, then push
-                # Use autostash to handle any other uncommitted files (e.g. data/ symlink)
                 subprocess.run(
-                    ["git", "-c", "rebase.autoStash=true", "pull", "--rebase"],
+                    ["git", "pull", "--rebase", "--autostash"],
                     cwd=repo_root, check=True
                 )
                 subprocess.run(
