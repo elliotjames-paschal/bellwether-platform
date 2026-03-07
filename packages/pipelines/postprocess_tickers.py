@@ -16,6 +16,7 @@ from datetime import datetime
 from collections import defaultdict
 
 from config import DATA_DIR
+from create_tickers import extract_threshold
 
 # Elected offices that should use CERTIFIED mechanism
 ELECTED_OFFICES = {
@@ -342,6 +343,147 @@ def fix_state_country_collision(ticker: dict) -> bool:
     return False
 
 
+# Known name collisions - agents that need FIRST_LAST disambiguation
+# Copied from create_tickers.py to apply retroactively to old tickers
+NAME_COLLISIONS = {
+    'MURPHY': {
+        'phil': 'P_MURPHY', 'chris': 'C_MURPHY', 'mark': 'M_MURPHY',
+        'morgan': 'MO_MURPHY', 'thomas': 'T_MURPHY',
+    },
+    'POWELL': {
+        'jerome': 'J_POWELL', 'denise': 'D_POWELL', 'lucy': 'L_POWELL',
+    },
+    'SANDERS': {
+        'bernie': 'B_SANDERS', 'huckabee': 'S_HUCKABEE_SANDERS', 'sarah': 'S_HUCKABEE_SANDERS',
+    },
+    'JOHNSON': {
+        'boris': 'B_JOHNSON', 'mike': 'M_JOHNSON', 'ron': 'R_JOHNSON',
+        'dusty': 'D_JOHNSON', 'joe': 'JO_JOHNSON', 'jeff': 'JE_JOHNSON',
+        'dwayne': 'DW_JOHNSON', 'brandon': 'BR_JOHNSON', 'nathan': 'N_JOHNSON',
+        'perry': 'P_JOHNSON', 'julie': 'JU_JOHNSON', 'tanille': 'T_JOHNSON',
+    },
+    'HARRIS': {
+        'kamala': 'K_HARRIS', 'shawn': 'S_HARRIS', 'wood': 'W_HARRIS',
+    },
+    'OBAMA': {
+        'barack': 'B_OBAMA', 'michelle': 'M_OBAMA',
+    },
+    'BIDEN': {
+        'joe': 'J_BIDEN', 'hunter': 'H_BIDEN',
+    },
+    'NEWSOM': {
+        'gavin': 'G_NEWSOM', 'kevin': 'K_NEWSOM',
+    },
+    'DESANTIS': {
+        'ron': 'R_DESANTIS', 'casey': 'C_DESANTIS',
+    },
+    'BROWN': {
+        'sherrod': 'S_BROWN', 'brandon': 'BR_BROWN', 'sean': 'SE_BROWN',
+        'dan': 'D_BROWN', 'daniel': 'DA_BROWN', 'toni': 'T_BROWN',
+        'scott': 'SC_BROWN', 'mel': 'M_BROWN', 'yumeka': 'Y_BROWN',
+        'deirdre': 'DE_BROWN', 'don': 'DO_BROWN', 'olujimi': 'O_BROWN',
+    },
+    'JONES': {
+        'doug': 'D_JONES', 'shevrin': 'S_JONES', 'brandon': 'BR_JONES',
+        'david': 'DA_JONES', 'lloyd': 'L_JONES', 'burt': 'BU_JONES',
+        'gian': 'G_JONES', 'jolanda': 'JO_JONES', 'dathan': 'DT_JONES',
+        'darren': 'DR_JONES',
+    },
+    'SMITH': {
+        'joshua': 'JO_SMITH', 'braden': 'BR_SMITH', 'bernadette': 'BE_SMITH',
+        'robin': 'R_SMITH', 'stephen': 'ST_SMITH', 'jack': 'JA_SMITH',
+        'mark': 'M_SMITH', 'paul': 'P_SMITH',
+    },
+    'WILLIAMS': {
+        'jumaane': 'JU_WILLIAMS', 'josh': 'JO_WILLIAMS', 'lee': 'L_WILLIAMS',
+        'david': 'D_WILLIAMS', 'anthony': 'A_WILLIAMS', 'marcus': 'MA_WILLIAMS',
+        'mikel': 'MI_WILLIAMS', 'jeffery': 'JE_WILLIAMS',
+    },
+    'MOORE': {
+        'wes': 'W_MOORE', 'barry': 'B_MOORE', 'colton': 'C_MOORE',
+        'robert': 'R_MOORE', 'gregg': 'G_MOORE', 'sidney': 'S_MOORE',
+    },
+    'COLLINS': {
+        'susan': 'S_COLLINS', 'mike': 'M_COLLINS', 'doug': 'D_COLLINS',
+        'jay': 'J_COLLINS', 'kina': 'K_COLLINS',
+    },
+    'ADAMS': {
+        'eric': 'E_ADAMS', 'adrienne': 'A_ADAMS',
+    },
+    'COOK': {
+        'tim': 'T_COOK', 'lisa': 'L_COOK', 'denell': 'D_COOK',
+    },
+    'KELLY': {
+        'laura': 'L_KELLY', 'mark': 'M_KELLY', 'robin': 'R_KELLY',
+        'scott': 'S_KELLY',
+    },
+    'CRUZ': {
+        'ted': 'T_CRUZ', 'orlando': 'O_CRUZ',
+    },
+    'JAMES': {
+        'letitia': 'L_JAMES', 'lebron': 'LB_JAMES', 'john': 'J_JAMES',
+    },
+    'BOOKER': {
+        'cory': 'C_BOOKER', 'corey': 'C_BOOKER', 'charles': 'CH_BOOKER',
+    },
+    'SANTOS': {
+        'george': 'G_SANTOS', 'renan': 'R_SANTOS',
+    },
+    'MAXWELL': {
+        'ghislaine': 'G_MAXWELL', 'bryan': 'B_MAXWELL',
+    },
+    'WILLIS': {
+        'fani': 'F_WILLIS', 'tom': 'T_WILLIS',
+    },
+    'BOLSONARO': {
+        'jair': 'J_BOLSONARO', 'flavio': 'F_BOLSONARO', 'flávio': 'F_BOLSONARO',
+        'eduardo': 'E_BOLSONARO', 'michelle': 'M_BOLSONARO',
+    },
+    'CLINTON': {
+        'hillary': 'H_CLINTON', 'bill': 'B_CLINTON', 'chelsea': 'C_CLINTON',
+    },
+    'TRUMP': {
+        'ivanka': 'I_TRUMP', 'eric': 'E_TRUMP', 'don jr': 'DJ_TRUMP',
+        'donald jr': 'DJ_TRUMP', 'barron': 'B_TRUMP', 'lara': 'L_TRUMP',
+        'melania': 'M_TRUMP',
+    },
+    'KENNEDY': {
+        'robert': 'RFK', 'rfk': 'RFK', 'john': 'JFK',
+    },
+}
+
+
+def fix_name_collisions(ticker: dict) -> bool:
+    """Fix 13: Disambiguate bare last-name agents using NAME_COLLISIONS."""
+    agent = ticker.get('agent', '')
+    if agent not in NAME_COLLISIONS:
+        return False
+
+    question = ticker.get('original_question', '').lower()
+    first_names = NAME_COLLISIONS[agent]
+
+    for first_name, canonical in first_names.items():
+        if first_name in question:
+            ticker['agent'] = canonical
+            return True
+
+    return False
+
+
+def fix_missing_threshold(ticker: dict) -> bool:
+    """Fix 14: Re-extract threshold for HIT markets that have ANY."""
+    if ticker.get('action') != 'HIT' or ticker.get('threshold', '') != 'ANY':
+        return False
+
+    question = ticker.get('original_question', '')
+    extracted = extract_threshold(question)
+    if extracted != 'ANY':
+        ticker['threshold'] = extracted
+        return True
+
+    return False
+
+
 def reassemble_ticker(ticker: dict) -> str:
     """Reassemble ticker string from components."""
     agent = ticker.get('agent', 'UNKNOWN')
@@ -471,6 +613,14 @@ def postprocess(
             ticker['timeframe'] = current_year
             stats['timeframe_current_year_fallback'] += 1
 
+        # Fix 13: Name collision disambiguation
+        if fix_name_collisions(ticker):
+            stats['name_collision_fixed'] += 1
+
+        # Fix 14: Re-extract missing thresholds
+        if fix_missing_threshold(ticker):
+            stats['threshold_reextracted'] += 1
+
         # Reassemble ticker string
         ticker['ticker'] = reassemble_ticker(ticker)
 
@@ -496,6 +646,8 @@ def postprocess(
     print(f"State/country collision fixed: {stats['state_country_fixed']}")
     print(f"Timeframe backfilled from Kalshi: {stats['timeframe_backfilled']}")
     print(f"Timeframe fallback to current year: {stats['timeframe_current_year_fallback']}")
+    print(f"Name collisions disambiguated: {stats['name_collision_fixed']}")
+    print(f"Thresholds re-extracted: {stats['threshold_reextracted']}")
 
     # Recalculate stats
     unique_tickers = len(set(t['ticker'] for t in tickers))
