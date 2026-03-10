@@ -768,6 +768,7 @@
                 ${liveDataHtml}
                 ${raceContextHtml}
                 ${embedHtml}
+                ${renderModalFeedbackSection()}
             </div>
         `;
     }
@@ -841,8 +842,150 @@
                 ${raceContextHtml}
                 ${linkHtml}
                 ${embedHtml}
+                ${renderModalFeedbackSection()}
             </div>
         `;
+    }
+
+    function renderModalFeedbackSection() {
+        return `
+            <div class="modal-feedback-section">
+                <div class="modal-feedback-header">
+                    <div class="sidebar-card-eyebrow">Help Bellwether Improve</div>
+                    <div class="modal-feedback-title">Help Us Match Markets</div>
+                    <p class="modal-feedback-desc">Is something wrong with this market? Flag it so we can improve our data.</p>
+                </div>
+                <div class="modal-feedback-options">
+                    <label class="feedback-option feedback-option-featured">
+                        <input type="radio" name="modal-feedback-type" value="same-event">
+                        <span class="feedback-option-text">
+                            <strong>Same Event (Cross-Platform Match)</strong>
+                            <span class="feedback-option-desc">These markets on Polymarket and Kalshi are about the same event</span>
+                        </span>
+                    </label>
+                    <div class="feedback-sub-options" id="modal-same-event-sub-options">
+                        <label class="feedback-sub-option">
+                            <input type="radio" name="modal-same-event-rules" value="same-rules">
+                            <span class="feedback-sub-option-text">
+                                <strong>Same Rules</strong>
+                                <span class="feedback-option-desc">Resolution criteria are the same across platforms</span>
+                            </span>
+                        </label>
+                        <label class="feedback-sub-option">
+                            <input type="radio" name="modal-same-event-rules" value="different-rules">
+                            <span class="feedback-sub-option-text">
+                                <strong>Different Rules</strong>
+                                <span class="feedback-option-desc">Same event but resolution criteria differ between platforms</span>
+                            </span>
+                        </label>
+                    </div>
+                    <label class="feedback-option">
+                        <input type="radio" name="modal-feedback-type" value="different-event">
+                        <span class="feedback-option-text">
+                            <strong>Different Events</strong>
+                            <span class="feedback-option-desc">These markets are incorrectly matched — they are about different events</span>
+                        </span>
+                    </label>
+                    <label class="feedback-option">
+                        <input type="radio" name="modal-feedback-type" value="not-political">
+                        <span class="feedback-option-text">
+                            <strong>Not Political</strong>
+                            <span class="feedback-option-desc">This market isn't about politics</span>
+                        </span>
+                    </label>
+                    <label class="feedback-option">
+                        <input type="radio" name="modal-feedback-type" value="wrong-category">
+                        <span class="feedback-option-text">
+                            <strong>Wrong Category</strong>
+                            <span class="feedback-option-desc">Mislabeled category (e.g., marked as Electoral but isn't)</span>
+                        </span>
+                    </label>
+                    <label class="feedback-option">
+                        <input type="radio" name="modal-feedback-type" value="other">
+                        <span class="feedback-option-text">
+                            <strong>Other Issue</strong>
+                            <span class="feedback-option-desc">Something else is wrong</span>
+                        </span>
+                    </label>
+                </div>
+                <div class="feedback-notes">
+                    <label for="modal-feedback-notes">Notes</label>
+                    <textarea id="modal-feedback-notes" placeholder="Briefly describe what's wrong or why these markets should be matched." required></textarea>
+                </div>
+                <div class="feedback-actions">
+                    <button class="feedback-btn-primary modal-feedback-submit-btn">Submit Feedback</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function setupModalFeedback(marketKey) {
+        const section = document.querySelector('.modal-feedback-section');
+        if (!section) return;
+
+        // Toggle same-event sub-options
+        const radios = section.querySelectorAll('input[name="modal-feedback-type"]');
+        const subOptions = document.getElementById('modal-same-event-sub-options');
+        radios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (subOptions) subOptions.classList.toggle('visible', radio.value === 'same-event');
+                if (radio.value !== 'same-event') {
+                    section.querySelectorAll('input[name="modal-same-event-rules"]').forEach(r => r.checked = false);
+                }
+            });
+        });
+
+        // Submit
+        const submitBtn = section.querySelector('.modal-feedback-submit-btn');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', () => {
+                const feedbackType = section.querySelector('input[name="modal-feedback-type"]:checked');
+                const notes = document.getElementById('modal-feedback-notes');
+
+                if (!feedbackType) {
+                    showToast('Please select a feedback type');
+                    return;
+                }
+
+                if (feedbackType.value === 'same-event') {
+                    const rulesType = section.querySelector('input[name="modal-same-event-rules"]:checked');
+                    if (!rulesType) {
+                        showToast('Please select whether the rules are the same or different');
+                        return;
+                    }
+                }
+
+                if (!notes || !notes.value.trim()) {
+                    showToast('Please add a note');
+                    return;
+                }
+
+                const market = allMarkets.find(m => m.key === marketKey);
+                const marketData = market ? [{
+                    key: market.key,
+                    label: market.label,
+                    platform: market.platform || (market.has_both ? 'Both' : market.has_pm ? 'Polymarket' : 'Kalshi'),
+                    category: market.category_display || market.category
+                }] : [{ key: marketKey }];
+
+                let feedbackValue = feedbackType.value;
+                if (feedbackType.value === 'same-event') {
+                    const rulesType = section.querySelector('input[name="modal-same-event-rules"]:checked');
+                    if (rulesType) feedbackValue = `same-event:${rulesType.value}`;
+                }
+
+                const payload = {
+                    timestamp: new Date().toISOString(),
+                    feedbackType: feedbackValue,
+                    notes: notes.value,
+                    markets: marketData
+                };
+
+                submitToGoogleForm(payload);
+                closeModal();
+                showToast('Thanks! Your feedback has been submitted.');
+            });
+        }
     }
 
     function openModal(marketKey) {
@@ -862,6 +1005,9 @@
 
         const closeBtn = modalContent.querySelector('.modal-close');
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+        // Wire up in-modal feedback
+        setupModalFeedback(marketKey);
 
         // Load live data if available
         const liveDataContainer = modalContent.querySelector('.modal-live-data-container');
@@ -1805,6 +1951,7 @@
         const submitBtn = document.getElementById('submit-review-btn');
         if (countEl) countEl.textContent = selectedMarkets.size;
         if (submitBtn) submitBtn.disabled = selectedMarkets.size === 0;
+
     }
 
     function openFeedbackModal() {

@@ -3564,6 +3564,41 @@ body.review-mode .market-card.selected {
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
+/* In-Modal Feedback Section */
+.modal-feedback-section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--gray-200);
+}
+
+.modal-feedback-header {
+    margin-bottom: 16px;
+}
+
+.modal-feedback-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 4px;
+}
+
+.modal-feedback-desc {
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+    margin: 0;
+}
+
+.modal-feedback-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.modal-feedback-section .feedback-actions {
+    justify-content: flex-start;
+}
+
 /* Feedback Modal */
 .feedback-modal-content {
     max-width: 480px;
