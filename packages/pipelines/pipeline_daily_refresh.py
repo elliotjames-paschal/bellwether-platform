@@ -740,14 +740,25 @@ def main():
                     cwd=repo_root, check=True
                 )
                 # Pull with rebase, then push
+                # Stash manually for compatibility with older git versions (e.g. Sherlock)
+                stash_result = subprocess.run(
+                    ["git", "stash"],
+                    cwd=repo_root, capture_output=True, text=True
+                )
+                stashed = "No local changes" not in stash_result.stdout
                 subprocess.run(
-                    ["git", "pull", "--rebase", "--autostash"],
+                    ["git", "pull", "--rebase"],
                     cwd=repo_root, check=True
                 )
                 subprocess.run(
                     ["git", "push"],
                     cwd=repo_root, check=True
                 )
+                if stashed:
+                    subprocess.run(
+                        ["git", "stash", "pop"],
+                        cwd=repo_root, check=True
+                    )
 
                 logger.info(f"Deployed website data: {market_info}")
                 return True
