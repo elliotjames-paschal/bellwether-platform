@@ -418,7 +418,7 @@
         const liveCostF = liveData?.robustness?.cost_to_move_5c;
         const effectiveCostF = (staticCostF && (!liveCostF || staticCostF > liveCostF)) ? staticCostF : liveCostF;
         const isFragile = !effectiveCostF || effectiveCostF < 10000;
-        let cardClass = 'market-card';
+        let cardClass = 'market-card clickable';
         if (isFragile) cardClass += ' fragile';
         if (tier > 0) cardClass += ` tier-${tier}`;
 
@@ -561,7 +561,7 @@
         const liveCostF = liveData?.robustness?.cost_to_move_5c;
         const effectiveCostF = (staticCostF && (!liveCostF || staticCostF > liveCostF)) ? staticCostF : liveCostF;
         const isFragile = !effectiveCostF || effectiveCostF < 10000;
-        let cardClass = 'market-card';
+        let cardClass = 'market-card clickable';
         if (isFragile) cardClass += ' fragile';
         if (tier > 0) cardClass += ` tier-${tier}`;
 
@@ -707,19 +707,21 @@
             `;
         }
 
-        // Links
+        // Links — include verbatim platform titles
         let linksHtml = '';
         const linksClass = (e.has_pm && e.has_k) ? '' : ' single';
 
         let pmLink = '', kLink = '';
         if (e.has_pm && e.pm_url) {
+            const pmTitle = e.pm_question || 'View market details & trade';
             pmLink = `<a href="${e.pm_url}" target="_blank" rel="noopener" class="modal-link-box pm">
-                <div class="modal-link-info"><span class="modal-link-platform">Polymarket</span><span class="modal-link-text">View market details & trade</span></div>
+                <div class="modal-link-info"><span class="modal-link-platform">Polymarket</span><span class="modal-link-title">${pmTitle}</span></div>
                 <span class="modal-link-arrow">↗</span></a>`;
         }
         if (e.has_k && e.k_url) {
+            const kTitle = e.k_question || 'View market details & trade';
             kLink = `<a href="${e.k_url}" target="_blank" rel="noopener" class="modal-link-box kalshi">
-                <div class="modal-link-info"><span class="modal-link-platform">Kalshi</span><span class="modal-link-text">View market details & trade</span></div>
+                <div class="modal-link-info"><span class="modal-link-platform">Kalshi</span><span class="modal-link-title">${kTitle}</span></div>
                 <span class="modal-link-arrow">↗</span></a>`;
         }
         if (pmLink || kLink) {
@@ -762,9 +764,9 @@
             </div>
             <div class="modal-body">
                 <div class="modal-prices${pricesClass}">${pricesHtml}</div>
+                ${linksHtml}
                 ${liveDataHtml}
                 ${raceContextHtml}
-                ${linksHtml}
                 ${embedHtml}
             </div>
         `;
@@ -1727,6 +1729,22 @@
         if (feedbackSubmitBtn) {
             feedbackSubmitBtn.addEventListener('click', submitFeedback);
         }
+
+        // Toggle same-event sub-options visibility
+        const feedbackRadios = document.querySelectorAll('input[name="feedback-type"]');
+        const subOptions = document.getElementById('same-event-sub-options');
+        feedbackRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (subOptions) {
+                    subOptions.classList.toggle('visible', radio.value === 'same-event');
+                }
+                // Clear sub-option selection when switching away
+                if (radio.value !== 'same-event') {
+                    const subRadios = document.querySelectorAll('input[name="same-event-rules"]');
+                    subRadios.forEach(r => r.checked = false);
+                }
+            });
+        });
     }
 
     function enterReviewMode() {
@@ -1797,6 +1815,10 @@
         // Reset form
         const radios = document.querySelectorAll('input[name="feedback-type"]');
         radios.forEach(r => r.checked = false);
+        const subRadios = document.querySelectorAll('input[name="same-event-rules"]');
+        subRadios.forEach(r => r.checked = false);
+        const subOptions = document.getElementById('same-event-sub-options');
+        if (subOptions) subOptions.classList.remove('visible');
         const notes = document.getElementById('feedback-notes-input');
         if (notes) notes.value = '';
     }
@@ -1813,6 +1835,15 @@
         if (!feedbackType) {
             showToast('Please select a feedback type');
             return;
+        }
+
+        // If same-event, require sub-option selection
+        if (feedbackType.value === 'same-event') {
+            const rulesType = document.querySelector('input[name="same-event-rules"]:checked');
+            if (!rulesType) {
+                showToast('Please select whether the rules are the same or different');
+                return;
+            }
         }
 
         if (!notes || !notes.value.trim()) {
@@ -1832,9 +1863,16 @@
             } : { key };
         });
 
+        // Build feedback type with sub-option if applicable
+        let feedbackValue = feedbackType.value;
+        if (feedbackType.value === 'same-event') {
+            const rulesType = document.querySelector('input[name="same-event-rules"]:checked');
+            if (rulesType) feedbackValue = `same-event:${rulesType.value}`;
+        }
+
         const payload = {
             timestamp: new Date().toISOString(),
-            feedbackType: feedbackType.value,
+            feedbackType: feedbackValue,
             notes: notes ? notes.value : '',
             markets: marketData
         };

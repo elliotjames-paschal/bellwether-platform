@@ -2088,6 +2088,10 @@ a:hover {
     flex-direction: column;
 }
 
+.market-card.clickable {
+    cursor: pointer;
+}
+
 .market-card:hover {
     border-color: var(--gray-300);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -3163,7 +3167,7 @@ a.price-box.clickable:hover {
 /* Platform Links Section */
 .modal-links {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 1px;
     background: var(--gray-200);
     border: 1px solid var(--gray-200);
@@ -3217,6 +3221,13 @@ a.price-box.clickable:hover {
 .modal-link-text {
     font-size: 0.8125rem;
     color: var(--gray-600);
+}
+
+.modal-link-title {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--gray-800);
+    line-height: 1.4;
 }
 
 .modal-link-arrow {
@@ -3623,6 +3634,53 @@ body.review-mode .market-card.selected {
 .feedback-option-desc {
     font-size: 0.75rem;
     color: var(--gray-500);
+}
+
+/* Same-event sub-options */
+.feedback-sub-options {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    margin-left: 32px;
+    margin-top: -4px;
+    margin-bottom: 4px;
+}
+
+.feedback-sub-options.visible {
+    display: flex;
+}
+
+.feedback-sub-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: rgba(37, 99, 235, 0.02);
+}
+
+.feedback-sub-option:hover {
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, 0.06);
+}
+
+.feedback-sub-option input[type="radio"] {
+    margin-top: 2px;
+    accent-color: #2563eb;
+}
+
+.feedback-sub-option-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.feedback-sub-option-text strong {
+    font-size: 0.8125rem;
+    font-weight: 600;
 }
 
 .feedback-notes {
