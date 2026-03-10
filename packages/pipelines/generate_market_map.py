@@ -205,6 +205,15 @@ def generate_market_map():
         # Look up the actual CLOB API token for Polymarket
         pm_token_id = pm_token_lookup.get(str(pm_token)) if pm_token else None
 
+        # Determine match provenance from constituent markets
+        match_sources = {m.get('match_source', 'auto_ticker') for m in markets}
+        if 'human' in match_sources:
+            match_source = 'human'
+        elif 'auto_embedding_gpt' in match_sources:
+            match_source = 'auto_embedding_gpt'
+        else:
+            match_source = 'auto_ticker'
+
         matched_markets.append({
             'slug': slug,
             'title': title,
@@ -216,6 +225,7 @@ def generate_market_map():
             'country': country,
             'platform': platform,
             'total_volume': total_volume,
+            'match_source': match_source,
             # Include both questions for debugging
             'k_question': k_market.get('original_question', '') if k_market else '',
             'pm_question': pm_market.get('original_question', '') if pm_market else '',

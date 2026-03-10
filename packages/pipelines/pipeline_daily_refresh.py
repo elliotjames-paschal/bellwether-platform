@@ -524,6 +524,33 @@ def main():
         results["postprocess_tickers"] = success
         step_results["postprocess_tickers"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
+        # Step 2b.1: Ingest human feedback from Google Sheet
+        success = run_script(
+            "pipeline_ingest_feedback.py",
+            "Ingest human feedback from Google Sheet",
+            required=False
+        )
+        results["ingest_feedback"] = success
+        step_results["ingest_feedback"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # Step 2b.2: Apply human labels as final overrides
+        success = run_script(
+            "pipeline_apply_human_labels.py",
+            "Apply human labels (ground truth overrides)",
+            required=False
+        )
+        results["apply_human_labels"] = success
+        step_results["apply_human_labels"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # Step 2b.3: Evaluate match accuracy against human labels (report only)
+        success = run_script(
+            "pipeline_evaluate_matches.py",
+            "Evaluate match accuracy vs human labels",
+            required=False
+        )
+        results["evaluate_matches"] = success
+        step_results["evaluate_matches"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
         # Step 2c: Cross-platform discovery (embedding-based, no GPT needed)
         success = run_script(
             "pipeline_discover_cross_platform.py",
@@ -556,6 +583,15 @@ def main():
         )
         results["update_matches"] = success
         step_results["update_matches"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # Step 2f: Generate ticker corrections for NEXT run's postprocessing
+        success = run_script(
+            "generate_ticker_corrections.py",
+            "Generate ticker corrections from human feedback errors",
+            required=False
+        )
+        results["ticker_corrections"] = success
+        step_results["ticker_corrections"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
         # Step 3: Generate market map using ticker-based matching
         success = run_script(
