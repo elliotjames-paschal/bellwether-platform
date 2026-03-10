@@ -546,6 +546,18 @@ def postprocess(
             if agent and action and target and tf and tf != 'UNKNOWN':
                 kalshi_aat_timeframes[(agent, action, target)].add(tf)
 
+    # Pre-load corrections for Fix 15 (once, not per-ticker)
+    human_corrections = []
+    corrections_file = tickers_file.parent / "ticker_corrections.json"
+    if corrections_file.exists():
+        try:
+            with open(corrections_file) as cf:
+                corr_data = json.load(cf)
+            human_corrections = corr_data.get("corrections", [])
+            print(f"  Loaded {len(human_corrections)} human feedback corrections")
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"  WARNING: Failed to load ticker_corrections.json: {e}")
+
     # Apply fixes
     stats = defaultdict(int)
 
@@ -622,29 +634,22 @@ def postprocess(
             stats['threshold_reextracted'] += 1
 
         # Fix 15: Apply corrections derived from human feedback
-        corrections_file = tickers_file.parent / "ticker_corrections.json"
-        if corrections_file.exists():
-            try:
-                with open(corrections_file) as cf:
-                    corr_data = json.load(cf)
-                for corr in corr_data.get("corrections", []):
-                    corr_type = corr.get("type", "")
-                    from_val = corr.get("from", "")
-                    to_val = corr.get("to", "")
-                    if corr_type == "mechanism_alias" and ticker.get("mechanism") == from_val:
-                        ticker["mechanism"] = to_val
-                        stats["correction_mechanism_alias"] += 1
-                    elif corr_type == "agent_alias" and ticker.get("agent") == from_val:
-                        ticker["agent"] = to_val
-                        stats["correction_agent_alias"] += 1
-                    elif corr_type == "target_alias" and ticker.get("target") == from_val:
-                        ticker["target"] = to_val
-                        stats["correction_target_alias"] += 1
-                    elif corr_type == "timeframe_alias" and ticker.get("timeframe") == from_val:
-                        ticker["timeframe"] = to_val
-                        stats["correction_timeframe_alias"] += 1
-            except (json.JSONDecodeError, OSError):
-                pass  # Skip if corrections file is invalid
+        for corr in human_corrections:
+            corr_type = corr.get("type", "")
+            from_val = corr.get("from", "")
+            to_val = corr.get("to", "")
+            if corr_type == "mechanism_alias" and ticker.get("mechanism") == from_val:
+                ticker["mechanism"] = to_val
+                stats["correction_mechanism_alias"] += 1
+            elif corr_type == "agent_alias" and ticker.get("agent") == from_val:
+                ticker["agent"] = to_val
+                stats["correction_agent_alias"] += 1
+            elif corr_type == "target_alias" and ticker.get("target") == from_val:
+                ticker["target"] = to_val
+                stats["correction_target_alias"] += 1
+            elif corr_type == "timeframe_alias" and ticker.get("timeframe") == from_val:
+                ticker["timeframe"] = to_val
+                stats["correction_timeframe_alias"] += 1
 
         # Reassemble ticker string
         ticker['ticker'] = reassemble_ticker(ticker)

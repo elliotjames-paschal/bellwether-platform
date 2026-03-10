@@ -524,10 +524,16 @@ def main():
         results["postprocess_tickers"] = success
         step_results["postprocess_tickers"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
+        # Generate a shared batch ID for all feedback pipeline steps
+        from datetime import datetime as _dt, timezone as _tz
+        feedback_batch_id = _dt.now(_tz.utc).strftime("batch_%Y%m%d_%H%M%S")
+        logger.info(f"Feedback pipeline batch: {feedback_batch_id}")
+
         # Step 2b.1: Ingest human feedback from Google Sheet
         success = run_script(
             "pipeline_ingest_feedback.py",
             "Ingest human feedback from Google Sheet",
+            args=["--batch-id", feedback_batch_id],
             required=False
         )
         results["ingest_feedback"] = success
@@ -537,6 +543,7 @@ def main():
         success = run_script(
             "pipeline_apply_human_labels.py",
             "Apply human labels (ground truth overrides)",
+            args=["--batch-id", feedback_batch_id],
             required=False
         )
         results["apply_human_labels"] = success
@@ -546,6 +553,7 @@ def main():
         success = run_script(
             "pipeline_evaluate_matches.py",
             "Evaluate match accuracy vs human labels",
+            args=["--batch-id", feedback_batch_id],
             required=False
         )
         results["evaluate_matches"] = success
@@ -588,6 +596,7 @@ def main():
         success = run_script(
             "generate_ticker_corrections.py",
             "Generate ticker corrections from human feedback errors",
+            args=["--batch-id", feedback_batch_id],
             required=False
         )
         results["ticker_corrections"] = success

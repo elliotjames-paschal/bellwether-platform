@@ -39,6 +39,14 @@ FEEDBACK_CSV_URL = (
 # reviewed and applied manually, so we skip them.
 DEFAULT_LAST_INGESTED = "2026-02-12T22:41:28.460Z"
 
+
+def generate_batch_id() -> str:
+    """Generate a batch ID from current UTC timestamp.
+
+    Format: batch_YYYYMMDD_HHMMSS
+    """
+    return datetime.now(timezone.utc).strftime("batch_%Y%m%d_%H%M%S")
+
 # --- Label type normalization ---
 LABEL_TYPE_MAP = {
     "same-event": "same_event_same_rules",
@@ -144,6 +152,9 @@ def fetch_feedback_csv(url: str) -> list:
         content = response.read().decode("utf-8")
 
     reader = csv.DictReader(io.StringIO(content))
+    # Strip whitespace from header names (Google Sheets may add trailing spaces)
+    if reader.fieldnames:
+        reader.fieldnames = [name.strip() for name in reader.fieldnames]
     rows = list(reader)
     return rows
 
@@ -189,7 +200,7 @@ def parse_timestamp(ts_str: str) -> datetime:
     raise ValueError(f"Cannot parse timestamp: {ts_str!r}")
 
 
-def ingest_new_rows(csv_rows: list, existing_data: dict, tickers_data: dict) -> tuple:
+def ingest_new_rows(csv_rows: list, existing_data: dict, tickers_data: dict, batch_id: str = None) -> tuple:
     """Process CSV rows newer than last_ingested_timestamp.
 
     Args:
@@ -206,7 +217,7 @@ def ingest_new_rows(csv_rows: list, existing_data: dict, tickers_data: dict) -> 
     try:
         last_ts = parse_timestamp(last_ts_str)
     except ValueError:
-        last_ts = datetime.min
+        last_ts = parse_timestamp(DEFAULT_LAST_INGESTED)
 
     # Build lookup for dedup
     existing_ids = {label["label_id"] for label in existing_data.get("labels", [])}
@@ -218,6 +229,9 @@ def ingest_new_rows(csv_rows: list, existing_data: dict, tickers_data: dict) -> 
     latest_ts = last_ts
 
     for row in csv_rows:
+        # Normalize column names — Google Sheets CSV may have trailing spaces
+        row = {k.strip(): v for k, v in row.items()}
+
         ts_str = row.get("Timestamp", "").strip()
         if not ts_str:
             continue
@@ -270,6 +284,7 @@ def ingest_new_rows(csv_rows: list, existing_data: dict, tickers_data: dict) -> 
             "status": "pending",
             "applied_at": None,
             "applied_action": None,
+            "ingested_batch_id": batch_id,
         }
 
         new_labels.append(label)
@@ -291,9 +306,12 @@ def main():
     parser = argparse.ArgumentParser(description="Ingest human feedback from Google Sheet")
     parser.add_argument("--dry-run", action="store_true", help="Print changes without writing")
     parser.add_argument("--csv-file", type=str, help="Read from local CSV file instead of Google Sheet")
+    parser.add_argument("--batch-id", type=str, default=None,
+                        help="Batch ID for traceability (auto-generated if not provided)")
     args = parser.parse_args()
 
-    print(f"[{datetime.now(timezone.utc).isoformat()}] Ingesting human feedback...")
+    batch_id = args.batch_id or generate_batch_id()
+    print(f"[{datetime.now(timezone.utc).isoformat()}] Ingesting human feedback (batch: {batch_id})...")
 
     # Load existing data
     existing_data = load_human_labels()
@@ -322,7 +340,7 @@ def main():
     print(f"  Total CSV rows: {len(csv_rows)}")
 
     # Ingest new rows
-    new_labels, latest_ts = ingest_new_rows(csv_rows, existing_data, tickers_data)
+    new_labels, latest_ts = ingest_new_rows(csv_rows, existing_data, tickers_data, batch_id=batch_id)
 
     if not new_labels:
         print("  No new feedback rows to ingest.")
@@ -340,8 +358,7 @@ def main():
     existing_data["labels"].extend(new_labels)
     existing_data["last_ingested_timestamp"] = latest_ts
     existing_data["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-
-    existing_data["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+    existing_data["last_batch_id"] = batch_id
     atomic_write_json(HUMAN_LABELS_FILE, existing_data, indent=2, ensure_ascii=False)
     print(f"  Wrote {len(new_labels)} new labels to {HUMAN_LABELS_FILE.name}")
     print(f"  Updated last_ingested_timestamp to {latest_ts}")

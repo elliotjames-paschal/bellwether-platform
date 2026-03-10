@@ -20,6 +20,7 @@ Writes: Same files (modified), data/human_labels.json (status updates)
 import sys
 import csv
 import json
+import hashlib
 import argparse
 from pathlib import Path
 from datetime import datetime, timezone
@@ -32,6 +33,7 @@ HUMAN_LABELS_FILE = DATA_DIR / "human_labels.json"
 TICKERS_FILE = DATA_DIR / "tickers_postprocessed.json"
 REVIEWED_PAIRS_FILE = DATA_DIR / "cross_platform_reviewed_pairs.json"
 NEAR_MATCHES_FILE = DATA_DIR / "near_matches.json"
+MATCH_EXCLUSIONS_FILE = DATA_DIR / "match_exclusions.json"
 MASTER_CSV_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 
 # Valid political categories
@@ -104,6 +106,11 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
+def generate_batch_id() -> str:
+    """Generate a batch ID from current UTC timestamp."""
+    return datetime.now(timezone.utc).strftime("batch_%Y%m%d_%H%M%S")
+
+
 def validate_same_event_pair(ticker_a: dict, ticker_b: dict) -> tuple:
     """Validate whether two tickers can be safely unified.
 
@@ -165,7 +172,7 @@ def choose_canonical_ticker(ticker_a: dict, ticker_b: dict) -> dict:
     return ticker_b
 
 
-def apply_same_event_same_rules(labels: list, tickers_by_id: dict) -> tuple:
+def apply_same_event_same_rules(labels: list, tickers_by_id: dict, batch_id: str = None) -> tuple:
     """Apply same-event-same-rules labels by unifying tickers.
 
     Returns (applied_count, results_list).
@@ -199,20 +206,30 @@ def apply_same_event_same_rules(labels: list, tickers_by_id: dict) -> tuple:
             results.append(("skip", label["label_id"], "missing tickers"))
             continue
 
-        # Validate the first pair (for N>2, validate pairwise from first)
-        can_unify, reason = validate_same_event_pair(ticker_objs[0], ticker_objs[1])
+        # Validate ALL pairs (not just first — important for N>2 markets)
+        all_matched = True
+        any_unsafe = False
+        unsafe_reason = ""
+        for i in range(len(ticker_objs)):
+            for j in range(i + 1, len(ticker_objs)):
+                can, reason = validate_same_event_pair(ticker_objs[i], ticker_objs[j])
+                if reason != "already_matched":
+                    all_matched = False
+                if not can:
+                    any_unsafe = True
+                    unsafe_reason = reason
 
-        if reason == "already_matched":
+        if all_matched:
             label["status"] = "applied"
             label["applied_at"] = now_iso()
             label["applied_action"] = "already_matched"
             results.append(("already", label["label_id"], "already matched"))
             continue
 
-        if not can_unify:
+        if any_unsafe:
             label["status"] = "needs_review"
-            label["applied_action"] = f"validation_failed: {reason}"
-            results.append(("needs_review", label["label_id"], reason))
+            label["applied_action"] = f"validation_failed: {unsafe_reason}"
+            results.append(("needs_review", label["label_id"], unsafe_reason))
             continue
 
         # Choose canonical ticker and unify
@@ -234,12 +251,13 @@ def apply_same_event_same_rules(labels: list, tickers_by_id: dict) -> tuple:
         label["status"] = "applied"
         label["applied_at"] = now_iso()
         label["applied_action"] = "unified_tickers"
+        label["applied_batch_id"] = batch_id
         applied += 1
 
     return applied, results
 
 
-def apply_same_event_different_rules(labels: list, tickers_by_id: dict) -> tuple:
+def apply_same_event_different_rules(labels: list, tickers_by_id: dict, batch_id: str = None) -> tuple:
     """Apply same-event-different-rules labels by adding to near_matches.
 
     Returns (entries_to_add, results).
@@ -289,20 +307,29 @@ def apply_same_event_different_rules(labels: list, tickers_by_id: dict) -> tuple
         label["status"] = "applied"
         label["applied_at"] = now_iso()
         label["applied_action"] = "added_near_match"
+        label["applied_batch_id"] = batch_id
         results.append(("near_match", label["label_id"], f"{len(market_ids)} markets"))
 
     return entries, results
 
 
-def apply_different_event(labels: list, tickers_by_id: dict) -> tuple:
-    """Apply different-event labels by breaking incorrect matches.
+def compute_exclusion_id(market_id_a: str, market_id_b: str) -> str:
+    """Deterministic exclusion ID from sorted market ID pair."""
+    ids = sorted([str(market_id_a), str(market_id_b)])
+    key = f"{ids[0]}|{ids[1]}"
+    return "exc_" + hashlib.sha256(key.encode()).hexdigest()[:12]
+
+
+def apply_different_event(labels: list, tickers_by_id: dict, batch_id: str = None) -> tuple:
+    """Apply different-event labels by adding match exclusions.
 
     If two markets have the same ticker but human says different event,
-    append '_SPLIT' suffix to the second market's ticker to break the match.
+    create exclusion entries so generate_market_map.py keeps them in
+    separate groups. Tickers are NOT modified.
 
-    Returns (modified_count, pair_entries, results).
+    Returns (exclusion_entries, pair_entries, results).
     """
-    modified = 0
+    exclusion_entries = []
     pair_entries = []
     results = []
 
@@ -329,21 +356,29 @@ def apply_different_event(labels: list, tickers_by_id: dict) -> tuple:
             label["applied_action"] = "already_different"
             results.append(("already", label["label_id"], "already different tickers"))
         elif len(unique) == 1:
-            # Same ticker — break the match on the second market
-            second_mid = market_ids[1]
-            obj = tickers_by_id.get(second_mid)
-            if obj:
-                old_ticker = obj["ticker"]
-                obj["ticker"] = old_ticker + "_SPLIT"
-                obj["match_source"] = "human"
-                obj["human_label_id"] = label["label_id"]
-                modified += 1
-                results.append(("split", label["label_id"],
-                                f"{old_ticker} -> {obj['ticker']}"))
+            shared_ticker = list(unique)[0]
+            # Same ticker — create pairwise exclusion entries
+            for i in range(len(market_ids)):
+                for j in range(i + 1, len(market_ids)):
+                    exc_id = compute_exclusion_id(market_ids[i], market_ids[j])
+                    exclusion_entries.append({
+                        "exclusion_id": exc_id,
+                        "market_id_a": sorted([str(market_ids[i]), str(market_ids[j])])[0],
+                        "market_id_b": sorted([str(market_ids[i]), str(market_ids[j])])[1],
+                        "ticker": shared_ticker,
+                        "reason": "different_event",
+                        "source_label_id": label["label_id"],
+                        "created_at": now_iso(),
+                        "batch_id": batch_id,
+                    })
+
+            results.append(("excluded", label["label_id"],
+                            f"{len(market_ids)} markets, ticker {shared_ticker}"))
 
             label["status"] = "applied"
             label["applied_at"] = now_iso()
-            label["applied_action"] = "split_ticker"
+            label["applied_action"] = "excluded_match"
+            label["applied_batch_id"] = batch_id
         else:
             label["status"] = "needs_review"
             label["applied_action"] = "no_tickers_found"
@@ -359,10 +394,10 @@ def apply_different_event(labels: list, tickers_by_id: dict) -> tuple:
                     "match_source": "human",
                 })
 
-    return modified, pair_entries, results
+    return exclusion_entries, pair_entries, results
 
 
-def apply_not_political(labels: list, master_csv_path: Path) -> tuple:
+def apply_not_political(labels: list, master_csv_path: Path, batch_id: str = None) -> tuple:
     """Mark markets as NOT_POLITICAL in the master CSV.
 
     Returns (modified_count, results).
@@ -407,6 +442,7 @@ def apply_not_political(labels: list, master_csv_path: Path) -> tuple:
         label["status"] = "applied"
         label["applied_at"] = now_iso()
         label["applied_action"] = "marked_not_political"
+        label["applied_batch_id"] = batch_id
         results.append(("not_political", label["label_id"],
                         f"{len(label.get('market_ids', []))} markets"))
 
@@ -425,7 +461,7 @@ def detect_category_in_description(description: str) -> str:
     return ""
 
 
-def apply_wrong_category(labels: list, master_csv_path: Path) -> tuple:
+def apply_wrong_category(labels: list, master_csv_path: Path, batch_id: str = None) -> tuple:
     """Recategorize markets based on human labels.
 
     Only applies if the description contains a recognizable category name.
@@ -483,6 +519,7 @@ def apply_wrong_category(labels: list, master_csv_path: Path) -> tuple:
         label["status"] = "applied"
         label["applied_at"] = now_iso()
         label["applied_action"] = "recategorized"
+        label["applied_batch_id"] = batch_id
         results.append(("recategorized", label["label_id"],
                         f"{len(label.get('market_ids', []))} markets"))
 
@@ -524,12 +561,61 @@ def add_to_reviewed_pairs(labels: list, reviewed_data: dict) -> int:
     return added
 
 
+def migrate_split_tickers(tickers_by_id: dict) -> list:
+    """Migrate any existing _SPLIT tickers to exclusion entries.
+
+    Strips _SPLIT suffix from ticker strings and creates exclusion entries
+    for each _SPLIT ticker paired with any other market sharing the base ticker.
+
+    Returns list of exclusion entries created.
+    """
+    exclusion_entries = []
+    split_tickers = {}
+
+    # Find all _SPLIT tickers
+    for mid, obj in tickers_by_id.items():
+        ticker = obj.get("ticker", "")
+        if ticker.endswith("_SPLIT"):
+            base_ticker = ticker[:-6]  # Remove "_SPLIT"
+            split_tickers[mid] = base_ticker
+
+    if not split_tickers:
+        return []
+
+    # For each _SPLIT ticker, find markets sharing the base ticker
+    for split_mid, base_ticker in split_tickers.items():
+        # Fix the ticker — remove _SPLIT
+        tickers_by_id[split_mid]["ticker"] = base_ticker
+
+        # Find other markets with this base ticker
+        for other_mid, other_obj in tickers_by_id.items():
+            if other_mid == split_mid:
+                continue
+            if other_obj.get("ticker") == base_ticker:
+                exc_id = compute_exclusion_id(split_mid, other_mid)
+                exclusion_entries.append({
+                    "exclusion_id": exc_id,
+                    "market_id_a": sorted([str(split_mid), str(other_mid)])[0],
+                    "market_id_b": sorted([str(split_mid), str(other_mid)])[1],
+                    "ticker": base_ticker,
+                    "reason": "migrated_from_split",
+                    "source_label_id": tickers_by_id[split_mid].get("human_label_id", ""),
+                    "created_at": now_iso(),
+                    "batch_id": "migration",
+                })
+
+    return exclusion_entries
+
+
 def main():
     parser = argparse.ArgumentParser(description="Apply human labels as pipeline overrides")
     parser.add_argument("--dry-run", action="store_true", help="Print changes without writing")
+    parser.add_argument("--batch-id", type=str, default=None,
+                        help="Batch ID for traceability (auto-generated if not provided)")
     args = parser.parse_args()
 
-    print(f"[{now_iso()}] Applying human labels...")
+    batch_id = args.batch_id or generate_batch_id()
+    print(f"[{now_iso()}] Applying human labels (batch: {batch_id})...")
 
     # Load data
     human_data = load_json(HUMAN_LABELS_FILE, {"labels": []})
@@ -550,30 +636,35 @@ def main():
 
     print(f"  Tickers loaded: {len(tickers_by_id)}")
 
+    # Migrate any existing _SPLIT tickers to exclusion entries
+    migration_exclusions = migrate_split_tickers(tickers_by_id)
+    if migration_exclusions:
+        print(f"  Migrated {len(migration_exclusions)} _SPLIT tickers to exclusions")
+
     all_results = []
 
     # 1. Apply same-event-same-rules
-    unified, results = apply_same_event_same_rules(labels, tickers_by_id)
+    unified, results = apply_same_event_same_rules(labels, tickers_by_id, batch_id=batch_id)
     all_results.extend(results)
     print(f"  Same-event-same-rules: {unified} unified")
 
     # 2. Apply same-event-different-rules
-    near_entries, results = apply_same_event_different_rules(labels, tickers_by_id)
+    near_entries, results = apply_same_event_different_rules(labels, tickers_by_id, batch_id=batch_id)
     all_results.extend(results)
     print(f"  Same-event-different-rules: {len(near_entries)} near-match entries")
 
-    # 3. Apply different-event
-    split_count, diff_pair_entries, results = apply_different_event(labels, tickers_by_id)
+    # 3. Apply different-event (match exclusions)
+    exclusion_entries, diff_pair_entries, results = apply_different_event(labels, tickers_by_id, batch_id=batch_id)
     all_results.extend(results)
-    print(f"  Different-event: {split_count} tickers split")
+    print(f"  Different-event: {len(exclusion_entries)} exclusion entries")
 
     # 4. Apply not-political
-    np_count, results = apply_not_political(labels, MASTER_CSV_FILE)
+    np_count, results = apply_not_political(labels, MASTER_CSV_FILE, batch_id=batch_id)
     all_results.extend(results)
     print(f"  Not-political: {np_count} markets updated")
 
     # 5. Apply wrong-category
-    wc_count, results = apply_wrong_category(labels, MASTER_CSV_FILE)
+    wc_count, results = apply_wrong_category(labels, MASTER_CSV_FILE, batch_id=batch_id)
     all_results.extend(results)
     print(f"  Wrong-category: {wc_count} markets recategorized")
 
@@ -596,6 +687,20 @@ def main():
     # Tickers
     atomic_write_json(TICKERS_FILE, tickers_data, indent=2)
     print(f"  Wrote {TICKERS_FILE.name}")
+
+    # Match exclusions (combine new + migrated)
+    all_exclusions = exclusion_entries + migration_exclusions
+    if all_exclusions:
+        existing_exclusions = load_json(MATCH_EXCLUSIONS_FILE, {
+            "schema_version": 1, "updated_at": None, "exclusions": []
+        })
+        existing_exc_ids = {e["exclusion_id"] for e in existing_exclusions.get("exclusions", [])}
+        for entry in all_exclusions:
+            if entry["exclusion_id"] not in existing_exc_ids:
+                existing_exclusions["exclusions"].append(entry)
+        existing_exclusions["updated_at"] = now_iso()
+        atomic_write_json(MATCH_EXCLUSIONS_FILE, existing_exclusions, indent=2)
+        print(f"  Wrote {MATCH_EXCLUSIONS_FILE.name} ({len(all_exclusions)} new exclusions)")
 
     # Near matches
     existing_near = load_json(NEAR_MATCHES_FILE, [])

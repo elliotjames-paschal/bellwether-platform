@@ -16,7 +16,8 @@ from generate_ticker_corrections import (
     analyze_error_patterns,
     generate_corrections,
     parse_ticker_components,
-    MIN_FREQUENCY,
+    MIN_FREQUENCY_DEFAULT,
+    MIN_FREQUENCY_BY_TYPE,
 )
 
 
@@ -168,7 +169,7 @@ class TestAnalyzeErrorPatterns:
                 },
             ]
         }
-        corrections = analyze_error_patterns(report)
+        corrections = analyze_error_patterns(report, min_frequency=2)
         assert len(corrections) == 1
         assert corrections[0]["type"] == "agent_alias"
         assert set([corrections[0]["from"], corrections[0]["to"]]) == {"POWELL", "J_POWELL"}
@@ -244,7 +245,7 @@ class TestAnalyzeErrorPatterns:
                  "pipeline_tickers": ["BWR-X-L-Q-STD-ANY-28", "BWR-Y-L-Q-STD-ANY-28"]},
             ]
         }
-        corrections = analyze_error_patterns(report)
+        corrections = analyze_error_patterns(report, min_frequency=2)
         assert len(corrections) == 2
         assert corrections[0]["frequency"] >= corrections[1]["frequency"]
 

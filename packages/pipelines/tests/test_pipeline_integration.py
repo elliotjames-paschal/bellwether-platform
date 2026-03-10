@@ -352,3 +352,237 @@ class TestEndToEndFeedbackLoop:
         # Original tickers unchanged
         assert tickers_by_id["K1"]["ticker"] == "BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028"
         assert tickers_by_id["P1"]["ticker"] == "BWR-HARRIS-WIN-PRES_US-CERTIFIED-ANY-2028"
+
+
+# ──────────────────────────────────────────────────
+# Batch ID traceability
+# ──────────────────────────────────────────────────
+
+
+class TestBatchIdTraceability:
+    """Test that batch_id flows through the entire pipeline."""
+
+    def test_batch_id_flows_through_full_cycle(self, tmp_path):
+        """A single batch_id should appear on ingested labels, applied labels,
+        the accuracy report, and the corrections file."""
+        from pipeline_ingest_feedback import ingest_new_rows, build_ticker_lookup
+        from pipeline_evaluate_matches import evaluate_same_event_labels, generate_report, build_market_id_to_ticker
+        from pipeline_apply_human_labels import apply_same_event_same_rules
+        from generate_ticker_corrections import generate_corrections
+
+        batch_id = "batch_20260310_143000"
+
+        tickers_data = {
+            "tickers": [
+                {"market_id": "K1", "ticker": "BWR-WARSH-APPOINT-FED_CHAIR-CERTIFIED-ANY-2029",
+                 "agent": "WARSH", "action": "APPOINT", "target": "FED_CHAIR",
+                 "mechanism": "CERTIFIED", "threshold": "ANY", "timeframe": "2029",
+                 "platform": "Kalshi"},
+                {"market_id": "P1", "ticker": "BWR-WARSH-APPOINT-FED_CHAIR-STD-ANY-2029",
+                 "agent": "WARSH", "action": "APPOINT", "target": "FED_CHAIR",
+                 "mechanism": "STD", "threshold": "ANY", "timeframe": "2029",
+                 "platform": "Polymarket"},
+            ]
+        }
+        existing_data = {
+            "schema_version": 1, "updated_at": None,
+            "last_ingested_timestamp": "2026-02-12T22:41:28.460Z",
+            "labels": [],
+        }
+        csv_rows = [{
+            "Timestamp": "2026-03-01T10:00:00.000Z",
+            "Feedback Type": "same-event:same-rules",
+            "Description": "Warsh Fed Chair",
+            "Market Count": "2",
+            "Markets (JSON)": json.dumps([
+                {"key": "BWR-WARSH-APPOINT-FED_CHAIR-CERTIFIED-ANY-2029", "label": "K", "platform": "Kalshi"},
+                {"key": "BWR-WARSH-APPOINT-FED_CHAIR-STD-ANY-2029", "label": "PM", "platform": "Polymarket"},
+            ]),
+        }]
+
+        # 1. Ingest with batch_id
+        new_labels, _ = ingest_new_rows(csv_rows, existing_data, tickers_data, batch_id=batch_id)
+        assert len(new_labels) == 1
+        assert new_labels[0]["ingested_batch_id"] == batch_id
+
+        # 2. Apply with batch_id
+        tickers_by_id = {str(t["market_id"]): t for t in tickers_data["tickers"]}
+        applied, _ = apply_same_event_same_rules(new_labels, tickers_by_id, batch_id=batch_id)
+        assert applied == 1
+        assert new_labels[0]["applied_batch_id"] == batch_id
+
+        # 3. Evaluate with batch_id
+        id_lookup = build_market_id_to_ticker(tickers_data)
+        same_eval = evaluate_same_event_labels(new_labels, id_lookup)
+        category_eval = {"correct": [], "incorrect": [], "skipped": 0}
+        report = generate_report(same_eval, category_eval, batch_id=batch_id)
+        assert report["batch_id"] == batch_id
+
+        # 4. Corrections with batch_id
+        corrections = generate_corrections(report, batch_id=batch_id)
+        assert corrections["batch_id"] == batch_id
+
+
+# ──────────────────────────────────────────────────
+# Edge cases and error handling
+# ──────────────────────────────────────────────────
+
+
+class TestEdgeCases:
+    def test_empty_markets_json_skipped(self):
+        """Rows with empty or invalid Markets (JSON) should be skipped."""
+        from pipeline_ingest_feedback import ingest_new_rows
+
+        existing = {
+            "schema_version": 1, "updated_at": None,
+            "last_ingested_timestamp": "2026-01-01T00:00:00.000Z",
+            "labels": [],
+        }
+        rows = [
+            {"Timestamp": "2026-03-01T10:00:00.000Z", "Feedback Type": "other",
+             "Description": "test", "Market Count": "0", "Markets (JSON)": ""},
+            {"Timestamp": "2026-03-01T11:00:00.000Z", "Feedback Type": "other",
+             "Description": "test", "Market Count": "0", "Markets (JSON)": "not json"},
+            {"Timestamp": "2026-03-01T12:00:00.000Z", "Feedback Type": "other",
+             "Description": "test", "Market Count": "0", "Markets (JSON)": "[]"},
+        ]
+        new_labels, _ = ingest_new_rows(rows, existing, {"tickers": []})
+        assert len(new_labels) == 0
+
+    def test_label_with_single_market_skipped_for_same_event(self):
+        """Same-event labels with <2 markets should be needs_review."""
+        from pipeline_apply_human_labels import apply_same_event_same_rules
+
+        labels = [{
+            "label_id": "hl_single",
+            "label_type": "same_event_same_rules",
+            "market_ids": ["K1"],
+            "status": "pending",
+            "applied_at": None,
+            "applied_action": None,
+        }]
+        applied, _ = apply_same_event_same_rules(labels, {})
+        assert applied == 0
+        assert labels[0]["status"] == "needs_review"
+
+    def test_stale_market_ids_handled(self):
+        """Labels referencing market_ids not in tickers should be needs_review."""
+        from pipeline_apply_human_labels import apply_same_event_same_rules
+
+        labels = [{
+            "label_id": "hl_stale",
+            "label_type": "same_event_same_rules",
+            "market_ids": ["GONE1", "GONE2"],
+            "status": "pending",
+            "applied_at": None,
+            "applied_action": None,
+        }]
+        applied, _ = apply_same_event_same_rules(labels, {})
+        assert applied == 0
+        assert labels[0]["status"] == "needs_review"
+
+    def test_idempotency_already_applied_skipped(self):
+        """Labels already applied should not be re-processed."""
+        from pipeline_apply_human_labels import apply_same_event_same_rules
+
+        tickers_by_id = {
+            "K1": {"market_id": "K1", "ticker": "BWR-X-Y-Z-CERTIFIED-ANY-2028",
+                   "agent": "X", "action": "Y", "target": "Z",
+                   "mechanism": "CERTIFIED", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Kalshi"},
+            "P1": {"market_id": "P1", "ticker": "BWR-X-Y-Z-STD-ANY-2028",
+                   "agent": "X", "action": "Y", "target": "Z",
+                   "mechanism": "STD", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Polymarket"},
+        }
+        labels = [{
+            "label_id": "hl_done",
+            "label_type": "same_event_same_rules",
+            "market_ids": ["K1", "P1"],
+            "status": "applied",
+            "applied_at": "2026-03-01T00:00:00.000Z",
+            "applied_action": "unified_tickers",
+        }]
+        applied, _ = apply_same_event_same_rules(labels, tickers_by_id)
+        assert applied == 0
+        # P1 mechanism should be unchanged
+        assert tickers_by_id["P1"]["mechanism"] == "STD"
+
+    def test_unicode_description_preserved(self):
+        """Unicode in descriptions should be preserved."""
+        from pipeline_ingest_feedback import ingest_new_rows
+
+        existing = {
+            "schema_version": 1, "updated_at": None,
+            "last_ingested_timestamp": "2026-01-01T00:00:00.000Z",
+            "labels": [],
+        }
+        rows = [{
+            "Timestamp": "2026-03-01T10:00:00.000Z",
+            "Feedback Type": "other",
+            "Description": "Flávio Bolsonaro — not Jair",
+            "Market Count": "1",
+            "Markets (JSON)": json.dumps([{"key": "BWR-X-Y-Z-STD-ANY-2026", "label": "L", "platform": "K"}]),
+        }]
+        new_labels, _ = ingest_new_rows(rows, existing, {"tickers": []})
+        assert len(new_labels) == 1
+        assert "Flávio" in new_labels[0]["description"]
+        assert "—" in new_labels[0]["description"]
+
+    def test_corrections_applied_once_not_per_ticker(self, tmp_path):
+        """Fix #15 should load corrections once, not per ticker."""
+        from postprocess_tickers import postprocess
+
+        corrections = {
+            "corrections": [
+                {"type": "mechanism_alias", "from": "PROJECTED", "to": "CERTIFIED", "frequency": 5}
+            ]
+        }
+        (tmp_path / "ticker_corrections.json").write_text(json.dumps(corrections))
+
+        tickers_data = {
+            "tickers": [
+                {"market_id": f"K{i}", "ticker": f"BWR-X-Y-Z-PROJECTED-ANY-2028",
+                 "agent": "X", "action": "Y", "target": "Z",
+                 "mechanism": "PROJECTED", "threshold": "ANY", "timeframe": "2028",
+                 "platform": "Kalshi"}
+                for i in range(100)
+            ]
+        }
+        tickers_file = tmp_path / "tickers.json"
+        tickers_file.write_text(json.dumps(tickers_data))
+
+        enriched = {"markets": []}
+        enriched_file = tmp_path / "enriched.json"
+        enriched_file.write_text(json.dumps(enriched))
+
+        output_file = tmp_path / "output.json"
+        postprocess(tickers_file, enriched_file, output_file)
+
+        with open(output_file) as f:
+            result = json.load(f)
+
+        # All 100 tickers should have CERTIFIED
+        for t in result["tickers"]:
+            assert t["mechanism"] == "CERTIFIED"
+
+    def test_timestamp_fallback_uses_default(self):
+        """Invalid last_ingested_timestamp should fall back to DEFAULT, not datetime.min."""
+        from pipeline_ingest_feedback import ingest_new_rows, DEFAULT_LAST_INGESTED
+
+        existing = {
+            "schema_version": 1, "updated_at": None,
+            "last_ingested_timestamp": "INVALID_TIMESTAMP",
+            "labels": [],
+        }
+        # Row before DEFAULT_LAST_INGESTED should be skipped
+        rows = [{
+            "Timestamp": "2026-02-01T00:00:00.000Z",
+            "Feedback Type": "other",
+            "Description": "old row",
+            "Market Count": "1",
+            "Markets (JSON)": json.dumps([{"key": "BWR-X-Y-Z-STD-ANY-2026", "label": "L", "platform": "K"}]),
+        }]
+        new_labels, _ = ingest_new_rows(rows, existing, {"tickers": []})
+        # Should be skipped because 2026-02-01 < DEFAULT (2026-02-12)
+        assert len(new_labels) == 0

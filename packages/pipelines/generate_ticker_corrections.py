@@ -30,8 +30,15 @@ HUMAN_LABELS_FILE = DATA_DIR / "human_labels.json"
 TICKERS_FILE = DATA_DIR / "tickers_postprocessed.json"
 CORRECTIONS_FILE = DATA_DIR / "ticker_corrections.json"
 
-# Minimum frequency to generate a correction rule
-MIN_FREQUENCY = 2
+# Minimum frequency to generate a correction rule, per type.
+# Higher thresholds for riskier corrections (renaming people/offices).
+MIN_FREQUENCY_DEFAULT = 2
+MIN_FREQUENCY_BY_TYPE = {
+    "mechanism_alias": 2,   # Low risk: resolution method (PROJECTED→CERTIFIED)
+    "timeframe_alias": 2,   # Low risk: date formatting (2026 vs 2026_Q3)
+    "target_alias":    4,   # Medium-high risk: could merge different offices
+    "agent_alias":     5,   # High risk: could merge different people
+}
 
 
 def parse_ticker_components(ticker_str: str) -> dict:
@@ -92,7 +99,7 @@ def classify_disagreement(tickers: list) -> dict:
         return {"error_type": "multi_field", "details": diffs}
 
 
-def analyze_error_patterns(report: dict, min_frequency: int = MIN_FREQUENCY) -> list:
+def analyze_error_patterns(report: dict, min_frequency: int | dict = MIN_FREQUENCY_BY_TYPE) -> list:
     """Group false negatives by error type and extract correction rules.
 
     Returns list of correction dicts sorted by frequency.
@@ -119,6 +126,12 @@ def analyze_error_patterns(report: dict, min_frequency: int = MIN_FREQUENCY) -> 
         classification["tickers"] = tickers
         error_classifications.append(classification)
 
+    # Resolve min_frequency per correction type
+    def _min_freq(correction_type: str) -> int:
+        if isinstance(min_frequency, dict):
+            return min_frequency.get(correction_type, MIN_FREQUENCY_DEFAULT)
+        return min_frequency
+
     # Count patterns
     corrections = []
 
@@ -140,7 +153,7 @@ def analyze_error_patterns(report: dict, min_frequency: int = MIN_FREQUENCY) -> 
                 mech_pairs[pair] += 1
 
             for (from_val, to_val), count in mech_pairs.items():
-                if count >= min_frequency:
+                if count >= _min_freq("mechanism_alias"):
                     corrections.append({
                         "type": "mechanism_alias",
                         "from": from_val,
@@ -158,7 +171,7 @@ def analyze_error_patterns(report: dict, min_frequency: int = MIN_FREQUENCY) -> 
                 agent_pairs[pair] += 1
 
             for (from_val, to_val), count in agent_pairs.items():
-                if count >= min_frequency:
+                if count >= _min_freq("agent_alias"):
                     corrections.append({
                         "type": "agent_alias",
                         "from": from_val,
@@ -176,7 +189,7 @@ def analyze_error_patterns(report: dict, min_frequency: int = MIN_FREQUENCY) -> 
                 target_pairs[pair] += 1
 
             for (from_val, to_val), count in target_pairs.items():
-                if count >= min_frequency:
+                if count >= _min_freq("target_alias"):
                     corrections.append({
                         "type": "target_alias",
                         "from": from_val,
@@ -194,7 +207,7 @@ def analyze_error_patterns(report: dict, min_frequency: int = MIN_FREQUENCY) -> 
                 tf_pairs[pair] += 1
 
             for (from_val, to_val), count in tf_pairs.items():
-                if count >= min_frequency:
+                if count >= _min_freq("timeframe_alias"):
                     corrections.append({
                         "type": "timeframe_alias",
                         "from": from_val,
@@ -209,7 +222,7 @@ def analyze_error_patterns(report: dict, min_frequency: int = MIN_FREQUENCY) -> 
     return corrections
 
 
-def generate_corrections(report: dict, min_frequency: int = MIN_FREQUENCY) -> dict:
+def generate_corrections(report: dict, min_frequency: int | dict = MIN_FREQUENCY_BY_TYPE, batch_id: str = None) -> dict:
     """Generate the corrections file from the accuracy report.
 
     Returns the full corrections dict to write.
@@ -217,26 +230,61 @@ def generate_corrections(report: dict, min_frequency: int = MIN_FREQUENCY) -> di
     corrections = analyze_error_patterns(report, min_frequency=min_frequency)
     label_count = report.get("sample_size", 0)
 
+    # Record the effective thresholds used
+    if isinstance(min_frequency, dict):
+        freq_record = min_frequency
+    else:
+        freq_record = {k: min_frequency for k in MIN_FREQUENCY_BY_TYPE}
+
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+        "batch_id": batch_id,
         "source_label_count": label_count,
         "correction_count": len(corrections),
-        "min_frequency": min_frequency,
+        "min_frequency": freq_record,
         "corrections": corrections,
     }
 
 
 def main():
     parser = argparse.ArgumentParser(description="Generate ticker corrections from error patterns")
-    parser.add_argument("--min-frequency", type=int, default=MIN_FREQUENCY,
-                        help=f"Minimum error frequency to generate rule (default: {MIN_FREQUENCY})")
+    parser.add_argument("--min-frequency", type=int, default=None,
+                        help="Uniform minimum frequency (overrides per-type defaults)")
+    parser.add_argument("--min-freq-mechanism", type=int, default=None,
+                        help=f"Min frequency for mechanism_alias (default: {MIN_FREQUENCY_BY_TYPE['mechanism_alias']})")
+    parser.add_argument("--min-freq-agent", type=int, default=None,
+                        help=f"Min frequency for agent_alias (default: {MIN_FREQUENCY_BY_TYPE['agent_alias']})")
+    parser.add_argument("--min-freq-target", type=int, default=None,
+                        help=f"Min frequency for target_alias (default: {MIN_FREQUENCY_BY_TYPE['target_alias']})")
+    parser.add_argument("--min-freq-timeframe", type=int, default=None,
+                        help=f"Min frequency for timeframe_alias (default: {MIN_FREQUENCY_BY_TYPE['timeframe_alias']})")
     parser.add_argument("--dry-run", action="store_true", help="Print corrections without writing")
+    parser.add_argument("--batch-id", type=str, default=None,
+                        help="Batch ID for traceability (auto-generated if not provided)")
     args = parser.parse_args()
 
-    min_freq = args.min_frequency
+    batch_id = args.batch_id or datetime.now(timezone.utc).strftime("batch_%Y%m%d_%H%M%S")
+
+    # Build per-type frequency config
+    if args.min_frequency is not None:
+        # Uniform override: apply same value to all types
+        min_freq = {k: args.min_frequency for k in MIN_FREQUENCY_BY_TYPE}
+    else:
+        min_freq = dict(MIN_FREQUENCY_BY_TYPE)
+
+    # Per-type CLI overrides (take precedence)
+    if args.min_freq_mechanism is not None:
+        min_freq["mechanism_alias"] = args.min_freq_mechanism
+    if args.min_freq_agent is not None:
+        min_freq["agent_alias"] = args.min_freq_agent
+    if args.min_freq_target is not None:
+        min_freq["target_alias"] = args.min_freq_target
+    if args.min_freq_timeframe is not None:
+        min_freq["timeframe_alias"] = args.min_freq_timeframe
 
     now = datetime.now(timezone.utc).isoformat()
-    print(f"[{now}] Generating ticker corrections...")
+    print(f"[{now}] Generating ticker corrections (batch: {batch_id})...")
+    print(f"  Min frequency thresholds: {min_freq}")
 
     if not REPORT_FILE.exists():
         print("  No accuracy report found. Run pipeline_evaluate_matches.py first.")
@@ -248,7 +296,7 @@ def main():
     fn_count = report.get("matching", {}).get("false_negatives", 0)
     print(f"  False negatives in report: {fn_count}")
 
-    result = generate_corrections(report, min_frequency=min_freq)
+    result = generate_corrections(report, min_frequency=min_freq, batch_id=batch_id)
 
     print(f"  Corrections generated: {result['correction_count']}")
 

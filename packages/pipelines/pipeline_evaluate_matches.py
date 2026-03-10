@@ -14,9 +14,11 @@ Writes: data/match_accuracy_report.json
 
 import sys
 import json
+import math
 import argparse
 from pathlib import Path
 from datetime import datetime, timezone
+from collections import Counter
 
 sys.path.insert(0, str(Path(__file__).parent))
 from config import DATA_DIR, atomic_write_json
@@ -26,6 +28,8 @@ HUMAN_LABELS_FILE = DATA_DIR / "human_labels.json"
 TICKERS_FILE = DATA_DIR / "tickers_postprocessed.json"
 MASTER_CSV_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 REPORT_FILE = DATA_DIR / "match_accuracy_report.json"
+CANDIDATES_FILE = DATA_DIR / "cross_platform_candidates.json"
+VERDICTS_FILE = DATA_DIR / "cross_platform_resolution_verdicts.json"
 
 # Valid political categories (from pipeline_classify_categories.py)
 VALID_CATEGORIES = {
@@ -221,6 +225,215 @@ def evaluate_category_labels(labels: list, category_lookup: dict) -> dict:
     }
 
 
+def generate_suggested_labels(
+    ticker_lookup: dict,
+    existing_labels: list,
+    max_suggestions: int = 25,
+) -> list:
+    """Generate a ranked list of market pairs most valuable to label next.
+
+    Scoring uses a composite formula that balances:
+    - uncertainty_score (0.4): ticker component similarity — pairs that almost
+      match are most informative (1-2 field diffs)
+    - cosine_similarity (0.3): embedding agreement from discovery pipeline
+    - novelty_score (0.2): whether this error pattern already has labels;
+      saturated patterns get deprioritized
+    - log(volume) (0.1): tiebreaker, log-scaled to prevent volume dominance
+
+    Reads cross_platform_candidates.json and cross_platform_resolution_verdicts.json
+    if available. Falls back gracefully if files don't exist.
+    """
+    # Load candidates (embedding-discovered pairs)
+    candidates = []
+    if CANDIDATES_FILE.exists():
+        with open(CANDIDATES_FILE) as f:
+            cdata = json.load(f)
+        # Collect from all buckets — B and C are the interesting ones
+        for bucket_key in ("bucket_b", "bucket_c"):
+            candidates.extend(cdata.get(bucket_key, []))
+
+    if not candidates:
+        return []
+
+    # Load verdicts if available (adds OVERLAPPING/DIFFERENT/IDENTICAL classification)
+    verdict_lookup = {}
+    if VERDICTS_FILE.exists():
+        with open(VERDICTS_FILE) as f:
+            vdata = json.load(f)
+        for v in vdata.get("verdicts", []):
+            verdict_lookup[v.get("pair_key")] = v
+
+    # Build set of already-labeled market pairs to exclude
+    labeled_pairs = set()
+    for label in existing_labels:
+        mids = label.get("market_ids", [])
+        if len(mids) >= 2:
+            # Store both orderings
+            for i in range(len(mids)):
+                for j in range(i + 1, len(mids)):
+                    labeled_pairs.add((mids[i], mids[j]))
+                    labeled_pairs.add((mids[j], mids[i]))
+
+    # Count existing correction patterns to compute novelty
+    # (which ticker-component diffs already have labels)
+    existing_diff_counts = Counter()
+    for label in existing_labels:
+        lt = label.get("label_type", "")
+        if lt in ("same_event_same_rules", "same_event_different_rules", "different_event"):
+            mids = label.get("market_ids", [])
+            tickers = [ticker_lookup.get(m, {}).get("ticker", "") for m in mids]
+            if len(tickers) >= 2 and all(tickers):
+                diff_key = _diff_signature(tickers[0], tickers[1])
+                if diff_key:
+                    existing_diff_counts[diff_key] += 1
+
+    # Score each candidate
+    scored = []
+    for pair in candidates:
+        k_mid = pair.get("kalshi_market_id", "")
+        p_mid = pair.get("poly_market_id", "")
+
+        # Skip already-labeled pairs
+        if (k_mid, p_mid) in labeled_pairs:
+            continue
+
+        cosine_sim = pair.get("cosine_similarity", 0.0)
+
+        # Uncertainty score: how close are the tickers?
+        k_ticker = pair.get("kalshi_ticker", "")
+        p_ticker = pair.get("poly_ticker", "")
+        uncertainty = _ticker_uncertainty(k_ticker, p_ticker)
+
+        # Novelty: does this diff pattern already have labels?
+        diff_key = _diff_signature(k_ticker, p_ticker)
+        existing_count = existing_diff_counts.get(diff_key, 0) if diff_key else 0
+        novelty = 1.0 / (1.0 + existing_count)  # 1.0 if new, 0.5 if 1 existing, 0.33 if 2, etc.
+
+        # Volume (log-scaled, from ticker lookup)
+        k_vol = ticker_lookup.get(k_mid, {}).get("volume", 0) or 0
+        p_vol = ticker_lookup.get(p_mid, {}).get("volume", 0) or 0
+        combined_volume = k_vol + p_vol
+        # Normalize: log10(volume) / log10(100M) gives ~0-1 range
+        log_vol = math.log10(max(combined_volume, 1)) / 8.0
+        log_vol = min(log_vol, 1.0)
+
+        # Composite score
+        score = (
+            0.4 * uncertainty
+            + 0.3 * cosine_sim
+            + 0.2 * novelty
+            + 0.1 * log_vol
+        )
+
+        # Build reason string
+        verdict = verdict_lookup.get(pair.get("pair_key"), {})
+        verdict_str = verdict.get("verdict", "")
+        reason_parts = []
+        if verdict_str == "OVERLAPPING":
+            reason_parts.append("Ambiguous verdict — human review resolves uncertainty")
+        elif uncertainty > 0.5:
+            reason_parts.append("Tickers nearly match — likely same event with different resolution")
+        if novelty > 0.9:
+            reason_parts.append("Novel error pattern (no existing labels)")
+        if log_vol > 0.6:
+            reason_parts.append(f"High volume (${combined_volume:,.0f})")
+
+        scored.append({
+            "kalshi_market_id": k_mid,
+            "poly_market_id": p_mid,
+            "ticker_a": k_ticker,
+            "ticker_b": p_ticker,
+            "kalshi_question": pair.get("kalshi_question", ""),
+            "poly_question": pair.get("poly_question", ""),
+            "combined_volume": combined_volume,
+            "cosine_similarity": round(cosine_sim, 4),
+            "score": round(score, 4),
+            "score_components": {
+                "uncertainty": round(uncertainty, 4),
+                "cosine_similarity": round(cosine_sim, 4),
+                "novelty": round(novelty, 4),
+                "log_volume": round(log_vol, 4),
+            },
+            "verdict": verdict_str or None,
+            "bucket": pair.get("bucket", ""),
+            "reason": "; ".join(reason_parts) if reason_parts else "Candidate for review",
+        })
+
+    # Sort by composite score descending
+    scored.sort(key=lambda x: x["score"], reverse=True)
+
+    # Add rank
+    for i, s in enumerate(scored[:max_suggestions]):
+        s["rank"] = i + 1
+
+    return scored[:max_suggestions]
+
+
+def _parse_ticker_fields(ticker: str) -> dict:
+    """Parse BWR ticker into component dict."""
+    parts = ticker.split("-")
+    if len(parts) < 7:
+        return {"agent": "", "action": "", "target": "", "mechanism": "", "threshold": "", "timeframe": ""}
+    return {
+        "agent": parts[1],
+        "action": parts[2],
+        "target": "-".join(parts[3:-3]),
+        "mechanism": parts[-3],
+        "threshold": parts[-2],
+        "timeframe": parts[-1],
+    }
+
+
+def _ticker_uncertainty(ticker_a: str, ticker_b: str) -> float:
+    """Score how 'close' two tickers are. Higher = more uncertain (almost matching).
+
+    Returns 0.0 for identical tickers (no uncertainty — already matched).
+    Returns highest scores for 1-2 field differences (pipeline is uncertain).
+    Returns lower scores for 3+ differences (clearly different).
+    """
+    if not ticker_a or not ticker_b:
+        return 0.3  # Unknown — moderate uncertainty
+    if ticker_a == ticker_b:
+        return 0.0  # Already matched
+
+    a = _parse_ticker_fields(ticker_a)
+    b = _parse_ticker_fields(ticker_b)
+
+    # Count field differences, weighting core identity fields higher
+    core_fields = ("agent", "action", "target", "timeframe")
+    resolution_fields = ("mechanism", "threshold")
+
+    core_diffs = sum(1 for f in core_fields if a.get(f) != b.get(f))
+    res_diffs = sum(1 for f in resolution_fields if a.get(f) != b.get(f))
+
+    if core_diffs == 0:
+        # Only resolution differences — very likely same event, high uncertainty
+        return 0.9 if res_diffs > 0 else 0.0
+    elif core_diffs == 1:
+        # One core field differs — could be alias issue, high value
+        return 0.7
+    elif core_diffs == 2:
+        # Two core diffs — moderate uncertainty
+        return 0.4
+    else:
+        # 3+ core diffs — probably genuinely different
+        return 0.15
+
+
+def _diff_signature(ticker_a: str, ticker_b: str) -> str:
+    """Create a hashable signature of which fields differ between two tickers.
+
+    Used to track which error patterns already have labels (novelty scoring).
+    """
+    if not ticker_a or not ticker_b:
+        return ""
+    a = _parse_ticker_fields(ticker_a)
+    b = _parse_ticker_fields(ticker_b)
+    diffs = sorted(f for f in ("agent", "action", "target", "mechanism", "threshold", "timeframe")
+                   if a.get(f) != b.get(f))
+    return "|".join(diffs) if diffs else ""
+
+
 def compute_precision_recall(tp: int, fp: int, fn: int) -> dict:
     """Compute precision, recall, and F1 score.
 
@@ -237,7 +450,12 @@ def compute_precision_recall(tp: int, fp: int, fn: int) -> dict:
     }
 
 
-def generate_report(same_event_eval: dict, category_eval: dict) -> dict:
+def generate_report(
+    same_event_eval: dict,
+    category_eval: dict,
+    suggested_labels: list = None,
+    batch_id: str = None,
+) -> dict:
     """Generate the accuracy report combining all evaluations."""
     tp = len(same_event_eval["true_positives"])
     fp = len(same_event_eval["false_positives"])
@@ -254,8 +472,9 @@ def generate_report(same_event_eval: dict, category_eval: dict) -> dict:
     for entry in category_eval["incorrect"]:
         disagreements.append({**entry, "human_judgment": "category mismatch"})
 
-    return {
+    report = {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+        "batch_id": batch_id,
         "sample_size": tp + fp + fn + tn,
         "matching": {
             "true_positives": tp,
@@ -273,14 +492,38 @@ def generate_report(same_event_eval: dict, category_eval: dict) -> dict:
         "matching_skipped": same_event_eval["skipped"],
     }
 
+    if suggested_labels is not None:
+        report["suggested_labels"] = suggested_labels
+        report["suggested_labels_scoring"] = {
+            "formula": "0.4*uncertainty + 0.3*cosine_similarity + 0.2*novelty + 0.1*log_volume",
+            "weights": {
+                "uncertainty": 0.4,
+                "cosine_similarity": 0.3,
+                "novelty": 0.2,
+                "log_volume": 0.1,
+            },
+            "notes": (
+                "uncertainty: ticker component similarity (1-2 field diffs score highest). "
+                "novelty: 1/(1+existing_labels_for_pattern) — new patterns prioritized. "
+                "log_volume: log10(volume)/8, capped at 1.0 — tiebreaker only."
+            ),
+        }
+
+    return report
+
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate match accuracy against human labels")
     parser.add_argument("--verbose", action="store_true", help="Print detailed disagreements")
+    parser.add_argument("--max-suggestions", type=int, default=25,
+                        help="Max number of suggested labels to generate (default: 25)")
+    parser.add_argument("--batch-id", type=str, default=None,
+                        help="Batch ID for traceability (auto-generated if not provided)")
     args = parser.parse_args()
 
+    batch_id = args.batch_id or datetime.now(timezone.utc).strftime("batch_%Y%m%d_%H%M%S")
     now = datetime.now(timezone.utc).isoformat()
-    print(f"[{now}] Evaluating match accuracy...")
+    print(f"[{now}] Evaluating match accuracy (batch: {batch_id})...")
 
     # Load data
     human_data = load_human_labels()
@@ -302,8 +545,20 @@ def main():
     same_event_eval = evaluate_same_event_labels(labels, ticker_lookup)
     category_eval = evaluate_category_labels(labels, category_lookup)
 
+    # Generate suggested labels
+    suggested = generate_suggested_labels(
+        ticker_lookup, labels, max_suggestions=args.max_suggestions,
+    )
+    if suggested:
+        print(f"\n  Suggested labels generated: {len(suggested)}")
+    else:
+        print(f"\n  No suggested labels (candidates file may not exist yet)")
+
     # Generate report
-    report = generate_report(same_event_eval, category_eval)
+    report = generate_report(
+        same_event_eval, category_eval,
+        suggested_labels=suggested, batch_id=batch_id,
+    )
 
     # Print summary
     m = report["matching"]
@@ -334,6 +589,18 @@ def main():
                 print(f"      Category: {d['current_category']}")
             if d.get("action_needed"):
                 print(f"      Action: {d['action_needed']}")
+
+    if suggested:
+        top_n = suggested[:10]
+        print(f"\n  === Top {len(top_n)} Suggested Labels ===")
+        for s in top_n:
+            print(f"    #{s['rank']} (score: {s['score']:.3f}) {s['reason']}")
+            print(f"      K: {s['ticker_a']}")
+            print(f"      P: {s['ticker_b']}")
+            if args.verbose:
+                sc = s['score_components']
+                print(f"      Components: unc={sc['uncertainty']:.2f} cos={sc['cosine_similarity']:.2f} "
+                      f"nov={sc['novelty']:.2f} vol={sc['log_volume']:.2f}")
 
     # Write report
     atomic_write_json(REPORT_FILE, report, indent=2)

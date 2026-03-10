@@ -24,6 +24,7 @@ from pipeline_ingest_feedback import (
     ingest_new_rows,
     parse_timestamp,
     load_human_labels,
+    generate_batch_id,
     LABEL_TYPE_MAP,
     DEFAULT_LAST_INGESTED,
 )
@@ -504,3 +505,59 @@ class TestEndToEndLocalCSV:
         existing["last_ingested_timestamp"] = latest_ts
         new_labels2, _ = ingest_new_rows(rows, existing, tickers)
         assert len(new_labels2) == 0
+
+
+# ──────────────────────────────────────────────────
+# Batch ID
+# ──────────────────────────────────────────────────
+
+
+class TestBatchId:
+    def test_generate_batch_id_format(self):
+        """Batch ID should have format batch_YYYYMMDD_HHMMSS."""
+        bid = generate_batch_id()
+        assert bid.startswith("batch_")
+        assert len(bid) == len("batch_YYYYMMDD_HHMMSS")
+
+    def test_batch_id_stamped_on_labels(self):
+        """Each ingested label should carry the batch_id."""
+        existing = {
+            "schema_version": 1,
+            "updated_at": None,
+            "last_ingested_timestamp": "2026-01-01T00:00:00.000Z",
+            "labels": [],
+        }
+        rows = [{
+            "Timestamp": "2026-03-01T10:00:00.000Z",
+            "Feedback Type": "not-political",
+            "Description": "test",
+            "Market Count": "1",
+            "Markets (JSON)": json.dumps([{"key": "BWR-X-Y-Z-STD-ANY-2026", "label": "L", "platform": "Kalshi"}]),
+        }]
+        tickers = {"tickers": []}
+        batch_id = "batch_20260310_120000"
+
+        new_labels, _ = ingest_new_rows(rows, existing, tickers, batch_id=batch_id)
+        assert len(new_labels) == 1
+        assert new_labels[0]["ingested_batch_id"] == "batch_20260310_120000"
+
+    def test_batch_id_none_when_not_provided(self):
+        """If no batch_id provided, field should be None."""
+        existing = {
+            "schema_version": 1,
+            "updated_at": None,
+            "last_ingested_timestamp": "2026-01-01T00:00:00.000Z",
+            "labels": [],
+        }
+        rows = [{
+            "Timestamp": "2026-03-01T10:00:00.000Z",
+            "Feedback Type": "not-political",
+            "Description": "test",
+            "Market Count": "1",
+            "Markets (JSON)": json.dumps([{"key": "BWR-X-Y-Z-STD-ANY-2026", "label": "L", "platform": "Kalshi"}]),
+        }]
+        tickers = {"tickers": []}
+
+        new_labels, _ = ingest_new_rows(rows, existing, tickers)
+        assert len(new_labels) == 1
+        assert new_labels[0]["ingested_batch_id"] is None

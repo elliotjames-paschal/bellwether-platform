@@ -380,7 +380,7 @@ class TestApplyWrongCategory:
             writer.writerow({"market_id": "K001", "political_category": "1. ELECTORAL"})
 
         labels = [make_label("hl_040", "wrong_category", ["K001"],
-                             "Should be APPOINTMENTS not electoral")]
+                             "Should be APPOINTMENTS")]
         modified, results = apply_wrong_category(labels, csv_path)
 
         assert modified == 1
@@ -490,3 +490,144 @@ class TestTickerParsing:
         assert components["agent"] == "DEM"
         assert components["target"] == "HOUSE-SENATE"
         assert components["mechanism"] == "CERTIFIED"
+
+
+# ──────────────────────────────────────────────────
+# Batch ID tracking
+# ──────────────────────────────────────────────────
+
+
+class TestBatchIdTracking:
+    def test_batch_id_stamped_on_unified_labels(self):
+        """Applied labels should carry the batch_id."""
+        tickers_by_id = {
+            "K1": {"market_id": "K1", "ticker": "BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028",
+                   "agent": "TRUMP", "action": "WIN", "target": "PRES_US",
+                   "mechanism": "CERTIFIED", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Kalshi"},
+            "P1": {"market_id": "P1", "ticker": "BWR-TRUMP-WIN-PRES_US-STD-ANY-2028",
+                   "agent": "TRUMP", "action": "WIN", "target": "PRES_US",
+                   "mechanism": "STD", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Polymarket"},
+        }
+        labels = [{
+            "label_id": "hl_batch_test",
+            "label_type": "same_event_same_rules",
+            "market_ids": ["K1", "P1"],
+            "status": "pending",
+            "applied_at": None,
+            "applied_action": None,
+        }]
+        applied, _ = apply_same_event_same_rules(labels, tickers_by_id, batch_id="batch_20260310_120000")
+        assert applied == 1
+        assert labels[0]["applied_batch_id"] == "batch_20260310_120000"
+
+    def test_batch_id_none_when_not_provided(self):
+        """Without batch_id, field should be None."""
+        tickers_by_id = {
+            "K1": {"market_id": "K1", "ticker": "BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028",
+                   "agent": "TRUMP", "action": "WIN", "target": "PRES_US",
+                   "mechanism": "CERTIFIED", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Kalshi"},
+            "P1": {"market_id": "P1", "ticker": "BWR-TRUMP-WIN-PRES_US-STD-ANY-2028",
+                   "agent": "TRUMP", "action": "WIN", "target": "PRES_US",
+                   "mechanism": "STD", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Polymarket"},
+        }
+        labels = [{
+            "label_id": "hl_no_batch",
+            "label_type": "same_event_same_rules",
+            "market_ids": ["K1", "P1"],
+            "status": "pending",
+            "applied_at": None,
+            "applied_action": None,
+        }]
+        applied, _ = apply_same_event_same_rules(labels, tickers_by_id)
+        assert applied == 1
+        assert labels[0]["applied_batch_id"] is None
+
+    def test_batch_id_on_not_political(self, tmp_path):
+        """Not-political labels should carry batch_id."""
+        csv_file = tmp_path / "markets.csv"
+        csv_file.write_text("market_id,political_category\nM1,1. ELECTORAL\n")
+
+        labels = [{
+            "label_id": "hl_np_batch",
+            "label_type": "not_political",
+            "market_ids": ["M1"],
+            "status": "pending",
+            "applied_at": None,
+            "applied_action": None,
+        }]
+        modified, _ = apply_not_political(labels, csv_file, batch_id="batch_test_001")
+        assert modified == 1
+        assert labels[0]["applied_batch_id"] == "batch_test_001"
+
+
+# ──────────────────────────────────────────────────
+# N>2 market pairwise validation
+# ──────────────────────────────────────────────────
+
+
+class TestNGreaterThan2Validation:
+    def test_three_markets_all_safe(self):
+        """3 markets differing only in mechanism should all unify."""
+        tickers_by_id = {
+            "K1": {"market_id": "K1", "ticker": "BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028",
+                   "agent": "TRUMP", "action": "WIN", "target": "PRES_US",
+                   "mechanism": "CERTIFIED", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Kalshi"},
+            "P1": {"market_id": "P1", "ticker": "BWR-TRUMP-WIN-PRES_US-STD-ANY-2028",
+                   "agent": "TRUMP", "action": "WIN", "target": "PRES_US",
+                   "mechanism": "STD", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Polymarket"},
+            "P2": {"market_id": "P2", "ticker": "BWR-TRUMP-WIN-PRES_US-PROJECTED-ANY-2028",
+                   "agent": "TRUMP", "action": "WIN", "target": "PRES_US",
+                   "mechanism": "PROJECTED", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Polymarket"},
+        }
+        labels = [{
+            "label_id": "hl_3way",
+            "label_type": "same_event_same_rules",
+            "market_ids": ["K1", "P1", "P2"],
+            "status": "pending",
+            "applied_at": None,
+            "applied_action": None,
+        }]
+        applied, _ = apply_same_event_same_rules(labels, tickers_by_id)
+        assert applied == 1
+        # All should now have Kalshi's mechanism
+        assert tickers_by_id["P1"]["mechanism"] == "CERTIFIED"
+        assert tickers_by_id["P2"]["mechanism"] == "CERTIFIED"
+
+    def test_three_markets_one_unsafe_pair_blocks_all(self):
+        """If any pair has differing agent, the entire group is needs_review."""
+        tickers_by_id = {
+            "K1": {"market_id": "K1", "ticker": "BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028",
+                   "agent": "TRUMP", "action": "WIN", "target": "PRES_US",
+                   "mechanism": "CERTIFIED", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Kalshi"},
+            "P1": {"market_id": "P1", "ticker": "BWR-TRUMP-WIN-PRES_US-STD-ANY-2028",
+                   "agent": "TRUMP", "action": "WIN", "target": "PRES_US",
+                   "mechanism": "STD", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Polymarket"},
+            "P2": {"market_id": "P2", "ticker": "BWR-HARRIS-WIN-PRES_US-STD-ANY-2028",
+                   "agent": "HARRIS", "action": "WIN", "target": "PRES_US",
+                   "mechanism": "STD", "threshold": "ANY", "timeframe": "2028",
+                   "platform": "Polymarket"},
+        }
+        labels = [{
+            "label_id": "hl_3way_unsafe",
+            "label_type": "same_event_same_rules",
+            "market_ids": ["K1", "P1", "P2"],
+            "status": "pending",
+            "applied_at": None,
+            "applied_action": None,
+        }]
+        applied, _ = apply_same_event_same_rules(labels, tickers_by_id)
+        assert applied == 0
+        assert labels[0]["status"] == "needs_review"
+        assert "agent" in labels[0]["applied_action"]
+        # No tickers should have been modified
+        assert tickers_by_id["P1"]["mechanism"] == "STD"
+        assert tickers_by_id["P2"]["agent"] == "HARRIS"
