@@ -27,61 +27,6 @@
     let reviewMode = false;
     let selectedMarkets = new Set();
 
-    // Contract rules cache (lazy-loaded on first modal open)
-    let marketRulesCache = null;
-
-    async function loadMarketRules() {
-        if (marketRulesCache) return marketRulesCache;
-        try {
-            const resp = await fetch('data/market_rules.json');
-            if (resp.ok) {
-                const data = await resp.json();
-                marketRulesCache = data.rules || {};
-            }
-        } catch (e) { /* silent - rules are optional */ }
-        return marketRulesCache;
-    }
-
-    function renderContractRules(rules, entry) {
-        const sections = [];
-
-        if (entry.has_both || entry.entry_type === 'cross_platform') {
-            // Cross-platform: show rules for both platforms
-            if (entry.k_ticker && rules[entry.k_ticker]) {
-                const k = rules[entry.k_ticker];
-                let html = '<div class="modal-rules-platform">Kalshi</div>';
-                if (k.rules_primary) html += `<div class="modal-rules-content">${escapeHtml(k.rules_primary)}</div>`;
-                if (k.rules_secondary) html += `<div class="modal-rules-content secondary">${escapeHtml(k.rules_secondary)}</div>`;
-                sections.push(html);
-            }
-            if (entry.pm_market_id && rules[entry.pm_market_id]) {
-                const pm = rules[entry.pm_market_id];
-                if (pm.description) {
-                    sections.push(`<div class="modal-rules-platform">Polymarket</div><div class="modal-rules-content">${escapeHtml(pm.description)}</div>`);
-                }
-            }
-        } else {
-            // Single-platform
-            const id = entry.market_id || entry.k_ticker || entry.pm_market_id;
-            if (id && rules[id]) {
-                const r = rules[id];
-                if (r.rules_primary) sections.push(`<div class="modal-rules-content">${escapeHtml(r.rules_primary)}</div>`);
-                if (r.rules_secondary) sections.push(`<div class="modal-rules-content secondary">${escapeHtml(r.rules_secondary)}</div>`);
-                if (r.description) sections.push(`<div class="modal-rules-content">${escapeHtml(r.description)}</div>`);
-            }
-        }
-
-        if (sections.length === 0) return '';
-
-        return `<div class="modal-rules"><details open><summary>Contract Rules</summary>${sections.join('')}</details></div>`;
-    }
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/\n/g, '<br>');
-    }
-
     // Live data configuration
     const LIVE_DATA_SERVER = 'https://bellwether-api.paschal-145.workers.dev';
 
@@ -473,7 +418,7 @@
         const liveCostF = liveData?.robustness?.cost_to_move_5c;
         const effectiveCostF = (staticCostF && (!liveCostF || staticCostF > liveCostF)) ? staticCostF : liveCostF;
         const isFragile = !effectiveCostF || effectiveCostF < 10000;
-        let cardClass = 'market-card clickable';
+        let cardClass = 'market-card';
         if (isFragile) cardClass += ' fragile';
         if (tier > 0) cardClass += ` tier-${tier}`;
 
@@ -616,7 +561,7 @@
         const liveCostF = liveData?.robustness?.cost_to_move_5c;
         const effectiveCostF = (staticCostF && (!liveCostF || staticCostF > liveCostF)) ? staticCostF : liveCostF;
         const isFragile = !effectiveCostF || effectiveCostF < 10000;
-        let cardClass = 'market-card clickable';
+        let cardClass = 'market-card';
         if (isFragile) cardClass += ' fragile';
         if (tier > 0) cardClass += ` tier-${tier}`;
 
@@ -762,21 +707,19 @@
             `;
         }
 
-        // Links — include verbatim platform titles
+        // Links
         let linksHtml = '';
         const linksClass = (e.has_pm && e.has_k) ? '' : ' single';
 
         let pmLink = '', kLink = '';
         if (e.has_pm && e.pm_url) {
-            const pmTitle = e.pm_question || 'View market details & trade';
             pmLink = `<a href="${e.pm_url}" target="_blank" rel="noopener" class="modal-link-box pm">
-                <div class="modal-link-info"><span class="modal-link-platform">Polymarket</span><span class="modal-link-title">${pmTitle}</span></div>
+                <div class="modal-link-info"><span class="modal-link-platform">Polymarket</span><span class="modal-link-text">View market details & trade</span></div>
                 <span class="modal-link-arrow">↗</span></a>`;
         }
         if (e.has_k && e.k_url) {
-            const kTitle = e.k_question || 'View market details & trade';
             kLink = `<a href="${e.k_url}" target="_blank" rel="noopener" class="modal-link-box kalshi">
-                <div class="modal-link-info"><span class="modal-link-platform">Kalshi</span><span class="modal-link-title">${kTitle}</span></div>
+                <div class="modal-link-info"><span class="modal-link-platform">Kalshi</span><span class="modal-link-text">View market details & trade</span></div>
                 <span class="modal-link-arrow">↗</span></a>`;
         }
         if (pmLink || kLink) {
@@ -808,8 +751,6 @@
         // Live data container
         const liveDataHtml = '<div class="modal-live-data-container"></div>';
 
-        const rulesPlaceholder = '<div class="modal-rules-container"></div>';
-
         return `
             <div class="modal-header">
                 ${modalImageHtml}
@@ -819,16 +760,12 @@
                 </div>
                 <button class="modal-close" aria-label="Close">&times;</button>
             </div>
-            <div class="modal-body${currentView === 'divergences' ? ' modal-body-split' : ''}">
-                <div class="${currentView === 'divergences' ? 'modal-panel-left' : ''}">
-                    <div class="modal-prices${pricesClass}">${pricesHtml}</div>
-                    ${linksHtml}
-                    ${liveDataHtml}
-                    ${raceContextHtml}
-                    ${rulesPlaceholder}
-                    ${embedHtml}
-                </div>
-                ${currentView === 'divergences' ? `<div class="modal-panel-right">${renderModalFeedbackSection()}</div>` : ''}
+            <div class="modal-body">
+                <div class="modal-prices${pricesClass}">${pricesHtml}</div>
+                ${liveDataHtml}
+                ${raceContextHtml}
+                ${linksHtml}
+                ${embedHtml}
             </div>
         `;
     }
@@ -883,8 +820,6 @@
         // Live data container
         const liveDataHtml = '<div class="modal-live-data-container"></div>';
 
-        const rulesPlaceholder = '<div class="modal-rules-container"></div>';
-
         return `
             <div class="modal-header">
                 ${modalImageHtml}
@@ -902,148 +837,10 @@
                 <div class="modal-prices single-col">${pricesHtml}</div>
                 ${liveDataHtml}
                 ${raceContextHtml}
-                ${rulesPlaceholder}
                 ${linkHtml}
                 ${embedHtml}
             </div>
         `;
-    }
-
-    function renderModalFeedbackSection() {
-        return `
-            <div class="modal-feedback-section">
-                <div class="modal-feedback-header">
-                    <div class="modal-feedback-title">Is this match correct?</div>
-                    <p class="modal-feedback-desc">Review the contract rules on the left, then tell us.</p>
-                </div>
-                <div class="modal-feedback-options">
-                    <label class="feedback-option feedback-option-featured">
-                        <input type="radio" name="modal-feedback-type" value="same-event">
-                        <span class="feedback-option-text">
-                            <strong>Same Event</strong>
-                            <span class="feedback-option-desc">Same event on both platforms</span>
-                        </span>
-                    </label>
-                    <div class="feedback-sub-options" id="modal-same-event-sub-options">
-                        <label class="feedback-sub-option">
-                            <input type="radio" name="modal-same-event-rules" value="same-rules">
-                            <span class="feedback-sub-option-text">
-                                <strong>Same Rules</strong>
-                                <span class="feedback-option-desc">Resolution criteria match</span>
-                            </span>
-                        </label>
-                        <label class="feedback-sub-option">
-                            <input type="radio" name="modal-same-event-rules" value="different-rules">
-                            <span class="feedback-sub-option-text">
-                                <strong>Different Rules</strong>
-                                <span class="feedback-option-desc">Same event, different resolution</span>
-                            </span>
-                        </label>
-                    </div>
-                    <label class="feedback-option">
-                        <input type="radio" name="modal-feedback-type" value="different-event">
-                        <span class="feedback-option-text">
-                            <strong>Different Events</strong>
-                            <span class="feedback-option-desc">Incorrectly matched</span>
-                        </span>
-                    </label>
-                    <label class="feedback-option">
-                        <input type="radio" name="modal-feedback-type" value="not-political">
-                        <span class="feedback-option-text">
-                            <strong>Not Political</strong>
-                        </span>
-                    </label>
-                    <label class="feedback-option">
-                        <input type="radio" name="modal-feedback-type" value="wrong-category">
-                        <span class="feedback-option-text">
-                            <strong>Wrong Category</strong>
-                        </span>
-                    </label>
-                    <label class="feedback-option">
-                        <input type="radio" name="modal-feedback-type" value="other">
-                        <span class="feedback-option-text">
-                            <strong>Other Issue</strong>
-                        </span>
-                    </label>
-                </div>
-                <div class="feedback-notes">
-                    <label for="modal-feedback-notes">Notes (optional)</label>
-                    <textarea id="modal-feedback-notes" placeholder="What's wrong or why should these match?" rows="3"></textarea>
-                </div>
-                <div class="feedback-actions">
-                    <button class="feedback-btn-primary modal-feedback-submit-btn">Submit Feedback</button>
-                </div>
-            </div>
-        `;
-    }
-
-    function setupModalFeedback(marketKey) {
-        const section = document.querySelector('.modal-feedback-section');
-        if (!section) return;
-
-        // Toggle same-event sub-options
-        const radios = section.querySelectorAll('input[name="modal-feedback-type"]');
-        const subOptions = document.getElementById('modal-same-event-sub-options');
-        radios.forEach(radio => {
-            radio.addEventListener('change', () => {
-                if (subOptions) subOptions.classList.toggle('visible', radio.value === 'same-event');
-                if (radio.value !== 'same-event') {
-                    section.querySelectorAll('input[name="modal-same-event-rules"]').forEach(r => r.checked = false);
-                }
-            });
-        });
-
-        // Submit
-        const submitBtn = section.querySelector('.modal-feedback-submit-btn');
-        if (submitBtn) {
-            submitBtn.addEventListener('click', () => {
-                const feedbackType = section.querySelector('input[name="modal-feedback-type"]:checked');
-                const notes = document.getElementById('modal-feedback-notes');
-
-                if (!feedbackType) {
-                    showToast('Please select a feedback type');
-                    return;
-                }
-
-                if (feedbackType.value === 'same-event') {
-                    const rulesType = section.querySelector('input[name="modal-same-event-rules"]:checked');
-                    if (!rulesType) {
-                        showToast('Please select whether the rules are the same or different');
-                        return;
-                    }
-                }
-
-                if (!notes || !notes.value.trim()) {
-                    showToast('Please add a note');
-                    return;
-                }
-
-                const market = allMarkets.find(m => m.key === marketKey);
-                const marketData = market ? [{
-                    key: market.key,
-                    label: market.label,
-                    platform: market.platform || (market.has_both ? 'Both' : market.has_pm ? 'Polymarket' : 'Kalshi'),
-                    category: market.category_display || market.category
-                }] : [{ key: marketKey }];
-
-                let feedbackValue = feedbackType.value;
-                if (feedbackType.value === 'same-event') {
-                    const rulesType = section.querySelector('input[name="modal-same-event-rules"]:checked');
-                    if (rulesType) feedbackValue = `same-event:${rulesType.value}`;
-                }
-
-                const payload = {
-                    timestamp: new Date().toISOString(),
-                    feedbackType: feedbackValue,
-                    notes: notes.value,
-                    markets: marketData
-                };
-
-                submitToGoogleForm(payload);
-                closeModal();
-                showToast('Thanks! Your feedback has been submitted.');
-            });
-        }
     }
 
     function openModal(marketKey) {
@@ -1063,19 +860,6 @@
 
         const closeBtn = modalContent.querySelector('.modal-close');
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
-
-        // Wire up in-modal feedback
-        setupModalFeedback(marketKey);
-
-        // Load contract rules
-        const rulesContainer = modalContent.querySelector('.modal-rules-container');
-        if (rulesContainer) {
-            loadMarketRules().then(rules => {
-                if (rules) {
-                    rulesContainer.innerHTML = renderContractRules(rules, entry);
-                }
-            });
-        }
 
         // Load live data if available
         const liveDataContainer = modalContent.querySelector('.modal-live-data-container');
@@ -1943,22 +1727,6 @@
         if (feedbackSubmitBtn) {
             feedbackSubmitBtn.addEventListener('click', submitFeedback);
         }
-
-        // Toggle same-event sub-options visibility
-        const feedbackRadios = document.querySelectorAll('input[name="feedback-type"]');
-        const subOptions = document.getElementById('same-event-sub-options');
-        feedbackRadios.forEach(radio => {
-            radio.addEventListener('change', () => {
-                if (subOptions) {
-                    subOptions.classList.toggle('visible', radio.value === 'same-event');
-                }
-                // Clear sub-option selection when switching away
-                if (radio.value !== 'same-event') {
-                    const subRadios = document.querySelectorAll('input[name="same-event-rules"]');
-                    subRadios.forEach(r => r.checked = false);
-                }
-            });
-        });
     }
 
     function enterReviewMode() {
@@ -2019,7 +1787,6 @@
         const submitBtn = document.getElementById('submit-review-btn');
         if (countEl) countEl.textContent = selectedMarkets.size;
         if (submitBtn) submitBtn.disabled = selectedMarkets.size === 0;
-
     }
 
     function openFeedbackModal() {
@@ -2030,10 +1797,6 @@
         // Reset form
         const radios = document.querySelectorAll('input[name="feedback-type"]');
         radios.forEach(r => r.checked = false);
-        const subRadios = document.querySelectorAll('input[name="same-event-rules"]');
-        subRadios.forEach(r => r.checked = false);
-        const subOptions = document.getElementById('same-event-sub-options');
-        if (subOptions) subOptions.classList.remove('visible');
         const notes = document.getElementById('feedback-notes-input');
         if (notes) notes.value = '';
     }
@@ -2050,15 +1813,6 @@
         if (!feedbackType) {
             showToast('Please select a feedback type');
             return;
-        }
-
-        // If same-event, require sub-option selection
-        if (feedbackType.value === 'same-event') {
-            const rulesType = document.querySelector('input[name="same-event-rules"]:checked');
-            if (!rulesType) {
-                showToast('Please select whether the rules are the same or different');
-                return;
-            }
         }
 
         if (!notes || !notes.value.trim()) {
@@ -2078,16 +1832,9 @@
             } : { key };
         });
 
-        // Build feedback type with sub-option if applicable
-        let feedbackValue = feedbackType.value;
-        if (feedbackType.value === 'same-event') {
-            const rulesType = document.querySelector('input[name="same-event-rules"]:checked');
-            if (rulesType) feedbackValue = `same-event:${rulesType.value}`;
-        }
-
         const payload = {
             timestamp: new Date().toISOString(),
-            feedbackType: feedbackValue,
+            feedbackType: feedbackType.value,
             notes: notes ? notes.value : '',
             markets: marketData
         };

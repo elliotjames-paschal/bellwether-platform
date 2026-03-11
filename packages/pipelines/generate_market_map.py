@@ -28,7 +28,6 @@ from collections import defaultdict
 from config import DATA_DIR, PACKAGES_DIR
 
 TICKERS_FILE = DATA_DIR / "tickers_postprocessed.json"
-MATCH_EXCLUSIONS_FILE = DATA_DIR / "match_exclusions.json"
 ENRICHED_FILE = DATA_DIR / "enriched_political_markets.json.gz"
 OUTPUT_FILE = PACKAGES_DIR / "api" / "market_map.json"
 WEBSITE_OUTPUT = PACKAGES_DIR / "website" / "data" / "market_map.json"
@@ -105,73 +104,6 @@ def load_pm_token_lookup() -> dict:
     return lookup
 
 
-def load_match_exclusions() -> set:
-    """Load match exclusions as a set of frozenset pairs of market IDs."""
-    if not MATCH_EXCLUSIONS_FILE.exists():
-        return set()
-    try:
-        with open(MATCH_EXCLUSIONS_FILE) as f:
-            data = json.load(f)
-        exclusions = set()
-        for exc in data.get("exclusions", []):
-            pair = frozenset([str(exc["market_id_a"]), str(exc["market_id_b"])])
-            exclusions.add(pair)
-        return exclusions
-    except (json.JSONDecodeError, OSError, KeyError):
-        return set()
-
-
-def split_excluded_groups(markets: list, exclusions: set) -> list:
-    """Split a ticker group into subgroups respecting exclusions.
-
-    Greedy assignment: for each market, try to place it in an existing
-    subgroup where it has no exclusion with any member. If no such
-    subgroup exists, create a new one.
-
-    Returns list of market lists (subgroups).
-    """
-    if len(markets) <= 1:
-        return [markets]
-
-    market_ids = [str(m['market_id']) for m in markets]
-
-    # Check if any exclusion applies to this group
-    has_exclusion = False
-    for i in range(len(market_ids)):
-        for j in range(i + 1, len(market_ids)):
-            if frozenset([market_ids[i], market_ids[j]]) in exclusions:
-                has_exclusion = True
-                break
-        if has_exclusion:
-            break
-
-    if not has_exclusion:
-        return [markets]
-
-    # Greedy placement: assign each market to first compatible subgroup
-    mid_to_market = {str(m['market_id']): m for m in markets}
-    subgroups = []  # list of lists of market_id strings
-
-    for mid in market_ids:
-        placed = False
-        for group in subgroups:
-            # Check if mid is excluded from any member of this group
-            conflict = False
-            for existing_mid in group:
-                if frozenset([mid, existing_mid]) in exclusions:
-                    conflict = True
-                    break
-            if not conflict:
-                group.append(mid)
-                placed = True
-                break
-        if not placed:
-            subgroups.append([mid])
-
-    # Convert back to market objects
-    return [[mid_to_market[mid] for mid in group] for group in subgroups]
-
-
 def _infer_category(ticker: str) -> str:
     """Infer category from ticker."""
     ticker_upper = ticker.upper()
@@ -207,30 +139,18 @@ def generate_market_map():
 
     print(f"Loading Polymarket token ID lookup from master CSV...")
     pm_token_lookup = load_pm_token_lookup()
-    print(f"  Found {len(pm_token_lookup)} market_id -> pm_token_id_yes mappings")
-
-    # Load match exclusions
-    exclusions = load_match_exclusions()
-    if exclusions:
-        print(f"  Loaded {len(exclusions)} match exclusions")
+    print(f"  Found {len(pm_token_lookup)} market_id → pm_token_id_yes mappings")
 
     # Group tickers by ticker string
     by_ticker = defaultdict(list)
     for t in tickers_data['tickers']:
         by_ticker[t['ticker']].append(t)
 
-    # Split groups that contain excluded pairs
-    expanded_groups = []
-    for ticker, markets in by_ticker.items():
-        subgroups = split_excluded_groups(markets, exclusions)
-        for subgroup in subgroups:
-            expanded_groups.append((ticker, subgroup))
-
     # Build all market entries (not just cross-platform)
     matched_markets = []
     seen_slugs = set()
 
-    for ticker, markets in expanded_groups:
+    for ticker, markets in by_ticker.items():
         platforms = {m['platform'] for m in markets}
         has_kalshi = 'Kalshi' in platforms
         has_poly = 'Polymarket' in platforms
@@ -285,15 +205,6 @@ def generate_market_map():
         # Look up the actual CLOB API token for Polymarket
         pm_token_id = pm_token_lookup.get(str(pm_token)) if pm_token else None
 
-        # Determine match provenance from constituent markets
-        match_sources = {m.get('match_source', 'auto_ticker') for m in markets}
-        if 'human' in match_sources:
-            match_source = 'human'
-        elif 'auto_embedding_gpt' in match_sources:
-            match_source = 'auto_embedding_gpt'
-        else:
-            match_source = 'auto_ticker'
-
         matched_markets.append({
             'slug': slug,
             'title': title,
@@ -305,7 +216,6 @@ def generate_market_map():
             'country': country,
             'platform': platform,
             'total_volume': total_volume,
-            'match_source': match_source,
             # Include both questions for debugging
             'k_question': k_market.get('original_question', '') if k_market else '',
             'pm_question': pm_market.get('original_question', '') if pm_market else '',
@@ -338,11 +248,11 @@ def generate_market_map():
 
     # Write output to both locations
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+    with open(OUTPUT_FILE, 'w') as f:
         json.dump(output, f, indent=2)
 
     WEBSITE_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    with open(WEBSITE_OUTPUT, 'w', encoding='utf-8') as f:
+    with open(WEBSITE_OUTPUT, 'w') as f:
         json.dump(output, f, indent=2)
 
     # Count pm_token_id coverage

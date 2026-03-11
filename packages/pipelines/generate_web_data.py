@@ -613,7 +613,7 @@ def generate_summary_stats():
         'accuracy_markets': total_markets_for_acc
     }
 
-    with open(f"{WEB_DATA_DIR}/summary.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/summary.json", 'w') as f:
         json.dump(summary, f, indent=2)
 
     log(f"  ✓ Summary stats saved")
@@ -696,7 +696,7 @@ def generate_brier_by_category():
             int(kalshi_by_cat.loc[cat, 'count']) if cat in kalshi_by_cat.index else 0
         )
 
-    with open(f"{WEB_DATA_DIR}/brier_by_category.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/brier_by_category.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Brier by category saved ({len(categories)} categories)")
@@ -753,7 +753,7 @@ def generate_brier_by_election_type():
             int(kalshi_by_type.loc[et, 'count']) if et in kalshi_by_type.index else 0
         )
 
-    with open(f"{WEB_DATA_DIR}/brier_by_election_type.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/brier_by_election_type.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Brier by election type saved ({len(types)} types)")
@@ -819,7 +819,7 @@ def generate_calibration_data():
         'kalshi_count': len(kalshi_1d)
     }
 
-    with open(f"{WEB_DATA_DIR}/calibration.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/calibration.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Calibration data saved ({num_bins} quantile bins, {len(combined)} total predictions)")
@@ -847,7 +847,7 @@ def generate_platform_comparison():
             data['kalshi_predictions'].append(round(row['kalshi_prediction'], 4))
             data['labels'].append(f"{row['location']} '{str(int(row['election_year']))[2:]}")
 
-        with open(f"{WEB_DATA_DIR}/platform_comparison.json", 'w', encoding='utf-8') as f:
+        with open(f"{WEB_DATA_DIR}/platform_comparison.json", 'w') as f:
             json.dump(data, f, indent=2)
 
         log(f"  ✓ Platform comparison saved ({len(data['elections'])} elections)")
@@ -884,7 +884,7 @@ def generate_brier_by_race_margin():
         }
     }
 
-    with open(f"{WEB_DATA_DIR}/brier_by_margin.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/brier_by_margin.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Brier by margin saved ({len(data['margins'])} buckets)")
@@ -933,7 +933,7 @@ def generate_brier_convergence():
             'scores': scores
         }
 
-    with open(f"{WEB_DATA_DIR}/brier_convergence.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/brier_convergence.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Brier convergence saved ({len(data['cohorts'])} cohorts)")
@@ -955,7 +955,7 @@ def generate_platform_stats():
         'kalshi': df['Kalshi'].tolist()
     }
 
-    with open(f"{WEB_DATA_DIR}/platform_stats.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/platform_stats.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Platform stats saved ({len(data['metrics'])} metrics)")
@@ -1077,7 +1077,7 @@ def generate_volume_timeseries():
             if i < 8:
                 data['defaultCategories'].append(clean_name)
 
-    with open(f"{WEB_DATA_DIR}/volume_timeseries.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/volume_timeseries.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Volume time series saved ({len(data['months'])} months, {len(data['categories'])} categories)")
@@ -1112,7 +1112,7 @@ def generate_market_distribution():
         data['kalshi'].append(int(row['Kalshi']))
         data['total'].append(int(row['Total']))
 
-    with open(f"{WEB_DATA_DIR}/market_distribution.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/market_distribution.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Market distribution saved ({len(data['categories'])} categories)")
@@ -1194,7 +1194,7 @@ def generate_election_winner_stats():
                 'accuracy': round(float(sdf['correct'].mean()), 4),
             }
 
-    with open(f"{WEB_DATA_DIR}/election_winner_stats.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/election_winner_stats.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Election winner stats saved")
@@ -1238,7 +1238,7 @@ def generate_aggregate_statistics():
         data['median_volume_k'].append(round(row['median_volume'] / 1000, 1))  # Convert to $K
         data['total_volume_m'].append(round(row['total_volume'] / 1_000_000, 1))  # Convert to $M
 
-    with open(f"{WEB_DATA_DIR}/aggregate_statistics.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/aggregate_statistics.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Aggregate statistics saved ({len(data['categories'])} categories)")
@@ -1264,7 +1264,7 @@ def generate_election_types():
         'total': df['Total'].tolist()
     }
 
-    with open(f"{WEB_DATA_DIR}/election_types.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/election_types.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Election types saved ({len(data['election_types'])} types)")
@@ -1342,7 +1342,7 @@ def generate_partisan_bias_calibration():
             'n_elections': len(plat_df)
         }
 
-    with open(f"{WEB_DATA_DIR}/partisan_bias_calibration.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/partisan_bias_calibration.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Partisan bias calibration saved")
@@ -1413,7 +1413,7 @@ def generate_partisan_bias_regression():
 
     data = {'models': models}
 
-    with open(f"{WEB_DATA_DIR}/partisan_bias_regression.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/partisan_bias_regression.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Partisan bias regression saved ({len(models)} models)")
@@ -1553,7 +1553,7 @@ def generate_trader_partisanship_distribution():
         'election_outcomes': election_outcomes
     }
 
-    with open(f"{WEB_DATA_DIR}/trader_partisanship_distribution.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/trader_partisanship_distribution.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  Trader partisanship distribution saved (R bettors: {len(rep_bettors)}, D bettors: {len(dem_bettors)})")
@@ -1621,7 +1621,7 @@ def generate_trader_accuracy_distribution():
         }
     }
 
-    with open(f"{WEB_DATA_DIR}/trader_accuracy_distribution.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/trader_accuracy_distribution.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  Trader accuracy distribution saved (n={len(df)} traders, {len(kde_data)} buckets)")
@@ -1719,7 +1719,7 @@ def generate_trader_partisanship_actual_vs_perfect():
         'democrat_bettors': dem_data
     }
 
-    with open(f"{WEB_DATA_DIR}/trader_partisanship_actual_vs_perfect.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/trader_partisanship_actual_vs_perfect.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  Trader partisanship actual vs perfect saved (R: n={len(rep_bettors)}, D: n={len(dem_bettors)})")
@@ -1774,7 +1774,7 @@ def generate_calibration_by_closeness():
 
     data = {'buckets': buckets}
 
-    with open(f"{WEB_DATA_DIR}/calibration_by_closeness.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/calibration_by_closeness.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Calibration by closeness saved ({len(buckets)} buckets)")
@@ -1886,7 +1886,7 @@ def generate_prediction_vs_volume():
 
         log(f"  {plat_label}: Yes={len(yes_df)}, No={len(no_df)}")
 
-    with open(f"{WEB_DATA_DIR}/prediction_vs_volume.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/prediction_vs_volume.json", 'w') as f:
         json.dump(data, f, indent=2)
 
     log(f"  ✓ Prediction vs volume saved")
@@ -2077,7 +2077,7 @@ def generate_globe_elections():
     completed_entries.sort(key=lambda e: e['volume'], reverse=True)
 
     output = {'live': live_entries, 'completed': completed_entries}
-    with open(f"{WEB_DATA_DIR}/globe_elections.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/globe_elections.json", 'w') as f:
         json.dump(output, f, indent=2)
 
     total = len(live_entries) + len(completed_entries)
@@ -2255,7 +2255,7 @@ def generate_globe_markets():
         'markets': market_entries,
     }
 
-    with open(f"{WEB_DATA_DIR}/globe_markets.json", 'w', encoding='utf-8') as f:
+    with open(f"{WEB_DATA_DIR}/globe_markets.json", 'w') as f:
         json.dump(output, f, indent=2)
 
     log(f"  ✓ Globe markets saved ({len(market_entries):,} points from {len(with_location):,} markets)")

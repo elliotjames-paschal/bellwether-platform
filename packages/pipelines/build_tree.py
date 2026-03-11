@@ -292,7 +292,7 @@ def main():
 
     # Save tree
     output_file = DATA_DIR / "decision_tree.json"
-    with open(output_file, "w", encoding="utf-8") as f:
+    with open(output_file, "w") as f:
         json.dump(tree, f, indent=2)
     print(f"\nSaved decision tree to {output_file}")
 
@@ -319,7 +319,7 @@ def main():
             clustering_map["actions"][alias] = action
 
     map_file = DATA_DIR / "clustering_map.json"
-    with open(map_file, "w", encoding="utf-8") as f:
+    with open(map_file, "w") as f:
         json.dump(clustering_map, f, indent=2)
     print(f"Saved clustering map to {map_file}")
 

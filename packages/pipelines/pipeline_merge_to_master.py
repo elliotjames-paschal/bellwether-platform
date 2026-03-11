@@ -288,7 +288,7 @@ def main():
 
     index['last_updated'] = datetime.now().isoformat()
 
-    with open(INDEX_FILE, 'w', encoding='utf-8') as f:
+    with open(INDEX_FILE, 'w') as f:
         json.dump(index, f, indent=2)
 
     log(f"  Updated index: {len(index['polymarket']):,} PM, {len(index['kalshi']):,} Kalshi")

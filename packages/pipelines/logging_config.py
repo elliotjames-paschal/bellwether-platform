@@ -153,15 +153,11 @@ def setup_logging(run_name: str = "daily", console_level: int = logging.INFO) ->
     _current_log_file = RUNS_DIR / f"{timestamp}_{run_name}.log"
     _error_log_file = RUNS_DIR / f"{timestamp}_{run_name}_errors.log"
 
-    # Create symlink (or copy on Windows) to latest log
+    # Create symlink to latest log
     latest_link = LOGS_DIR / "latest.log"
     if latest_link.exists() or latest_link.is_symlink():
         latest_link.unlink()
-    try:
-        latest_link.symlink_to(_current_log_file)
-    except OSError:
-        # Windows requires admin privileges for symlinks; fall back to copying path
-        latest_link.write_text(str(_current_log_file))
+    latest_link.symlink_to(_current_log_file)
 
     # Get root logger
     root_logger = logging.getLogger("bellwether")

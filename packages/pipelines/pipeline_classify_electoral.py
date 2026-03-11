@@ -315,11 +315,7 @@ def derive_election_type(row):
 
 def log(msg):
     """Print timestamped log message."""
-    text = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
-    try:
-        print(text)
-    except UnicodeEncodeError:
-        print(text.encode('ascii', errors='replace').decode('ascii'))
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
 
 # =============================================================================
@@ -919,7 +915,7 @@ def main():
             }
 
         # Save checkpoint
-        with open(CHECKPOINT_FILE, 'w', encoding='utf-8') as f:
+        with open(CHECKPOINT_FILE, 'w') as f:
             json.dump({
                 'results': {str(k): v for k, v in processed_indices.items()},
                 'last_updated': datetime.now().isoformat()

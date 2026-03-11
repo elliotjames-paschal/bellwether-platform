@@ -47,7 +47,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 sys.path.insert(0, str(Path(__file__).parent))
-from config import BASE_DIR, DATA_DIR, rotate_backups, get_openai_api_key
+from config import BASE_DIR, DATA_DIR, rotate_backups
 
 # Import coordinate lookup from generate_web_data
 from generate_web_data import LOCATION_COORDS, US_STATE_ABBREVS
@@ -270,7 +270,7 @@ def log_gpt_overrides(overrides):
         existing.append(override)
 
     # Save
-    with open(GPT_OVERRIDE_LOG, 'w', encoding='utf-8') as f:
+    with open(GPT_OVERRIDE_LOG, 'w') as f:
         json.dump(existing, f, indent=2)
 
     log(f"  📝 Logged {len(overrides)} GPT override(s) to {GPT_OVERRIDE_LOG.name}")
@@ -298,7 +298,7 @@ def load_selections():
 
 def save_selections(selections):
     """Save winner selections."""
-    with open(SELECTIONS_FILE, 'w', encoding='utf-8') as f:
+    with open(SELECTIONS_FILE, 'w') as f:
         json.dump(selections, f, indent=2)
 
 
@@ -615,7 +615,7 @@ async def run_elections_async(prepared):
         list of (key, result, pm_markets, kalshi_markets, desc)
     """
     from openai import AsyncOpenAI
-    client = AsyncOpenAI(api_key=get_openai_api_key())
+    client = AsyncOpenAI()
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_GPT)
 
     async def process_one(item):

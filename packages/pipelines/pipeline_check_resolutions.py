@@ -271,9 +271,6 @@ def main():
 
     # Load master CSV
     log("Loading master CSV...")
-    if not MASTER_FILE.exists():
-        log(f"  Master CSV not found at {MASTER_FILE.name} — skipping (first run?)")
-        return
     df = pd.read_csv(MASTER_FILE, low_memory=False)
     log(f"  Total markets: {len(df):,}")
 

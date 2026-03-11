@@ -192,7 +192,7 @@ def save_output(mapping, event_count):
         "mapping": mapping,
     }
 
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+    with open(OUTPUT_FILE, 'w') as f:
         json.dump(output, f, indent=2)
 
     log(f"Saved to {OUTPUT_FILE}")

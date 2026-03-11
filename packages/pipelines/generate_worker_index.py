@@ -312,11 +312,11 @@ def main():
 
     # Write local files
     API_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    with open(API_OUTPUT, 'w', encoding='utf-8') as f:
+    with open(API_OUTPUT, 'w') as f:
         f.write(output_json)
 
     WEBSITE_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    with open(WEBSITE_OUTPUT, 'w', encoding='utf-8') as f:
+    with open(WEBSITE_OUTPUT, 'w') as f:
         f.write(output_json)
 
     # Upload to KV

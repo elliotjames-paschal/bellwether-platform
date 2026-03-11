@@ -326,7 +326,7 @@ def save_checkpoint(
         "kalshi_series": kalshi_series,
         "errors": errors
     }
-    with open(CHECKPOINT_FILE, 'w', encoding='utf-8') as f:
+    with open(CHECKPOINT_FILE, 'w') as f:
         json.dump(checkpoint, f)
     log(f"  Checkpoint saved: {len(processed_kalshi)} Kalshi, {len(processed_polymarket)} Polymarket")
 
@@ -926,7 +926,7 @@ def archive_pruned(pruned_entries: List[Dict[str, Any]]):
         "markets": list(archive_by_id.values())
     }
 
-    with open(ARCHIVE_FILE, 'w', encoding='utf-8') as f:
+    with open(ARCHIVE_FILE, 'w') as f:
         json.dump(archive_output, f, indent=2, default=str)
 
     log(f"    Archived {len(pruned_entries)} pruned entries → {ARCHIVE_FILE.name} ({len(archive_by_id):,} total)")
@@ -1040,7 +1040,7 @@ async def main(full_refresh: bool = False):
             log("\n" + "=" * 60)
             log("Saving Output")
             log("=" * 60)
-            with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+            with open(OUTPUT_FILE, 'w') as f:
                 json.dump(output, f, indent=2, default=str)
             log(f"  Saved to: {OUTPUT_FILE}")
             file_size_mb = os.path.getsize(OUTPUT_FILE) / (1024 * 1024)
@@ -1109,7 +1109,7 @@ async def main(full_refresh: bool = False):
     log("Saving Output")
     log("=" * 60)
 
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+    with open(OUTPUT_FILE, 'w') as f:
         json.dump(output, f, indent=2, default=str)
 
     log(f"  Saved to: {OUTPUT_FILE}")

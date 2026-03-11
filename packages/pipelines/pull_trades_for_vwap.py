@@ -242,7 +242,7 @@ def load_checkpoint():
 
 def save_checkpoint(processed_ids, results):
     """Save checkpoint."""
-    with open(CHECKPOINT_FILE, 'w', encoding='utf-8') as f:
+    with open(CHECKPOINT_FILE, 'w') as f:
         json.dump({
             'processed_markets': list(processed_ids),
             'results_count': len(results),
@@ -390,7 +390,7 @@ def main():
     }
 
     log(f"Saving to {OUTPUT_FILE}...")
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+    with open(OUTPUT_FILE, 'w') as f:
         json.dump(output, f)
 
     log(f"Saved {len(all_results)} markets with trade data")

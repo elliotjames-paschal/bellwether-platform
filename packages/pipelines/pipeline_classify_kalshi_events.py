@@ -299,7 +299,7 @@ def main():
     # ------------------------------------------------------------------
     # Step 6: Save
     # ------------------------------------------------------------------
-    with open(EVENT_TICKERS_FILE, 'w', encoding='utf-8') as f:
+    with open(EVENT_TICKERS_FILE, 'w') as f:
         json.dump(existing, f, indent=2)
     log(f"Saved: {EVENT_TICKERS_FILE}")
 

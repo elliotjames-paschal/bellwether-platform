@@ -1099,7 +1099,7 @@ def save_today_kalshi_prices(prices):
     KALSHI_DAILY_PRICES_DIR.mkdir(parents=True, exist_ok=True)
     today = datetime.now().strftime('%Y-%m-%d')
     today_file = KALSHI_DAILY_PRICES_DIR / f"kalshi_prices_{today}.json"
-    with open(today_file, 'w', encoding='utf-8') as f:
+    with open(today_file, 'w') as f:
         json.dump(prices, f)
     # Clean up old files (keep last 7 days)
     from datetime import timedelta
@@ -1659,7 +1659,7 @@ def generate_monitor_data(skip_prices=False):
 
     # Save output
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+    with open(OUTPUT_FILE, 'w') as f:
         json.dump(output, f)
 
     log(f"  Saved to {OUTPUT_FILE}")
@@ -1845,7 +1845,7 @@ def generate_monitor_summary(elections, max_workers=50):
     }
 
     output_path = WEBSITE_DIR / 'data' / 'monitor_summary.json'
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, 'w') as f:
         json.dump(summary, f, indent=2)
 
     # Save reportable markets (robust + caution) for the Reportable tab
@@ -1855,7 +1855,7 @@ def generate_monitor_summary(elections, max_workers=50):
         'caution': caution_markets,
     }
     reportable_path = WEBSITE_DIR / 'data' / 'reportable_markets.json'
-    with open(reportable_path, 'w', encoding='utf-8') as f:
+    with open(reportable_path, 'w') as f:
         json.dump(reportable, f, indent=2)
 
     log(f"  Monitor summary: {total} assessed, {robust_count} robust, {caution_count} caution, {fragile_count} fragile")
