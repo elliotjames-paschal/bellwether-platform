@@ -15,7 +15,7 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=20260212e">
+<link rel="stylesheet" href="css/styles.css?v=20260310a">
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 <style>
@@ -306,41 +306,61 @@
 <div id="feedback-modal" class="modal-overlay">
     <div class="modal-content feedback-modal-content">
         <button class="modal-close" id="feedback-modal-close">&times;</button>
-        <h3 class="feedback-modal-title">Label Selected Markets</h3>
-        <p class="feedback-modal-subtitle">You've selected <span id="feedback-count">0</span> market(s). What would you like to tell us?</p>
+        <h3 class="feedback-modal-title">Is this match correct?</h3>
+        <p class="feedback-modal-subtitle">You've selected <span id="feedback-count">0</span> market(s). Review and label them.</p>
         <div class="feedback-options">
             <label class="feedback-option feedback-option-featured">
                 <input type="radio" name="feedback-type" value="same-event">
                 <span class="feedback-option-text">
-                    <strong>Same Event (Cross-Platform Match)</strong>
-                    <span class="feedback-option-desc">These markets on Polymarket and Kalshi are about the same event — help us link them for comparison</span>
+                    <strong>Same Event</strong>
+                    <span class="feedback-option-desc">Same event on both platforms</span>
+                </span>
+            </label>
+            <div class="feedback-sub-options" id="same-event-sub-options">
+                <label class="feedback-sub-option">
+                    <input type="radio" name="same-event-rules" value="same-rules">
+                    <span class="feedback-sub-option-text">
+                        <strong>Same Rules</strong>
+                        <span class="feedback-option-desc">Resolution criteria match</span>
+                    </span>
+                </label>
+                <label class="feedback-sub-option">
+                    <input type="radio" name="same-event-rules" value="different-rules">
+                    <span class="feedback-sub-option-text">
+                        <strong>Different Rules</strong>
+                        <span class="feedback-option-desc">Same event, different resolution</span>
+                    </span>
+                </label>
+            </div>
+            <label class="feedback-option">
+                <input type="radio" name="feedback-type" value="different-event">
+                <span class="feedback-option-text">
+                    <strong>Different Events</strong>
+                    <span class="feedback-option-desc">Incorrectly matched</span>
                 </span>
             </label>
             <label class="feedback-option">
                 <input type="radio" name="feedback-type" value="not-political">
                 <span class="feedback-option-text">
                     <strong>Not Political</strong>
-                    <span class="feedback-option-desc">These markets aren't about politics</span>
                 </span>
             </label>
             <label class="feedback-option">
                 <input type="radio" name="feedback-type" value="wrong-category">
                 <span class="feedback-option-text">
                     <strong>Wrong Category</strong>
-                    <span class="feedback-option-desc">Mislabeled category (e.g., marked as Electoral but isn't)</span>
                 </span>
             </label>
             <label class="feedback-option">
                 <input type="radio" name="feedback-type" value="other">
                 <span class="feedback-option-text">
                     <strong>Other Issue</strong>
-                    <span class="feedback-option-desc">Something else is wrong</span>
                 </span>
             </label>
         </div>
         <div class="feedback-notes">
-            <label for="feedback-notes-input">Notes</label>
-            <textarea id="feedback-notes-input" placeholder="For matching: briefly explain why these are the same event. For errors: describe what's wrong." required></textarea>
+            <label for="feedback-notes-input">Notes (optional)</label>
+            <textarea id="feedback-notes-input" placeholder="What's wrong or why should these match?" rows="3"></textarea>
         </div>
         <div class="feedback-actions">
             <button id="feedback-cancel-btn" class="feedback-btn-secondary">Cancel</button>
@@ -379,7 +399,7 @@
   </div>
 </footer>
 
-<script src="js/monitor.js?v=20260212i"></script>
+<script src="js/monitor.js?v=20260310a"></script>
 <script>
   // Sync V2 header with monitor.js data
   var origCount = document.getElementById('monitor-market-count');
