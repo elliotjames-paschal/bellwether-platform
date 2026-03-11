@@ -356,7 +356,7 @@ latex += r"""\bottomrule
 """
 
 output_file = f"{TABLES_DIR}/election_winner_comparison.tex"
-with open(output_file, 'w') as f:
+with open(output_file, 'w', encoding='utf-8') as f:
     f.write(latex)
 print(f"   Saved to {output_file}")
 

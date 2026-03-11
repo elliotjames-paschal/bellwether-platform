@@ -136,7 +136,7 @@ def load_json(path) -> list:
 
 def save_json(path, data):
     """Save data as formatted JSON."""
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
         f.write("\n")
 

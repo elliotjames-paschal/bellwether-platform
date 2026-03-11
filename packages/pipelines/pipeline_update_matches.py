@@ -170,6 +170,8 @@ def unify_identical_tickers(identical_verdicts, tickers_by_id, all_tickers):
 
         if to_update["ticker"] != old_ticker:
             modified += 1
+            to_update["match_source"] = "auto_embedding_gpt"
+            to_update["match_confidence"] = verdict.get("cosine_similarity", 0)
             print(f"    Fixed: {old_ticker} -> {to_update['ticker']} ({to_update['market_id']})")
 
     return modified
@@ -194,6 +196,7 @@ def write_near_matches(overlapping, different, existing_near_matches=None):
             "cosine_similarity": verdict.get("cosine_similarity", 0),
             "verdict": verdict["verdict"],
             "explanation": verdict.get("explanation", ""),
+            "match_source": verdict.get("match_source", "auto_embedding_gpt"),
             "reviewed_at": verdict.get("reviewed_at", datetime.now().isoformat()),
         })
 
@@ -213,6 +216,7 @@ def update_reviewed_pairs(reviewed_data, all_processed_pairs):
             "bucket": pair.get("bucket", ""),
             "verdict": pair.get("verdict", ""),
             "action_taken": pair.get("action_taken", "none"),
+            "match_source": pair.get("match_source", "auto"),
         }
 
     reviewed_data["pairs"] = pairs

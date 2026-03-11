@@ -82,26 +82,6 @@ fi
 source "$VENV_DIR/bin/activate"
 
 # --------------------------------------------------------------------------
-# Ensure data/ is a symlink to bellwether-data/ (not a real directory)
-# --------------------------------------------------------------------------
-DATA_STORE="${GROUP_HOME:-}/bellwether-data"
-DATA_LINK="$BELLWETHER_HOME/data"
-
-if [[ -n "${GROUP_HOME:-}" && -d "$DATA_STORE" ]]; then
-    if [[ -d "$DATA_LINK" && ! -L "$DATA_LINK" ]]; then
-        echo "WARNING: data/ is a real directory, not a symlink. Fixing..."
-        # Move any new files generated into bellwether-data first
-        cp -rn "$DATA_LINK/." "$DATA_STORE/" 2>/dev/null || true
-        rm -rf "$DATA_LINK"
-        ln -s "$DATA_STORE" "$DATA_LINK"
-        echo "  Fixed: data/ -> $DATA_STORE"
-    elif [[ ! -e "$DATA_LINK" ]]; then
-        ln -s "$DATA_STORE" "$DATA_LINK"
-        echo "  Created symlink: data/ -> $DATA_STORE"
-    fi
-fi
-
-# --------------------------------------------------------------------------
 # Ensure dependencies are installed
 # --------------------------------------------------------------------------
 pip install -q -r "$BELLWETHER_HOME/packages/pipelines/requirements.txt" 2>/dev/null || echo "WARNING: pip install failed (some packages may be missing)"

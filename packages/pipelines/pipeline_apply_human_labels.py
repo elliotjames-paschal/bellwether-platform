@@ -673,11 +673,21 @@ def main():
     pairs_added = add_to_reviewed_pairs(labels, reviewed_data)
     print(f"  Reviewed pairs added: {pairs_added}")
 
+    # Build label lookup for printing
+    label_lookup = {l["label_id"]: l for l in labels}
+
     # Print all results
     if all_results:
         print(f"\n  Actions taken:")
         for action, label_id, detail in all_results:
-            print(f"    [{action}] {label_id}: {detail}")
+            label = label_lookup.get(label_id, {})
+            keys = label.get("market_keys", [])
+            desc = label.get("description", "")
+            ltype = label.get("label_type", "")
+            title = f" | {ltype} | keys={keys}"
+            if desc:
+                title += f" | {desc!r}"
+            print(f"    [{action}] {label_id}: {detail}{title}")
 
     if args.dry_run:
         print("\n  [DRY RUN] Not writing changes.")

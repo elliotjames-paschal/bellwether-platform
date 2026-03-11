@@ -16,6 +16,7 @@ Options:
 """
 
 import argparse
+import gzip
 import json
 import re
 import sys
@@ -1099,7 +1100,7 @@ def save_today_kalshi_prices(prices):
     KALSHI_DAILY_PRICES_DIR.mkdir(parents=True, exist_ok=True)
     today = datetime.now().strftime('%Y-%m-%d')
     today_file = KALSHI_DAILY_PRICES_DIR / f"kalshi_prices_{today}.json"
-    with open(today_file, 'w') as f:
+    with open(today_file, 'w', encoding='utf-8') as f:
         json.dump(prices, f)
     # Clean up old files (keep last 7 days)
     from datetime import timedelta
@@ -1285,6 +1286,28 @@ def generate_monitor_data(skip_prices=False):
     slug_mapping = load_slug_mapping()
     log(f"  Loaded {len(slug_mapping):,} PM slug mappings")
 
+    # Load event-level titles from enriched data
+    event_titles = {}
+    enriched_file = DATA_DIR / "enriched_political_markets.json.gz"
+    if enriched_file.exists():
+        try:
+            with gzip.open(enriched_file, "rt", encoding="utf-8") as f:
+                enriched_data = json.load(f)
+            for entry in enriched_data.get("markets", enriched_data):
+                csv_data = entry.get("original_csv", entry)
+                market_id = csv_data.get("market_id")
+                if not market_id:
+                    continue
+                api_data = entry.get("api_data", {})
+                event = api_data.get("event", {})
+                if isinstance(event, dict) and event.get("title"):
+                    event_titles[str(market_id)] = event["title"]
+            log(f"  Loaded {len(event_titles):,} event titles from enriched data")
+        except Exception as e:
+            log(f"  Warning: Could not load enriched data for event titles: {e}")
+    else:
+        log("  Enriched data not found - event titles will be unavailable")
+
     kalshi_candlesticks = load_kalshi_candlestick_prices()
     log(f"  Loaded {len(kalshi_candlesticks):,} Kalshi markets with price history")
 
@@ -1448,7 +1471,12 @@ def generate_monitor_data(skip_prices=False):
         # Label: prefer K question (usually cleaner), fall back to PM
         k_question = str(k_best.get('question', '')) if has_k else None
         pm_question = str(pm_best.get('question', '')) if has_pm else None
-        label = k_question or pm_question or ticker_str
+
+        # Event-level titles (broader than contract questions)
+        k_event_title = event_titles.get(str(k_best.get('market_id'))) if has_k else None
+        pm_event_title = event_titles.get(str(pm_best.get('market_id'))) if has_pm else None
+
+        label = k_event_title or pm_event_title or k_question or pm_question or ticker_str
 
         # Category from best available market
         ref_row = k_best if has_k else pm_best
@@ -1512,6 +1540,9 @@ def generate_monitor_data(skip_prices=False):
             # Questions
             'pm_question': pm_question,
             'k_question': k_question,
+            # Event-level titles
+            'pm_event_title': pm_event_title,
+            'k_event_title': k_event_title,
             # Volume
             'pm_volume': pm_volume,
             'k_volume': k_volume,
@@ -1600,9 +1631,12 @@ def generate_monitor_data(skip_prices=False):
         pm_token = row.get('pm_token_id_yes')
         pm_token_str = str(pm_token).split('.')[0] if pd.notna(pm_token) else None
 
+        # Event-level title for single-platform fallback
+        evt_title = event_titles.get(market_id)
+
         entry = {
             'key': f"{platform.lower()}_{market_id}",
-            'label': str(question),
+            'label': evt_title or str(question),
             'entry_type': 'market',
             'platform': platform,
             'category': category,
@@ -1659,7 +1693,7 @@ def generate_monitor_data(skip_prices=False):
 
     # Save output
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_FILE, 'w') as f:
+    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         json.dump(output, f)
 
     log(f"  Saved to {OUTPUT_FILE}")
@@ -1845,7 +1879,7 @@ def generate_monitor_summary(elections, max_workers=50):
     }
 
     output_path = WEBSITE_DIR / 'data' / 'monitor_summary.json'
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(summary, f, indent=2)
 
     # Save reportable markets (robust + caution) for the Reportable tab
@@ -1855,7 +1889,7 @@ def generate_monitor_summary(elections, max_workers=50):
         'caution': caution_markets,
     }
     reportable_path = WEBSITE_DIR / 'data' / 'reportable_markets.json'
-    with open(reportable_path, 'w') as f:
+    with open(reportable_path, 'w', encoding='utf-8') as f:
         json.dump(reportable, f, indent=2)
 
     log(f"  Monitor summary: {total} assessed, {robust_count} robust, {caution_count} caution, {fragile_count} fragile")
