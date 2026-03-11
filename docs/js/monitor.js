@@ -27,6 +27,9 @@
     let reviewMode = false;
     let selectedMarkets = new Set();
 
+    // Modal navigation state
+    let currentModalKey = null;
+
     // Contract rules cache (lazy-loaded on first modal open)
     let marketRulesCache = null;
 
@@ -1013,11 +1016,6 @@
                     }
                 }
 
-                if (!notes || !notes.value.trim()) {
-                    showToast('Please add a note');
-                    return;
-                }
-
                 const market = allMarkets.find(m => m.key === marketKey);
                 const marketData = market ? [{
                     key: market.key,
@@ -1035,7 +1033,7 @@
                 const payload = {
                     timestamp: new Date().toISOString(),
                     feedbackType: feedbackValue,
-                    notes: notes.value,
+                    notes: notes ? notes.value.trim() : '',
                     markets: marketData
                 };
 
@@ -1049,6 +1047,8 @@
     function openModal(marketKey) {
         const entry = allMarkets.find(m => m.key === marketKey);
         if (!entry) return;
+
+        currentModalKey = marketKey;
 
         const modal = document.getElementById('election-modal');
         const modalContent = document.getElementById('election-modal-content');
@@ -1105,6 +1105,7 @@
     }
 
     function closeModal() {
+        currentModalKey = null;
         const modal = document.getElementById('election-modal');
         if (modal) {
             modal.classList.remove('visible');
@@ -1445,6 +1446,16 @@
             if (e.key === 'Escape') {
                 closeModal();
                 closeFeedbackModal();
+            }
+            if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && currentModalKey) {
+                // Don't navigate if user is typing in a textarea/input
+                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+                const idx = filteredMarkets.findIndex(m => m.key === currentModalKey);
+                if (idx === -1) return;
+                const nextIdx = e.key === 'ArrowLeft' ? idx - 1 : idx + 1;
+                if (nextIdx >= 0 && nextIdx < filteredMarkets.length) {
+                    openModal(filteredMarkets[nextIdx].key);
+                }
             }
         });
 
@@ -2059,11 +2070,6 @@
                 showToast('Please select whether the rules are the same or different');
                 return;
             }
-        }
-
-        if (!notes || !notes.value.trim()) {
-            showToast('Please add a note');
-            return;
         }
 
         // Gather selected market data
