@@ -25,6 +25,8 @@ from pipeline_apply_human_labels import (
     make_pair_key,
     parse_ticker_components,
     reassemble_ticker,
+    compute_exclusion_id,
+    migrate_split_tickers,
 )
 
 
@@ -272,21 +274,40 @@ class TestApplySameEventDifferentRules:
 
 
 class TestApplyDifferentEvent:
-    def test_splits_matching_tickers(self):
+    def test_creates_exclusion_entries(self):
         tickers_by_id = {
             "K1": make_ticker("K1", "BWR-TRUMP-WIN-PRES_US-CERT-ANY-2028", "Kalshi"),
             "P1": make_ticker("P1", "BWR-TRUMP-WIN-PRES_US-CERT-ANY-2028", "Polymarket"),
         }
         labels = [make_label("hl_020", "different_event", ["K1", "P1"])]
 
-        modified, pairs, results = apply_different_event(labels, tickers_by_id)
+        exclusions, pairs, results = apply_different_event(labels, tickers_by_id)
 
-        assert modified == 1
-        assert tickers_by_id["P1"]["ticker"].endswith("_SPLIT")
-        assert tickers_by_id["P1"]["match_source"] == "human"
+        assert len(exclusions) == 1
+        assert exclusions[0]["ticker"] == "BWR-TRUMP-WIN-PRES_US-CERT-ANY-2028"
+        assert exclusions[0]["reason"] == "different_event"
+        assert exclusions[0]["source_label_id"] == "hl_020"
+        # Ticker should NOT be modified
+        assert tickers_by_id["K1"]["ticker"] == "BWR-TRUMP-WIN-PRES_US-CERT-ANY-2028"
+        assert tickers_by_id["P1"]["ticker"] == "BWR-TRUMP-WIN-PRES_US-CERT-ANY-2028"
         assert labels[0]["status"] == "applied"
+        assert labels[0]["applied_action"] == "excluded_match"
         assert len(pairs) == 1
         assert pairs[0]["verdict"] == "DIFFERENT"
+
+    def test_no_split_suffix_added(self):
+        """Verify _SPLIT is never appended to tickers."""
+        tickers_by_id = {
+            "K1": make_ticker("K1", "BWR-A-W-X-STD-ANY-2028", "Kalshi"),
+            "P1": make_ticker("P1", "BWR-A-W-X-STD-ANY-2028", "Polymarket"),
+        }
+        labels = [make_label("hl_nosplit", "different_event", ["K1", "P1"])]
+
+        exclusions, _, _ = apply_different_event(labels, tickers_by_id)
+
+        assert len(exclusions) == 1
+        assert not tickers_by_id["K1"]["ticker"].endswith("_SPLIT")
+        assert not tickers_by_id["P1"]["ticker"].endswith("_SPLIT")
 
     def test_already_different_noop(self):
         tickers_by_id = {
@@ -295,10 +316,108 @@ class TestApplyDifferentEvent:
         }
         labels = [make_label("hl_021", "different_event", ["K1", "P1"])]
 
-        modified, _, _ = apply_different_event(labels, tickers_by_id)
-        assert modified == 0
+        exclusions, _, _ = apply_different_event(labels, tickers_by_id)
+        assert len(exclusions) == 0
         assert labels[0]["status"] == "applied"
         assert labels[0]["applied_action"] == "already_different"
+
+    def test_n_markets_pairwise_exclusions(self):
+        """N=3 markets with same ticker → 3 exclusion pairs."""
+        tickers_by_id = {
+            "K1": make_ticker("K1", "BWR-X-W-Y-STD-ANY-2028", "Kalshi"),
+            "P1": make_ticker("P1", "BWR-X-W-Y-STD-ANY-2028", "Polymarket"),
+            "P2": make_ticker("P2", "BWR-X-W-Y-STD-ANY-2028", "Polymarket"),
+        }
+        labels = [make_label("hl_3exc", "different_event", ["K1", "P1", "P2"])]
+
+        exclusions, pairs, _ = apply_different_event(labels, tickers_by_id)
+
+        assert len(exclusions) == 3  # C(3,2) = 3 pairs
+        assert len(pairs) == 3
+        # All exclusion IDs should be unique
+        exc_ids = {e["exclusion_id"] for e in exclusions}
+        assert len(exc_ids) == 3
+
+    def test_exclusion_schema_fields(self):
+        """Verify all required fields are present on exclusion entries."""
+        tickers_by_id = {
+            "K1": make_ticker("K1", "BWR-A-W-X-STD-ANY-2028", "Kalshi"),
+            "P1": make_ticker("P1", "BWR-A-W-X-STD-ANY-2028", "Polymarket"),
+        }
+        labels = [make_label("hl_schema", "different_event", ["K1", "P1"])]
+
+        exclusions, _, _ = apply_different_event(labels, tickers_by_id, batch_id="batch_test")
+
+        exc = exclusions[0]
+        assert "exclusion_id" in exc
+        assert exc["exclusion_id"].startswith("exc_")
+        assert "market_id_a" in exc
+        assert "market_id_b" in exc
+        assert "ticker" in exc
+        assert "reason" in exc
+        assert "source_label_id" in exc
+        assert "created_at" in exc
+        assert exc["batch_id"] == "batch_test"
+        # market_id_a < market_id_b (sorted)
+        assert exc["market_id_a"] <= exc["market_id_b"]
+
+
+class TestComputeExclusionId:
+    def test_deterministic(self):
+        id1 = compute_exclusion_id("A", "B")
+        id2 = compute_exclusion_id("A", "B")
+        assert id1 == id2
+
+    def test_order_independent(self):
+        id1 = compute_exclusion_id("A", "B")
+        id2 = compute_exclusion_id("B", "A")
+        assert id1 == id2
+
+    def test_different_pairs_different_ids(self):
+        id1 = compute_exclusion_id("A", "B")
+        id2 = compute_exclusion_id("A", "C")
+        assert id1 != id2
+
+
+class TestMigrateSplitTickers:
+    def test_migrates_split_ticker(self):
+        tickers_by_id = {
+            "K1": {"market_id": "K1", "ticker": "BWR-A-W-X-STD-ANY-2028", "platform": "Kalshi"},
+            "P1": {"market_id": "P1", "ticker": "BWR-A-W-X-STD-ANY-2028_SPLIT",
+                    "platform": "Polymarket", "human_label_id": "hl_old"},
+        }
+
+        exclusions = migrate_split_tickers(tickers_by_id)
+
+        # _SPLIT should be stripped
+        assert tickers_by_id["P1"]["ticker"] == "BWR-A-W-X-STD-ANY-2028"
+        # Exclusion entry should be created
+        assert len(exclusions) == 1
+        assert exclusions[0]["reason"] == "migrated_from_split"
+        assert exclusions[0]["source_label_id"] == "hl_old"
+
+    def test_no_split_tickers_noop(self):
+        tickers_by_id = {
+            "K1": {"market_id": "K1", "ticker": "BWR-A-W-X-STD-ANY-2028", "platform": "Kalshi"},
+        }
+        exclusions = migrate_split_tickers(tickers_by_id)
+        assert exclusions == []
+
+    def test_multiple_split_markets_pairwise(self):
+        """Two markets with base ticker + one _SPLIT → exclusion between SPLIT and each base."""
+        tickers_by_id = {
+            "K1": {"market_id": "K1", "ticker": "BWR-A-W-X-STD-ANY-2028", "platform": "Kalshi"},
+            "K2": {"market_id": "K2", "ticker": "BWR-A-W-X-STD-ANY-2028", "platform": "Kalshi"},
+            "P1": {"market_id": "P1", "ticker": "BWR-A-W-X-STD-ANY-2028_SPLIT",
+                    "platform": "Polymarket", "human_label_id": "hl_old"},
+        }
+
+        exclusions = migrate_split_tickers(tickers_by_id)
+
+        # P1 should be excluded from both K1 and K2
+        assert len(exclusions) == 2
+        exc_pairs = {(e["market_id_a"], e["market_id_b"]) for e in exclusions}
+        assert ("K1", "P1") in exc_pairs or ("P1", "K1") in exc_pairs
 
 
 # ──────────────────────────────────────────────────

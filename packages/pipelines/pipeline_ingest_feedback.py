@@ -326,7 +326,11 @@ def main():
     # Fetch CSV
     if args.csv_file:
         print(f"  Reading from local file: {args.csv_file}")
-        with open(args.csv_file, newline="", encoding="utf-8") as f:
+        csv_path = Path(args.csv_file)
+        if not csv_path.exists():
+            print(f"  ERROR: CSV file not found: {args.csv_file}")
+            sys.exit(1)
+        with open(csv_path, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             csv_rows = list(reader)
     else:

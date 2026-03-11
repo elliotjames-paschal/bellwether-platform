@@ -133,7 +133,7 @@ def load_checkpoint():
 def save_checkpoint(checkpoint):
     """Save checkpoint."""
     checkpoint["last_updated"] = datetime.now().isoformat()
-    with open(CHECKPOINT_FILE, 'w') as f:
+    with open(CHECKPOINT_FILE, 'w', encoding='utf-8') as f:
         json.dump(checkpoint, f, indent=2)
 
 

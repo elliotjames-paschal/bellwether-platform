@@ -24,7 +24,7 @@ Website feedback form
 └───────────┬─────────────┘
             ▼
 ┌─────────────────────────┐
-│  generate_ticker_        │  Step 4: Extract error patterns → correction rules for NEXT run
+│  generate_ticker_        │  Step 4: Extract error patterns → correction & disambiguation rules
 │  corrections.py          │
 └─────────────────────────┘
 ```
@@ -38,16 +38,28 @@ Website feedback form
 | File | Created By | Consumed By |
 |------|-----------|-------------|
 | `human_labels.json` | pipeline_ingest_feedback.py | pipeline_apply_human_labels.py, pipeline_evaluate_matches.py, generate_ticker_corrections.py |
-| `tickers_postprocessed.json` | postprocess_tickers.py | All four feedback scripts (read) |
+| `tickers_postprocessed.json` | postprocess_tickers.py | All four feedback scripts (read); pipeline_apply_human_labels.py (write) |
 | `match_accuracy_report.json` | pipeline_evaluate_matches.py | generate_ticker_corrections.py |
-| `ticker_corrections.json` | generate_ticker_corrections.py | postprocess_tickers.py (NEXT run) |
+| `ticker_corrections.json` | generate_ticker_corrections.py | postprocess_tickers.py (NEXT run, Fix 15) |
+| `ticker_disambiguations.json` | generate_ticker_corrections.py | postprocess_tickers.py (NEXT run, Fix 16) |
+| `match_exclusions.json` | pipeline_apply_human_labels.py | pipeline_apply_human_labels.py (read on next run to avoid duplicates) |
 | `near_matches.json` | pipeline_apply_human_labels.py | Website display |
 | `cross_platform_reviewed_pairs.json` | pipeline_apply_human_labels.py | pipeline_discover_cross_platform.py (skip re-surfacing) |
 | `cross_platform_candidates.json` | pipeline_discover_cross_platform.py | pipeline_evaluate_matches.py (suggested labels) |
 | `cross_platform_resolution_verdicts.json` | pipeline_compare_resolutions.py | pipeline_evaluate_matches.py (suggested labels) |
-| `combined_political_markets_with_electoral_details_UPDATED.csv` | Earlier pipeline phases | pipeline_apply_human_labels.py, pipeline_evaluate_matches.py |
+| `combined_political_markets_with_electoral_details_UPDATED.csv` | Earlier pipeline phases | pipeline_apply_human_labels.py (R+W), pipeline_evaluate_matches.py (R) |
 
 All paths resolve to `data/` via `config.DATA_DIR`.
+
+---
+
+## Batch ID Traceability
+
+All feedback pipeline steps share a single `batch_id` per run for traceability:
+
+- **Manual runs:** Each script auto-generates a batch ID in format `batch_YYYYMMDD_HHMMSS` if `--batch-id` is not provided.
+- **Orchestrated runs:** `pipeline_daily_refresh.py` generates one `feedback_batch_id` and passes it via `--batch-id` to all four steps, so every label, exclusion, and correction from a single run shares the same ID.
+- The batch ID appears as `ingested_batch_id` on labels (Step 1), `applied_batch_id` on applied labels (Step 2), and `batch_id` on exclusion entries and correction rules.
 
 ---
 
@@ -66,6 +78,8 @@ https://docs.google.com/spreadsheets/d/e/2PACX-1vRPiDl8J5hruzzB3_CR83cDz1xrVob9X
 3. Parses feedback type from the `Feedback Type` column
 4. Resolves BWR ticker keys to `market_id` values using `tickers_postprocessed.json`
 5. Appends new labels to `human_labels.json` with status `"pending"`
+
+**Default cutoff:** `DEFAULT_LAST_INGESTED = "2026-02-12T22:41:28.460Z"` — all rows before this were already reviewed and applied manually during initial development, so they are skipped on first run.
 
 **Label Types:**
 
@@ -92,14 +106,16 @@ https://docs.google.com/spreadsheets/d/e/2PACX-1vRPiDl8J5hruzzB3_CR83cDz1xrVob9X
     "description": "Same market, mechanism differs",
     "status": "pending",
     "applied_at": null,
-    "applied_action": null
+    "applied_action": null,
+    "ingested_batch_id": "batch_20260310_080000"
 }
 ```
 
 **CLI:**
 ```bash
-python pipeline_ingest_feedback.py --dry-run           # Preview without writing
-python pipeline_ingest_feedback.py --csv-file /tmp/f.csv  # Read from local file
+python pipeline_ingest_feedback.py --dry-run                          # Preview without writing
+python pipeline_ingest_feedback.py --csv-file /tmp/f.csv              # Read from local file
+python pipeline_ingest_feedback.py --batch-id batch_20260310_manual   # Explicit batch ID
 ```
 
 **Idempotency:** Running ingest twice produces 0 new labels on the second run (timestamp-based deduplication).
@@ -110,26 +126,60 @@ python pipeline_ingest_feedback.py --csv-file /tmp/f.csv  # Read from local file
 
 **Script:** `pipeline_apply_human_labels.py`
 
-**Behavior by label type:**
+**Files read/written:**
+- `human_labels.json` (R+W) — reads pending labels, updates status
+- `tickers_postprocessed.json` (R+W) — modifies tickers for same-event merges
+- `match_exclusions.json` (R+W) — exclusion entries for different-event pairs
+- `near_matches.json` (R+W) — near-match entries for same-event-different-rules
+- `cross_platform_reviewed_pairs.json` (R+W) — prevents re-discovery of reviewed pairs
+- Master CSV (R+W) — category changes for not-political/wrong-category
 
-### `same_event_same_rules`
+### _SPLIT Migration
+
+On startup (before processing any labels), the script runs `migrate_split_tickers()`. This converts legacy `_SPLIT` suffixes (an older mechanism for breaking incorrect matches) into the current `match_exclusions.json` approach:
+
+1. Scans all tickers for strings ending in `_SPLIT`
+2. Strips the suffix and finds other markets sharing the base ticker
+3. Creates exclusion entries with `reason: "migrated_from_split"` and `batch_id: "migration"`
+
+This migration is idempotent — once all `_SPLIT` suffixes are converted, subsequent runs find nothing to migrate.
+
+### Behavior by label type
+
+#### `same_event_same_rules`
 - Validates that the two tickers share the same agent, action, target, and timeframe
 - If only mechanism/threshold differ: unifies to a single ticker in `tickers_postprocessed.json`
 - Sets `match_source: "human"` and `human_label_id` on the unified entry
 - If core identity fields differ: marks label `status: "needs_review"` (not auto-applied)
 
-### `same_event_different_rules`
+#### `same_event_different_rules`
 - Adds the pair to `near_matches.json` for website display
+- **Cross-platform pairs only:** near-match entries are only created when the two markets are on different platforms. Same-platform pairs are silently skipped (label is still marked `applied` but no near-match file entry is created).
 - These pairs are shown as "same event, different resolution" — not merged
 
-### `different_event`
-- Appends `_SPLIT` suffix to one ticker to break the incorrect match
-- Adds pair to `cross_platform_reviewed_pairs.json` to prevent re-discovery
+#### `different_event`
+- If the two markets already have different tickers: marks `applied_action: "already_different"` — no file changes
+- If the two markets share a ticker: creates pairwise exclusion entries in `match_exclusions.json` with `reason: "different_event"`
+- Always adds entries to `cross_platform_reviewed_pairs.json` with `verdict: "DIFFERENT"` and `match_source: "human"` (for all cross-platform pairs)
 
-### `not_political`
+**Exclusion entry structure:**
+```json
+{
+    "exclusion_id": "sha256_of_sorted_pair",
+    "market_id_a": "kalshi_market_123",
+    "market_id_b": "poly_market_456",
+    "ticker": "BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028",
+    "reason": "different_event",
+    "source_label_id": "hl_a1b2c3d4e5f6",
+    "created_at": "2026-03-10T08:00:00.000Z",
+    "batch_id": "batch_20260310_080000"
+}
+```
+
+#### `not_political`
 - Sets category to `"16. NOT_POLITICAL"` in the master CSV
 
-### `wrong_category`
+#### `wrong_category`
 - Attempts to parse the correct category from the description
 - If a valid category name is found: recategorizes in the master CSV
 - Otherwise: marks `status: "needs_review"`
@@ -138,8 +188,9 @@ python pipeline_ingest_feedback.py --csv-file /tmp/f.csv  # Read from local file
 
 **CLI:**
 ```bash
-python pipeline_apply_human_labels.py --dry-run   # Preview changes
-python pipeline_apply_human_labels.py              # Apply for real
+python pipeline_apply_human_labels.py --dry-run                          # Preview changes
+python pipeline_apply_human_labels.py                                     # Apply for real
+python pipeline_apply_human_labels.py --batch-id batch_20260310_manual   # Explicit batch ID
 ```
 
 ---
@@ -187,8 +238,9 @@ priority = 0.4 × uncertainty
 
 **CLI:**
 ```bash
-python pipeline_evaluate_matches.py --verbose          # Print disagreements + suggested labels
-python pipeline_evaluate_matches.py --max-suggestions 50  # More suggestions
+python pipeline_evaluate_matches.py --verbose              # Print disagreements + suggested labels
+python pipeline_evaluate_matches.py --max-suggestions 50   # More suggestions
+python pipeline_evaluate_matches.py --batch-id batch_xyz   # Explicit batch ID
 ```
 
 **Output structure:**
@@ -224,9 +276,13 @@ python pipeline_evaluate_matches.py --max-suggestions 50  # More suggestions
 
 ---
 
-## Step 4: Generate Ticker Corrections
+## Step 4: Generate Ticker Corrections & Disambiguations
 
 **Script:** `generate_ticker_corrections.py`
+
+This step produces **two** output files: correction rules (alias mappings for false negatives) and disambiguation rules (re-extraction triggers for false positives).
+
+### Correction Rules (ticker_corrections.json)
 
 **Behavior:**
 1. Reads `match_accuracy_report.json` for false negatives (pairs humans say match but the pipeline didn't)
@@ -250,26 +306,104 @@ python pipeline_evaluate_matches.py --max-suggestions 50  # More suggestions
     "from": "PROJECTED",
     "to": "CERTIFIED",
     "frequency": 5,
-    "source_labels": ["hl_a1b2c3", "hl_d4e5f6", ...]
+    "source_labels": ["hl_a1b2c3", "hl_d4e5f6"]
 }
 ```
 
-**How corrections are consumed:** On the NEXT pipeline run, `postprocess_tickers.py` reads `ticker_corrections.json` and applies each alias rule to matching tickers before any other processing. This closes the feedback loop.
+### Disambiguation Rules (ticker_disambiguations.json)
+
+**Behavior:**
+1. Reads `match_accuracy_report.json` for false positives (pairs humans say differ but the pipeline merged)
+2. Analyzes the shared ticker to identify which field(s) were over-collapsed using `identify_collapsed_fields()` — supports multi-field detection
+3. Groups false positives by (collapsed_field, agent, action, target) pattern
+4. If frequency meets the per-type threshold, generates a disambiguation rule
+5. False positives with no detectable collapse ("Category C") are counted as unresolvable — these remain pair-specific exclusions only
+
+### Three categories of false positives
+
+| Category | Cause | Fix Strategy |
+|----------|-------|-------------|
+| A: Field over-collapse | One field too generic (ANY threshold, bare year, STD mechanism) | Re-extract from source text → disambiguation rule |
+| B: Name/entity collision | Two different entities mapped to same string (POWELL → Jerome vs Colin) | Re-run NAME_COLLISIONS lookup → disambiguation rule |
+| C: Genuinely identical tickers | Ticker is correct for both markets, events are just different | Pair-specific exclusion only (no rule possible) |
+
+**Disambiguation types and thresholds:**
+
+| Rule Type | Trigger | Action | Default Threshold |
+|-----------|---------|--------|-------------------|
+| `threshold_disambiguation` | `threshold == "ANY"` | Re-extract threshold from question text | 2 |
+| `timeframe_disambiguation` | Bare 4-digit year timeframe (e.g., `"2026"`) | Re-extract monthly/quarterly from description | 2 |
+| `mechanism_disambiguation` | `mechanism == "STD"` (generic fallback) | Infer specific mechanism from question keywords | 2 |
+| `agent_disambiguation` | Agent is bare last name in `NAME_COLLISIONS` | Re-run first-name lookup from question text | 5 |
+| `target_disambiguation` | Target is in `_AMBIGUOUS_TARGETS` (e.g., SENATE, RATE) | Append state/qualifier from question text | 4 |
+
+Agent and target disambiguation rules are primarily **diagnostic** — they attempt re-extraction but their main value is surfacing patterns that need developer attention (e.g., adding entries to `NAME_COLLISIONS`).
+
+**Disambiguation output:**
+```json
+{
+    "type": "threshold_disambiguation",
+    "action": "re_extract_threshold",
+    "pattern": {
+        "agent": "TRUMP",
+        "action": "WIN",
+        "target": "PRES_US",
+        "threshold": "ANY"
+    },
+    "frequency": 3,
+    "source_labels": ["hl_x1y2z3", "hl_a4b5c6", "hl_d7e8f9"]
+}
+```
+
+The output file also includes an `unresolvable_count` field showing how many false positives had no detectable field-level collapse.
+
+### How corrections and disambiguations are consumed
+
+On the NEXT pipeline run, `postprocess_tickers.py` applies both:
+
+- **Fix 15 (Corrections):** Reads `ticker_corrections.json`. For each ticker, checks all correction rules. If a ticker's field value matches a rule's `from` value, replaces it with the `to` value. All matching rules are applied (not just the first match).
+
+- **Fix 16 (Disambiguations):** Reads `ticker_disambiguations.json`. For each ticker, checks if it matches a rule's `pattern` (agent, action, target must all match). Then by rule type:
+  - `threshold_disambiguation`: Re-extracts threshold from `original_question` using `extract_threshold()`
+  - `timeframe_disambiguation`: Re-extracts monthly/quarterly from description using `extract_date_from_description()`
+  - `mechanism_disambiguation`: Infers specific mechanism from question keywords (CERTIFIED, PROJECTED, etc.) using `infer_specific_mechanism()`
+  - `agent_disambiguation`: Re-runs `NAME_COLLISIONS` lookup to disambiguate bare last names
+  - `target_disambiguation`: Appends state/office qualifiers from question text using `infer_specific_target()`
+
+This closes the feedback loop — false negatives produce alias rules that merge tickers; false positives produce disambiguation rules that split them.
 
 **CLI:**
 ```bash
-python generate_ticker_corrections.py --dry-run                    # Preview
-python generate_ticker_corrections.py --min-frequency 3            # Uniform threshold
-python generate_ticker_corrections.py --min-freq-agent 3 --min-freq-mechanism 1  # Per-type overrides
+python generate_ticker_corrections.py --dry-run                                    # Preview
+python generate_ticker_corrections.py --min-frequency 3                            # Uniform threshold
+python generate_ticker_corrections.py --min-freq-agent 3 --min-freq-mechanism 1    # Per-type overrides
+python generate_ticker_corrections.py --min-freq-disamb-agent 3                    # Disambiguation-specific
+python generate_ticker_corrections.py --batch-id batch_xyz                         # Explicit batch ID
 ```
+
+---
+
+## Orchestration
+
+**Script:** `pipeline_daily_refresh.py`
+
+The feedback steps run as part of Phase 5 (web data generation):
+
+```bash
+python pipeline_daily_refresh.py --start-phase 5
+```
+
+**Key behaviors:**
+- Generates a single `feedback_batch_id` (format `batch_YYYYMMDD_HHMMSS`) and passes it to all four feedback steps via `--batch-id`
+- All four feedback steps are marked `required=False` — if any step fails, the orchestrator logs the error and continues to the next step. This prevents feedback pipeline issues from blocking the main data refresh.
 
 ---
 
 ## Website Integration
 
-### Market Monitor Modal
+### In-Modal Feedback (Single Market)
 
-Each market detail modal includes a feedback section at the bottom with the same labels and options as the sidebar "Help Us Match Markets" card:
+Each market detail modal in the Dispersion tab includes a feedback section at the bottom. This allows users to submit feedback while viewing a specific market pair:
 
 - **Same Event (Cross-Platform Match)** — with sub-options:
   - Same Rules (resolution criteria identical)
@@ -279,15 +413,19 @@ Each market detail modal includes a feedback section at the bottom with the same
 - **Wrong Category** — mislabeled political category
 - **Other Issue** — freeform
 
-Submissions go to the Google Sheet via Apps Script webhook and are also stored in `localStorage.marketFeedback` as backup.
+The in-modal form submits feedback for the **single market** being viewed. The modal also displays verbatim Kalshi and Polymarket titles in the platform link boxes for easy comparison.
 
-### Sidebar Review Mode
+### Sidebar Review Mode (Multiple Markets)
 
 The sidebar "Help Us Match Markets" card activates review mode:
 1. Checkboxes appear on all market cards
 2. User selects 2+ markets and clicks "Submit Feedback"
 3. Feedback modal opens with the same label options
-4. Submission includes all selected market keys with platform and category metadata
+4. Submission includes **all selected market keys** with platform and category metadata
+
+### Submission Path
+
+Submissions go to the Google Sheet via Apps Script webhook and are also stored in `localStorage.marketFeedback` as backup.
 
 ---
 
@@ -309,24 +447,28 @@ cd packages/pipelines
 python pipeline_ingest_feedback.py --dry-run           # Preview
 python pipeline_ingest_feedback.py                     # Run for real
 
-# Step 2: Apply — modifies tickers_postprocessed.json + master CSV
+# Step 2: Apply — modifies tickers, creates exclusions and near-matches
 python pipeline_apply_human_labels.py --dry-run        # Preview
 python pipeline_apply_human_labels.py                  # Apply
 
 # Step 3: Evaluate — creates data/match_accuracy_report.json
 python pipeline_evaluate_matches.py --verbose
 
-# Step 4: Corrections — creates data/ticker_corrections.json
+# Step 4: Corrections — creates data/ticker_corrections.json + ticker_disambiguations.json
 python generate_ticker_corrections.py --dry-run        # Preview
 python generate_ticker_corrections.py                  # Write
 ```
 
 ### What to verify
 
-1. **Ingestion**: Only rows after `last_ingested_timestamp` appear. Run twice — second run adds 0 labels.
-2. **Apply**: `same_event_same_rules` labels where agent/action/target differ should show `status: "needs_review"`, not `"applied"`.
-3. **Evaluate**: Precision/recall numbers are plausible. Suggested labels rank uncertain pairs above high-volume-but-obvious ones.
-4. **Corrections**: Rules match expected alias patterns. `mechanism_alias` fires at ≥2, `agent_alias` at ≥5.
+1. **Ingestion**: Only rows after `DEFAULT_LAST_INGESTED` (or `last_ingested_timestamp`) appear. Run twice — second run adds 0 labels.
+2. **_SPLIT migration**: Any legacy `_SPLIT` tickers are converted to exclusion entries on first run.
+3. **Apply**: `same_event_same_rules` labels where agent/action/target differ should show `status: "needs_review"`, not `"applied"`.
+4. **Exclusions**: `different_event` labels produce entries in `match_exclusions.json` (when tickers were shared).
+5. **Evaluate**: Precision/recall numbers are plausible. Suggested labels rank uncertain pairs above high-volume-but-obvious ones.
+6. **Corrections**: Rules match expected alias patterns. `mechanism_alias` fires at ≥2, `agent_alias` at ≥5.
+7. **Disambiguations**: `ticker_disambiguations.json` contains re-extraction rules for overly-generic fields (threshold, timeframe, mechanism, agent, target). Agent/target rules require higher frequency thresholds (5 and 4 respectively).
+8. **Unresolvable FPs**: The disambiguation output reports `unresolvable_count` for false positives with no detectable field-level collapse — these remain pair-exclusion only.
 
 ### Full pipeline execution
 
@@ -334,7 +476,7 @@ python generate_ticker_corrections.py                  # Write
 python pipeline_daily_refresh.py --start-phase 5
 ```
 
-Runs all of Phase 5 (web data generation) including the feedback steps in order.
+Runs all of Phase 5 (web data generation) including the feedback steps in order. All four feedback steps are non-blocking (`required=False`).
 
 ---
 

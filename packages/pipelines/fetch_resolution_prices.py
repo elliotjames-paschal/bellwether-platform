@@ -285,7 +285,7 @@ def save_checkpoint(results, processed_ids):
         'processed_ids': list(processed_ids),
         'timestamp': datetime.now().isoformat()
     }
-    with open(CHECKPOINT_FILE, 'w') as f:
+    with open(CHECKPOINT_FILE, 'w', encoding='utf-8') as f:
         json.dump(checkpoint, f)
 
 def load_checkpoint():
@@ -492,7 +492,7 @@ def main():
 
     # Save final results
     log("\n5. Saving results...")
-    with open(OUTPUT_FILE, 'w') as f:
+    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2)
 
     log(f"   Saved {len(results):,} resolution prices to {OUTPUT_FILE.name}")

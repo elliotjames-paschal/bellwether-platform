@@ -488,7 +488,7 @@ def generate_civic_data():
 
     # Write to file
     output_path = Path(__file__).parent.parent / 'website' / 'data' / 'civic_elections.json'
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(output, f, indent=2)
 
     print(f"\n✓ Generated {output_path}")

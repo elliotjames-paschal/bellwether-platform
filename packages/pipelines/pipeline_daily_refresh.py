@@ -106,10 +106,15 @@ def run_script(script_name, description, args=None, required=True, script_dir=No
         cmd.extend(args)
 
     try:
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
         result = subprocess.run(
             cmd,
             capture_output=True,
-            text=True
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
             # No timeout - let scripts run to completion
         )
 
@@ -155,7 +160,7 @@ def load_state():
 def save_state(state):
     """Save pipeline state to file."""
     state_file = DATA_DIR / "pipeline_state.json"
-    with open(state_file, 'w') as f:
+    with open(state_file, 'w', encoding='utf-8') as f:
         json.dump(state, f, indent=2)
 
 
@@ -628,6 +633,15 @@ def main():
         )
         results["web_data"] = success
         step_results["generate_web_data"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # Step 5b: Extract contract rules for Market Monitor
+        success = run_script(
+            "generate_market_rules.py",
+            "Extract contract rules for monitor",
+            required=False
+        )
+        results["market_rules"] = success
+        step_results["generate_market_rules"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
         # Step 6: Upload active_markets.json to KV (for /api/markets/search and /top)
         success = run_script(

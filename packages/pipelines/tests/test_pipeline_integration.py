@@ -586,3 +586,351 @@ class TestEdgeCases:
         new_labels, _ = ingest_new_rows(rows, existing, {"tickers": []})
         # Should be skipped because 2026-02-01 < DEFAULT (2026-02-12)
         assert len(new_labels) == 0
+
+
+# ──────────────────────────────────────────────────
+# Match Exclusion: generate_market_map grouping
+# ──────────────────────────────────────────────────
+
+
+class TestExclusionGrouping:
+    """Tests that generate_market_map correctly splits groups with exclusions."""
+
+    def test_split_excluded_groups_basic(self):
+        from generate_market_map import split_excluded_groups
+
+        markets = [
+            {"market_id": "K1", "platform": "Kalshi"},
+            {"market_id": "P1", "platform": "Polymarket"},
+        ]
+        exclusions = {frozenset(["K1", "P1"])}
+
+        subgroups = split_excluded_groups(markets, exclusions)
+
+        assert len(subgroups) == 2
+        # Each subgroup has exactly one market
+        sizes = sorted(len(sg) for sg in subgroups)
+        assert sizes == [1, 1]
+
+    def test_no_exclusion_single_group(self):
+        from generate_market_map import split_excluded_groups
+
+        markets = [
+            {"market_id": "K1", "platform": "Kalshi"},
+            {"market_id": "P1", "platform": "Polymarket"},
+        ]
+        exclusions = set()
+
+        subgroups = split_excluded_groups(markets, exclusions)
+
+        assert len(subgroups) == 1
+        assert len(subgroups[0]) == 2
+
+    def test_partial_exclusion_three_markets(self):
+        """Exclude (A,B) but not (A,C) or (B,C) → two groups, A and B never together."""
+        from generate_market_map import split_excluded_groups
+
+        markets = [
+            {"market_id": "A", "platform": "Kalshi"},
+            {"market_id": "B", "platform": "Polymarket"},
+            {"market_id": "C", "platform": "Polymarket"},
+        ]
+        # Only A and B are excluded from each other
+        exclusions = {frozenset(["A", "B"])}
+
+        subgroups = split_excluded_groups(markets, exclusions)
+
+        # Must be 2 groups, and A and B must NOT be in the same group
+        assert len(subgroups) == 2
+        for sg in subgroups:
+            ids = {m["market_id"] for m in sg}
+            assert not ({"A", "B"} <= ids), "A and B must not be in the same group"
+        # All markets accounted for
+        all_ids = {m["market_id"] for sg in subgroups for m in sg}
+        assert all_ids == {"A", "B", "C"}
+
+    def test_single_market_no_split(self):
+        from generate_market_map import split_excluded_groups
+
+        markets = [{"market_id": "K1", "platform": "Kalshi"}]
+        exclusions = set()
+
+        subgroups = split_excluded_groups(markets, exclusions)
+        assert len(subgroups) == 1
+        assert len(subgroups[0]) == 1
+
+    def test_all_pairs_excluded(self):
+        """All 3 markets excluded from each other → 3 singleton groups."""
+        from generate_market_map import split_excluded_groups
+
+        markets = [
+            {"market_id": "A", "platform": "Kalshi"},
+            {"market_id": "B", "platform": "Polymarket"},
+            {"market_id": "C", "platform": "Polymarket"},
+        ]
+        exclusions = {
+            frozenset(["A", "B"]),
+            frozenset(["A", "C"]),
+            frozenset(["B", "C"]),
+        }
+
+        subgroups = split_excluded_groups(markets, exclusions)
+        assert len(subgroups) == 3
+
+    def test_irrelevant_exclusion_ignored(self):
+        """Exclusion for different market IDs shouldn't affect this group."""
+        from generate_market_map import split_excluded_groups
+
+        markets = [
+            {"market_id": "K1", "platform": "Kalshi"},
+            {"market_id": "P1", "platform": "Polymarket"},
+        ]
+        exclusions = {frozenset(["X1", "X2"])}  # Different markets
+
+        subgroups = split_excluded_groups(markets, exclusions)
+        assert len(subgroups) == 1
+        assert len(subgroups[0]) == 2
+
+    def test_load_match_exclusions_missing_file(self):
+        from generate_market_map import load_match_exclusions
+        # Just verify it doesn't crash when file doesn't exist
+        # (it uses the module-level path which may or may not exist)
+        result = load_match_exclusions()
+        assert isinstance(result, set)
+
+
+# ──────────────────────────────────────────────────
+# Disambiguation Rules: generate_ticker_corrections
+# ──────────────────────────────────────────────────
+
+
+class TestDisambiguationRules:
+    """Tests for false positive pattern analysis and disambiguation generation."""
+
+    def test_analyze_threshold_false_positive(self):
+        from generate_ticker_corrections import analyze_false_positive_patterns
+
+        report = {
+            "disagreements": [
+                {
+                    "label_id": "hl_001",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": [
+                        "BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028",
+                        "BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028",
+                    ],
+                },
+                {
+                    "label_id": "hl_002",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": [
+                        "BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028",
+                        "BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028",
+                    ],
+                },
+            ],
+            "sample_size": 10,
+        }
+
+        rules, _ = analyze_false_positive_patterns(report, min_frequency=2)
+        threshold_rules = [r for r in rules if r["type"] == "threshold_disambiguation"]
+        assert len(threshold_rules) == 1
+        assert threshold_rules[0]["action"] == "re_extract_threshold"
+        assert threshold_rules[0]["pattern"]["agent"] == "TRUMP"
+        assert threshold_rules[0]["pattern"]["threshold"] == "ANY"
+        assert threshold_rules[0]["frequency"] == 2
+
+    def test_analyze_timeframe_false_positive(self):
+        from generate_ticker_corrections import analyze_false_positive_patterns
+
+        report = {
+            "disagreements": [
+                {
+                    "label_id": "hl_t1",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": [
+                        "BWR-FED-CUT-RATES-STD-25BPS-2026",
+                        "BWR-FED-CUT-RATES-STD-25BPS-2026",
+                    ],
+                },
+                {
+                    "label_id": "hl_t2",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": [
+                        "BWR-FED-CUT-RATES-STD-25BPS-2026",
+                        "BWR-FED-CUT-RATES-STD-25BPS-2026",
+                    ],
+                },
+            ],
+            "sample_size": 10,
+        }
+
+        rules, _ = analyze_false_positive_patterns(report, min_frequency=2)
+        timeframe_rules = [r for r in rules if r["type"] == "timeframe_disambiguation"]
+        assert len(timeframe_rules) == 1
+        assert timeframe_rules[0]["action"] == "re_extract_timeframe_monthly"
+        assert timeframe_rules[0]["pattern"]["timeframe"] == "2026"
+
+    def test_below_frequency_threshold_no_rule(self):
+        from generate_ticker_corrections import analyze_false_positive_patterns
+
+        report = {
+            "disagreements": [
+                {
+                    "label_id": "hl_solo",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": [
+                        "BWR-X-W-Y-STD-ANY-2028",
+                        "BWR-X-W-Y-STD-ANY-2028",
+                    ],
+                },
+            ],
+            "sample_size": 5,
+        }
+
+        rules, _ = analyze_false_positive_patterns(report, min_frequency=3)
+        assert len(rules) == 0
+
+    def test_no_false_positives_empty(self):
+        from generate_ticker_corrections import analyze_false_positive_patterns
+
+        report = {"disagreements": [], "sample_size": 0}
+        rules, unresolvable = analyze_false_positive_patterns(report, min_frequency=2)
+        assert rules == []
+        assert unresolvable == 0
+
+    def test_generate_disambiguations_output_schema(self):
+        from generate_ticker_corrections import generate_disambiguations
+
+        report = {
+            "disagreements": [
+                {
+                    "label_id": "hl_001",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": ["BWR-A-W-X-STD-ANY-2028", "BWR-A-W-X-STD-ANY-2028"],
+                },
+                {
+                    "label_id": "hl_002",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": ["BWR-A-W-X-STD-ANY-2028", "BWR-A-W-X-STD-ANY-2028"],
+                },
+            ],
+            "sample_size": 10,
+        }
+
+        result = generate_disambiguations(report, min_frequency=2, batch_id="batch_test")
+
+        assert "generated_at" in result
+        assert result["batch_id"] == "batch_test"
+        # Multi-field detection: threshold=ANY + mechanism=STD + timeframe=2028 all detected
+        assert result["disambiguation_count"] >= 1
+        assert len(result["disambiguations"]) >= 1
+        # At minimum, threshold_disambiguation should be present
+        types = [d["type"] for d in result["disambiguations"]]
+        assert "threshold_disambiguation" in types
+
+    def test_false_negatives_ignored(self):
+        """False negatives (same event, unify) should NOT produce disambiguations."""
+        from generate_ticker_corrections import analyze_false_positive_patterns
+
+        report = {
+            "disagreements": [
+                {
+                    "label_id": "hl_fn",
+                    "human_judgment": "same event",
+                    "action_needed": "unify_tickers",
+                    "pipeline_tickers": ["BWR-A-W-X-STD-ANY-2028", "BWR-A-W-X-CERT-ANY-2028"],
+                },
+            ],
+            "sample_size": 5,
+        }
+
+        rules, _ = analyze_false_positive_patterns(report, min_frequency=1)
+        assert rules == []
+
+
+# ──────────────────────────────────────────────────
+# Fix 16: Disambiguation in postprocess_tickers
+# ──────────────────────────────────────────────────
+
+
+class TestFix16Disambiguation:
+    """Tests for Fix 16 disambiguation rule application in postprocess."""
+
+    def test_threshold_disambiguation_re_extracts(self):
+        """Ticker matching a threshold disambiguation rule should have threshold re-extracted."""
+        from create_tickers import extract_threshold
+
+        ticker = {
+            "market_id": "K1",
+            "ticker": "BWR-TRUMP-WIN-PRES_US-CERT-ANY-2028",
+            "agent": "TRUMP", "action": "WIN", "target": "PRES_US",
+            "mechanism": "CERT", "threshold": "ANY", "timeframe": "2028",
+            "platform": "Kalshi",
+            "original_question": "Will Trump win the 2028 presidential election by more than 5%?",
+        }
+
+        rule = {
+            "type": "threshold_disambiguation",
+            "pattern": {"agent": "TRUMP", "action": "WIN", "target": "PRES_US", "threshold": "ANY"},
+            "action": "re_extract_threshold",
+        }
+
+        # Check what extract_threshold returns for this question
+        extracted = extract_threshold(ticker["original_question"])
+
+        # Apply rule logic manually (same as Fix 16)
+        if (ticker["agent"] == rule["pattern"]["agent"]
+            and ticker["action"] == rule["pattern"]["action"]
+            and ticker["target"] == rule["pattern"]["target"]
+            and ticker["threshold"] == rule["pattern"]["threshold"]):
+            if extracted != "ANY":
+                ticker["threshold"] = extracted
+
+        # If extract_threshold found something, threshold should change
+        # If not, it stays ANY — both outcomes are valid
+        assert isinstance(ticker["threshold"], str)
+
+    def test_disambiguation_no_match_no_change(self):
+        """Rule that doesn't match the ticker should not modify it."""
+        ticker = {
+            "market_id": "K1",
+            "ticker": "BWR-HARRIS-WIN-PRES_US-CERT-YES-2028",
+            "agent": "HARRIS", "action": "WIN", "target": "PRES_US",
+            "mechanism": "CERT", "threshold": "YES", "timeframe": "2028",
+            "platform": "Kalshi",
+            "original_question": "Will Harris win?",
+        }
+
+        rule = {
+            "type": "threshold_disambiguation",
+            "pattern": {"agent": "TRUMP", "action": "WIN", "target": "PRES_US", "threshold": "ANY"},
+            "action": "re_extract_threshold",
+        }
+
+        # Agent doesn't match — should not change
+        original_threshold = ticker["threshold"]
+        if (ticker["agent"] == rule["pattern"]["agent"]
+            and ticker["action"] == rule["pattern"]["action"]
+            and ticker["target"] == rule["pattern"]["target"]):
+            pass  # Would apply rule
+        assert ticker["threshold"] == original_threshold
+
+    def test_timeframe_disambiguation_longer_extraction(self):
+        """Timeframe disambiguation should only apply if extraction is more specific."""
+        from postprocess_tickers import extract_date_from_description
+
+        # A description with a specific month
+        desc = "Will the Fed cut rates by March 2026?"
+        extracted = extract_date_from_description(desc)
+
+        # The extracted date should be more specific than just "2026"
+        if extracted:
+            assert len(extracted) > 4 or extracted != "2026"

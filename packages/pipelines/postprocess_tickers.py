@@ -484,6 +484,80 @@ def fix_missing_threshold(ticker: dict) -> bool:
     return False
 
 
+import re as _re
+
+# Mechanism keywords for disambiguation (deterministic, no GPT)
+_MECHANISM_KEYWORDS = {
+    "CERTIFIED": ["certified", "official results", "officially certified"],
+    "PROJECTED": ["projected", "ap calls", "media projection", "ap projects"],
+    "MONTHLY_REPORT": ["monthly report", "bls", "released", "bureau of labor"],
+    "ANY_MEETING": ["any meeting", "any fomc", "any fed meeting"],
+    "BALLOT": ["ballot", "qualify for the ballot"],
+}
+
+# US state codes for target disambiguation
+_US_STATES = {
+    "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR",
+    "california": "CA", "colorado": "CO", "connecticut": "CT", "delaware": "DE",
+    "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID",
+    "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS",
+    "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD",
+    "massachusetts": "MA", "michigan": "MI", "minnesota": "MN",
+    "mississippi": "MS", "missouri": "MO", "montana": "MT", "nebraska": "NE",
+    "nevada": "NV", "new hampshire": "NH", "new jersey": "NJ",
+    "new mexico": "NM", "new york": "NY", "north carolina": "NC",
+    "north dakota": "ND", "ohio": "OH", "oklahoma": "OK", "oregon": "OR",
+    "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC",
+    "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT",
+    "vermont": "VT", "virginia": "VA", "washington": "WA",
+    "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY",
+}
+
+
+def infer_specific_mechanism(question: str, ticker: dict) -> str | None:
+    """Attempt to infer a more specific mechanism from question text.
+
+    Returns a specific mechanism string, or None if no specificity found.
+    Only called when mechanism is currently STD (the generic default).
+    """
+    if not question:
+        return None
+    q = question.lower()
+    for mechanism, keywords in _MECHANISM_KEYWORDS.items():
+        for kw in keywords:
+            if kw in q:
+                return mechanism
+    return None
+
+
+def infer_specific_target(question: str, target: str) -> str | None:
+    """Attempt to append a state/qualifier to a generic target.
+
+    Returns a more specific target string, or None if no qualifier found.
+    Only called for targets in _AMBIGUOUS_TARGETS (e.g., SENATE, GOV, RATE).
+    """
+    if not question:
+        return None
+    q = question.lower()
+
+    # For political targets, look for state qualifiers
+    if target in ("SENATE", "HOUSE", "GOV", "PRES"):
+        for state_name, state_code in _US_STATES.items():
+            if state_name in q:
+                return f"{target}_{state_code}"
+
+    # For economic targets, look for specificity
+    if target in ("RATE", "RATES"):
+        if "fed funds" in q or "federal funds" in q:
+            return "FED_FUNDS_RATE"
+        if "prime rate" in q:
+            return "PRIME_RATE"
+        if "mortgage" in q:
+            return "MORTGAGE_RATE"
+
+    return None
+
+
 def reassemble_ticker(ticker: dict) -> str:
     """Reassemble ticker string from components."""
     agent = ticker.get('agent', 'UNKNOWN')
@@ -557,6 +631,18 @@ def postprocess(
             print(f"  Loaded {len(human_corrections)} human feedback corrections")
         except (json.JSONDecodeError, OSError) as e:
             print(f"  WARNING: Failed to load ticker_corrections.json: {e}")
+
+    # Pre-load disambiguation rules for Fix 16 (once, not per-ticker)
+    disambiguation_rules = []
+    disamb_file = tickers_file.parent / "ticker_disambiguations.json"
+    if disamb_file.exists():
+        try:
+            with open(disamb_file) as df:
+                disamb_data = json.load(df)
+            disambiguation_rules = disamb_data.get("disambiguations", [])
+            print(f"  Loaded {len(disambiguation_rules)} disambiguation rules")
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"  WARNING: Failed to load ticker_disambiguations.json: {e}")
 
     # Apply fixes
     stats = defaultdict(int)
@@ -651,6 +737,78 @@ def postprocess(
                 ticker["timeframe"] = to_val
                 stats["correction_timeframe_alias"] += 1
 
+        # Fix 16: Apply disambiguation rules from false positive analysis
+        for rule in disambiguation_rules:
+            rule_type = rule.get("type", "")
+            pattern = rule.get("pattern", {})
+
+            # Check if ticker matches the pattern
+            if (pattern.get("agent") and ticker.get("agent") != pattern["agent"]):
+                continue
+            if (pattern.get("action") and ticker.get("action") != pattern["action"]):
+                continue
+            if (pattern.get("target") and ticker.get("target") != pattern["target"]):
+                continue
+
+            if rule_type == "threshold_disambiguation":
+                if ticker.get("threshold") != pattern.get("threshold", "ANY"):
+                    continue
+                # Re-extract threshold from original question
+                question = ticker.get("original_question", "")
+                if question:
+                    extracted = extract_threshold(question)
+                    if extracted != "ANY" and extracted != ticker.get("threshold"):
+                        ticker["threshold"] = extracted
+                        stats["disambiguation_threshold"] += 1
+
+            elif rule_type == "timeframe_disambiguation":
+                tf = ticker.get("timeframe", "")
+                if tf != pattern.get("timeframe", ""):
+                    continue
+                # Try monthly extraction from description
+                market_id = str(ticker.get("market_id", ""))
+                desc = descriptions.get(market_id, "")
+                if desc:
+                    extracted = extract_date_from_description(desc)
+                    if extracted and extracted != tf and len(extracted) > len(tf):
+                        ticker["timeframe"] = extracted
+                        stats["disambiguation_timeframe"] += 1
+
+            elif rule_type == "mechanism_disambiguation":
+                if ticker.get("mechanism") != pattern.get("mechanism", "STD"):
+                    continue
+                question = ticker.get("original_question", "")
+                if question:
+                    new_mech = infer_specific_mechanism(question, ticker)
+                    if new_mech and new_mech != ticker.get("mechanism"):
+                        ticker["mechanism"] = new_mech
+                        stats["disambiguation_mechanism"] += 1
+
+            elif rule_type == "agent_disambiguation":
+                agent = ticker.get("agent", "")
+                if agent != pattern.get("agent", ""):
+                    continue
+                # Re-run NAME_COLLISIONS lookup (same as Fix 13, rule-triggered)
+                if agent in NAME_COLLISIONS:
+                    question = ticker.get("original_question", "").lower()
+                    for first_name, canonical in NAME_COLLISIONS[agent].items():
+                        if first_name in question:
+                            if canonical != agent:
+                                ticker["agent"] = canonical
+                                stats["disambiguation_agent"] += 1
+                            break
+
+            elif rule_type == "target_disambiguation":
+                target = ticker.get("target", "")
+                if target != pattern.get("target", ""):
+                    continue
+                question = ticker.get("original_question", "")
+                if question:
+                    new_target = infer_specific_target(question, target)
+                    if new_target and new_target != target:
+                        ticker["target"] = new_target
+                        stats["disambiguation_target"] += 1
+
         # Reassemble ticker string
         ticker['ticker'] = reassemble_ticker(ticker)
 
@@ -658,7 +816,7 @@ def postprocess(
     data['postprocessed_at'] = datetime.now().isoformat()
     data['postprocess_stats'] = dict(stats)
 
-    with open(output_file, 'w') as f:
+    with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
 
     # Summary
@@ -678,6 +836,19 @@ def postprocess(
     print(f"Timeframe fallback to current year: {stats['timeframe_current_year_fallback']}")
     print(f"Name collisions disambiguated: {stats['name_collision_fixed']}")
     print(f"Thresholds re-extracted: {stats['threshold_reextracted']}")
+    if any(stats[k] for k in stats if k.startswith("correction_")):
+        print(f"Human corrections applied: "
+              f"mechanism={stats['correction_mechanism_alias']}, "
+              f"agent={stats['correction_agent_alias']}, "
+              f"target={stats['correction_target_alias']}, "
+              f"timeframe={stats['correction_timeframe_alias']}")
+    if any(stats[k] for k in stats if k.startswith("disambiguation_")):
+        print(f"Disambiguations applied: "
+              f"threshold={stats['disambiguation_threshold']}, "
+              f"timeframe={stats['disambiguation_timeframe']}, "
+              f"mechanism={stats['disambiguation_mechanism']}, "
+              f"agent={stats['disambiguation_agent']}, "
+              f"target={stats['disambiguation_target']}")
 
     # Recalculate stats
     unique_tickers = len(set(t['ticker'] for t in tickers))

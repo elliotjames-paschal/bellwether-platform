@@ -837,7 +837,7 @@ def save_tickers(tickers: List[Dict[str, Any]], output_file: Path, model: str):
     }
 
     DATA_DIR.mkdir(exist_ok=True)
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2)
 
     errors = sum(1 for t in tickers if "error" in t)

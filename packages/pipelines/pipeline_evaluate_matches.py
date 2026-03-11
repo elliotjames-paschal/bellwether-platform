@@ -529,7 +529,27 @@ def main():
     human_data = load_human_labels()
     labels = human_data.get("labels", [])
     if not labels:
-        print("  No human labels found. Nothing to evaluate.")
+        print("  No human labels found. Writing zeroed report.")
+        empty_report = {
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+            "batch_id": batch_id,
+            "sample_size": 0,
+            "matching": {
+                "true_positives": 0, "false_positives": 0,
+                "false_negatives": 0, "true_negatives": 0,
+                "precision": 0.0, "recall": 0.0, "f1": 0.0,
+            },
+            "categories": {"correct": 0, "incorrect": 0, "skipped": 0},
+            "disagreements": [],
+            "matching_skipped": 0,
+            "suggested_labels": [],
+            "suggested_labels_scoring": {
+                "formula": "0.4*uncertainty + 0.3*cosine_similarity + 0.2*novelty + 0.1*log_volume",
+                "weights": {"uncertainty": 0.4, "cosine_similarity": 0.3, "novelty": 0.2, "log_volume": 0.1},
+            },
+        }
+        atomic_write_json(REPORT_FILE, empty_report, indent=2)
+        print(f"  Report written to {REPORT_FILE.name}")
         return
 
     print(f"  Human labels: {len(labels)}")

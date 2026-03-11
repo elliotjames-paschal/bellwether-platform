@@ -16,6 +16,10 @@ from generate_ticker_corrections import (
     analyze_error_patterns,
     generate_corrections,
     parse_ticker_components,
+    analyze_false_positive_patterns,
+    generate_disambiguations,
+    identify_collapsed_field,
+    identify_collapsed_fields,
     MIN_FREQUENCY_DEFAULT,
     MIN_FREQUENCY_BY_TYPE,
 )
@@ -277,3 +281,259 @@ class TestGenerateCorrections:
         result = generate_corrections(report)
         assert result["correction_count"] == 1
         assert result["corrections"][0]["type"] == "mechanism_alias"
+
+
+# ──────────────────────────────────────────────────
+# identify_collapsed_field
+# ──────────────────────────────────────────────────
+
+
+class TestIdentifyCollapsedField:
+    def test_threshold_any(self):
+        result = identify_collapsed_field("BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028")
+        assert result == "threshold"
+
+    def test_timeframe_year_only(self):
+        result = identify_collapsed_field("BWR-FED-CUT-RATES-STD-25BPS-2026")
+        assert result == "timeframe"
+
+    def test_specific_threshold_and_timeframe(self):
+        """Threshold and timeframe are specific, but mechanism STD is still a collapse."""
+        result = identify_collapsed_field("BWR-FED-CUT-RATES-STD-25BPS-2026_MAR")
+        # threshold is 25BPS (not ANY), timeframe has month → those are fine
+        # but mechanism=STD is a collapse indicator
+        assert result == "mechanism"
+
+    def test_threshold_takes_priority(self):
+        """If threshold is ANY, that's the collapsed field even if timeframe is a year."""
+        result = identify_collapsed_field("BWR-X-W-Y-STD-ANY-2026")
+        assert result == "threshold"
+
+
+# ──────────────────────────────────────────────────
+# identify_collapsed_fields (plural — multi-field version)
+# ──────────────────────────────────────────────────
+
+
+class TestIdentifyCollapsedFields:
+    def test_threshold_any(self):
+        result = identify_collapsed_fields("BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028")
+        assert "threshold" in result
+
+    def test_timeframe_year_only(self):
+        result = identify_collapsed_fields("BWR-FED-CUT-RATES-CERTIFIED-25BPS-2026")
+        assert "timeframe" in result
+
+    def test_mechanism_std(self):
+        result = identify_collapsed_fields("BWR-FED-CUT-RATES-STD-25BPS-2026")
+        assert "mechanism" in result
+
+    def test_agent_bare_lastname(self):
+        """POWELL is in NAME_COLLISIONS, so it should be flagged."""
+        result = identify_collapsed_fields("BWR-POWELL-CUT-BONDS-CERTIFIED-25BPS-2028_Q1")
+        assert "agent" in result
+
+    def test_target_ambiguous(self):
+        """RATE is in _AMBIGUOUS_TARGETS."""
+        result = identify_collapsed_fields("BWR-FED-CUT-RATE-CERTIFIED-25BPS-2028_Q1")
+        assert "target" in result
+
+    def test_multi_field_collapse(self):
+        """Ticker with multiple generic fields returns all of them."""
+        result = identify_collapsed_fields("BWR-POWELL-CUT-RATE-STD-ANY-2026")
+        assert "threshold" in result
+        assert "timeframe" in result
+        assert "mechanism" in result
+        assert "agent" in result
+        assert "target" in result
+
+    def test_no_collapse_specific_ticker(self):
+        """Fully specific ticker returns empty list."""
+        result = identify_collapsed_fields("BWR-J_POWELL-CUT-FED_FUNDS-ANY_MEETING-25BPS-2026_Q1")
+        assert result == []
+
+    def test_backward_compat_wrapper(self):
+        """Singular version returns first collapsed field."""
+        result = identify_collapsed_field("BWR-TRUMP-WIN-PRES_US-CERTIFIED-ANY-2028")
+        assert result == "threshold"
+
+    def test_backward_compat_empty(self):
+        """Singular version returns '' when nothing collapsed."""
+        result = identify_collapsed_field("BWR-J_POWELL-CUT-FED_FUNDS-ANY_MEETING-25BPS-2026_Q1")
+        assert result == ""
+
+
+# ──────────────────────────────────────────────────
+# analyze_false_positive_patterns (unit tests)
+# ──────────────────────────────────────────────────
+
+
+class TestAnalyzeFalsePositivePatterns:
+    def test_groups_by_agent_action_target(self):
+        """Two false positives with same agent/action/target/threshold should group."""
+        report = {
+            "disagreements": [
+                {
+                    "label_id": "fp1",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": ["BWR-X-W-Y-STD-ANY-2028", "BWR-X-W-Y-STD-ANY-2028"],
+                },
+                {
+                    "label_id": "fp2",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": ["BWR-X-W-Y-STD-ANY-2028", "BWR-X-W-Y-STD-ANY-2028"],
+                },
+            ],
+        }
+        rules, unresolvable = analyze_false_positive_patterns(report, min_frequency=2)
+        # Should produce threshold_disambiguation (ANY) + mechanism (STD) + timeframe (2028)
+        threshold_rules = [r for r in rules if r["type"] == "threshold_disambiguation"]
+        assert len(threshold_rules) == 1
+        assert threshold_rules[0]["frequency"] == 2
+        assert set(threshold_rules[0]["source_labels"]) == {"fp1", "fp2"}
+
+    def test_different_patterns_separate_rules(self):
+        """False positives with different agent/action/target should be separate rules."""
+        report = {
+            "disagreements": [
+                {
+                    "label_id": "fp1",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": ["BWR-A-W-X-STD-ANY-2028"] * 2,
+                },
+                {
+                    "label_id": "fp2",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": ["BWR-A-W-X-STD-ANY-2028"] * 2,
+                },
+                {
+                    "label_id": "fp3",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": ["BWR-B-W-Z-STD-ANY-2028"] * 2,
+                },
+                {
+                    "label_id": "fp4",
+                    "human_judgment": "different event",
+                    "action_needed": "break_match",
+                    "pipeline_tickers": ["BWR-B-W-Z-STD-ANY-2028"] * 2,
+                },
+            ],
+        }
+        rules, _ = analyze_false_positive_patterns(report, min_frequency=2)
+        # Each pattern (A/W/X and B/W/Z) should produce at least threshold + mechanism rules
+        threshold_rules = [r for r in rules if r["type"] == "threshold_disambiguation"]
+        assert len(threshold_rules) == 2
+
+    def test_ignores_non_break_match(self):
+        """Disagreements without action_needed='break_match' should be ignored."""
+        report = {
+            "disagreements": [
+                {
+                    "label_id": "fp1",
+                    "human_judgment": "different event",
+                    "action_needed": "something_else",
+                    "pipeline_tickers": ["BWR-X-W-Y-STD-ANY-2028"] * 2,
+                },
+            ],
+        }
+        rules, unresolvable = analyze_false_positive_patterns(report, min_frequency=1)
+        assert rules == []
+        assert unresolvable == 0
+
+    def test_mechanism_disambiguation_generated(self):
+        """FPs with mechanism=STD should generate mechanism_disambiguation."""
+        # Use specific threshold and non-bare-year timeframe so only mechanism triggers
+        report = {
+            "disagreements": [
+                {"label_id": f"fp{i}", "human_judgment": "different event",
+                 "action_needed": "break_match",
+                 "pipeline_tickers": ["BWR-SMITH-W-Y-STD-25BPS-2028_Q1"] * 2}
+                for i in range(2)
+            ]
+        }
+        rules, _ = analyze_false_positive_patterns(report, min_frequency=2)
+        types = [r["type"] for r in rules]
+        assert "mechanism_disambiguation" in types
+        mech_rules = [r for r in rules if r["type"] == "mechanism_disambiguation"]
+        assert mech_rules[0]["pattern"]["mechanism"] == "STD"
+
+    def test_agent_disambiguation_high_threshold(self):
+        """agent_disambiguation needs 5 observations (same as agent_alias)."""
+        report = {
+            "disagreements": [
+                {"label_id": f"fp{i}", "human_judgment": "different event",
+                 "action_needed": "break_match",
+                 "pipeline_tickers": ["BWR-POWELL-CUT-BONDS-CERTIFIED-25BPS-2028_Q1"] * 2}
+                for i in range(4)  # only 4, below threshold of 5
+            ]
+        }
+        rules, _ = analyze_false_positive_patterns(report)
+        agent_rules = [r for r in rules if r["type"] == "agent_disambiguation"]
+        assert len(agent_rules) == 0
+
+    def test_agent_disambiguation_at_threshold(self):
+        """agent_disambiguation fires at exactly 5 observations."""
+        report = {
+            "disagreements": [
+                {"label_id": f"fp{i}", "human_judgment": "different event",
+                 "action_needed": "break_match",
+                 "pipeline_tickers": ["BWR-POWELL-CUT-BONDS-CERTIFIED-25BPS-2028_Q1"] * 2}
+                for i in range(5)
+            ]
+        }
+        rules, _ = analyze_false_positive_patterns(report)
+        agent_rules = [r for r in rules if r["type"] == "agent_disambiguation"]
+        assert len(agent_rules) == 1
+
+    def test_multi_field_produces_multiple_rules(self):
+        """A ticker with threshold=ANY and bare-year timeframe produces both rules."""
+        report = {
+            "disagreements": [
+                {"label_id": f"fp{i}", "human_judgment": "different event",
+                 "action_needed": "break_match",
+                 "pipeline_tickers": ["BWR-SMITH-W-BONDS-CERTIFIED-ANY-2026"] * 2}
+                for i in range(2)
+            ]
+        }
+        rules, _ = analyze_false_positive_patterns(report, min_frequency=2)
+        types = {r["type"] for r in rules}
+        assert "threshold_disambiguation" in types
+        assert "timeframe_disambiguation" in types
+
+    def test_unresolvable_fp_counted(self):
+        """Fully specific tickers produce no rules but count as unresolvable."""
+        report = {
+            "disagreements": [
+                {"label_id": "fp1", "human_judgment": "different event",
+                 "action_needed": "break_match",
+                 "pipeline_tickers": ["BWR-J_POWELL-CUT-FED_FUNDS-ANY_MEETING-25BPS-2026_Q1"] * 2}
+                for _ in range(5)
+            ]
+        }
+        rules, unresolvable = analyze_false_positive_patterns(report, min_frequency=1)
+        assert len(rules) == 0
+        assert unresolvable == 5
+
+
+# ──────────────────────────────────────────────────
+# generate_disambiguations
+# ──────────────────────────────────────────────────
+
+
+class TestGenerateDisambiguations:
+    def test_empty_report(self):
+        result = generate_disambiguations({"disagreements": [], "sample_size": 0})
+        assert result["disambiguation_count"] == 0
+        assert result["disambiguations"] == []
+
+    def test_includes_batch_id(self):
+        result = generate_disambiguations(
+            {"disagreements": [], "sample_size": 0},
+            batch_id="batch_test"
+        )
+        assert result["batch_id"] == "batch_test"

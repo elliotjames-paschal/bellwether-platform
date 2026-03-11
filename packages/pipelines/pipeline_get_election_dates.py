@@ -544,7 +544,7 @@ def main():
                 })
 
         # Save checkpoint
-        with open(CHECKPOINT_FILE, 'w') as f:
+        with open(CHECKPOINT_FILE, 'w', encoding='utf-8') as f:
             json.dump({
                 'processed': processed_elections,
                 'last_updated': datetime.now().isoformat()
