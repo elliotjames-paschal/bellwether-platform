@@ -689,10 +689,10 @@ def postprocess_ticker(ticker: Dict[str, Any]) -> Dict[str, Any]:
         ticker["target"] = ticker["target"] + ticker["round_suffix"]
 
     # Fix 5: Mechanism collapse for cross-platform matching
-    ticker["mechanism"] = collapse_mechanism(action, ticker["target"], ticker["mechanism"])
+    ticker["mechanism"] = collapse_mechanism(action, ticker.get("target", ""), ticker.get("mechanism", "STD"))
 
     # Fix 6: Election timeframe normalization (month → year for elections)
-    ticker["timeframe"] = normalize_election_timeframe(action, ticker["target"], ticker["timeframe"])
+    ticker["timeframe"] = normalize_election_timeframe(action, ticker.get("target", ""), ticker.get("timeframe", ""))
 
     # Fix 7: Core vs headline economic indicator distinction
     # CPI, PCE, PPI - if "core" in question, append _CORE to target
