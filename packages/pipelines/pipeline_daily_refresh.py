@@ -729,7 +729,22 @@ def main():
                 else:
                     market_info = "Updated market data"
 
-                # Stage docs/data/ and commit
+                # Pull remote changes FIRST so we commit on top of latest
+                # This prevents rebase conflicts when others push to the branch
+                subprocess.run(
+                    ["git", "stash"],
+                    cwd=repo_root, capture_output=True, text=True
+                )
+                subprocess.run(
+                    ["git", "pull", "--rebase", "origin", "v2/data-full"],
+                    cwd=repo_root, check=True
+                )
+                subprocess.run(
+                    ["git", "stash", "pop"],
+                    cwd=repo_root, capture_output=True, text=True
+                )
+
+                # Stage fresh data and commit on top of latest remote
                 subprocess.run(
                     ["git", "add", "docs/data/"],
                     cwd=repo_root, check=True
@@ -739,26 +754,10 @@ def main():
                      f"Update website data - pipeline run\n\n- {market_info}"],
                     cwd=repo_root, check=True
                 )
-                # Pull with rebase, then push
-                # Stash manually for compatibility with older git versions (e.g. Sherlock)
-                stash_result = subprocess.run(
-                    ["git", "stash"],
-                    cwd=repo_root, capture_output=True, text=True
-                )
-                stashed = "No local changes" not in stash_result.stdout
                 subprocess.run(
-                    ["git", "pull", "--rebase"],
+                    ["git", "push", "origin", "v2/data-full"],
                     cwd=repo_root, check=True
                 )
-                subprocess.run(
-                    ["git", "push"],
-                    cwd=repo_root, check=True
-                )
-                if stashed:
-                    subprocess.run(
-                        ["git", "stash", "pop"],
-                        cwd=repo_root, check=True
-                    )
 
                 logger.info(f"Deployed website data: {market_info}")
                 return True
