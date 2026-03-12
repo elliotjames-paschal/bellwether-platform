@@ -1,0 +1,41 @@
+name: Refresh Election Calendar
+
+on:
+  schedule:
+    # Every Monday at 8am UTC (midnight PST)
+    - cron: '0 8 * * 1'
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+
+      - name: Run civic elections generator
+        env:
+          GOOGLE_CIVIC_API_KEY: ${{ secrets.GOOGLE_CIVIC_API_KEY }}
+        run: |
+          cd packages/pipelines
+          python generate_civic_elections.py
+
+      - name: Copy to docs (live site)
+        run: |
+          cp packages/website/data/civic_elections.json docs/data/civic_elections.json
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data/civic_elections.json packages/website/data/civic_elections.json
+          git diff --cached --quiet && echo "No changes" || git commit -m "Update election calendar data" && git push

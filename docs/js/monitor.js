@@ -950,6 +950,36 @@
                             <span class="feedback-option-desc">Incorrectly matched</span>
                         </span>
                     </label>
+                    <div class="feedback-sub-options" id="modal-different-event-sub-options">
+                        <label class="feedback-sub-option">
+                            <input type="radio" name="modal-different-event-reason" value="threshold-mismatch">
+                            <span class="feedback-sub-option-text">
+                                <strong>Different Threshold</strong>
+                                <span class="feedback-option-desc">Different cutoff or win condition</span>
+                            </span>
+                        </label>
+                        <label class="feedback-sub-option">
+                            <input type="radio" name="modal-different-event-reason" value="timeframe-mismatch">
+                            <span class="feedback-sub-option-text">
+                                <strong>Different Timeframe</strong>
+                                <span class="feedback-option-desc">Different dates or election cycle</span>
+                            </span>
+                        </label>
+                        <label class="feedback-sub-option">
+                            <input type="radio" name="modal-different-event-reason" value="agent-mismatch">
+                            <span class="feedback-sub-option-text">
+                                <strong>Different Person/Entity</strong>
+                                <span class="feedback-option-desc">Different candidate, party, or subject</span>
+                            </span>
+                        </label>
+                        <label class="feedback-sub-option selected">
+                            <input type="radio" name="modal-different-event-reason" value="unspecified" checked>
+                            <span class="feedback-sub-option-text">
+                                <strong>Just Different</strong>
+                                <span class="feedback-option-desc">Not the same event (no specific reason)</span>
+                            </span>
+                        </label>
+                    </div>
                     <label class="feedback-option">
                         <input type="radio" name="modal-feedback-type" value="not-political">
                         <span class="feedback-option-text">
@@ -984,14 +1014,22 @@
         const section = document.querySelector('.modal-feedback-section');
         if (!section) return;
 
-        // Toggle same-event sub-options
+        // Toggle sub-options for same-event and different-event
         const radios = section.querySelectorAll('input[name="modal-feedback-type"]');
-        const subOptions = document.getElementById('modal-same-event-sub-options');
+        const sameSubOptions = document.getElementById('modal-same-event-sub-options');
+        const diffSubOptions = document.getElementById('modal-different-event-sub-options');
         radios.forEach(radio => {
             radio.addEventListener('change', () => {
-                if (subOptions) subOptions.classList.toggle('visible', radio.value === 'same-event');
+                if (sameSubOptions) sameSubOptions.classList.toggle('visible', radio.value === 'same-event');
+                if (diffSubOptions) diffSubOptions.classList.toggle('visible', radio.value === 'different-event');
                 if (radio.value !== 'same-event') {
                     section.querySelectorAll('input[name="modal-same-event-rules"]').forEach(r => r.checked = false);
+                }
+                if (radio.value !== 'different-event') {
+                    section.querySelectorAll('input[name="modal-different-event-reason"]').forEach(r => r.checked = false);
+                    // Re-check the default "unspecified"
+                    const unspecified = section.querySelector('input[name="modal-different-event-reason"][value="unspecified"]');
+                    if (unspecified) unspecified.checked = true;
                 }
             });
         });
@@ -1028,6 +1066,10 @@
                 if (feedbackType.value === 'same-event') {
                     const rulesType = section.querySelector('input[name="modal-same-event-rules"]:checked');
                     if (rulesType) feedbackValue = `same-event:${rulesType.value}`;
+                }
+                if (feedbackType.value === 'different-event') {
+                    const reason = section.querySelector('input[name="modal-different-event-reason"]:checked');
+                    if (reason) feedbackValue = `different-event:${reason.value}`;
                 }
 
                 const payload = {
@@ -1562,6 +1604,16 @@
             return;
         }
 
+        // Recompute daysUntil from electionDay (static JSON may be stale)
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        elections.forEach(e => {
+            if (e.electionDay) {
+                const eDate = new Date(e.electionDay + 'T00:00:00');
+                e.daysUntil = Math.ceil((eDate - now) / (1000 * 60 * 60 * 24));
+            }
+        });
+
         // Filter to future elections only
         const futureElections = elections.filter(e => e.daysUntil === null || e.daysUntil >= 0);
 
@@ -1955,18 +2007,29 @@
             feedbackSubmitBtn.addEventListener('click', submitFeedback);
         }
 
-        // Toggle same-event sub-options visibility
+        // Toggle same-event and different-event sub-options visibility
         const feedbackRadios = document.querySelectorAll('input[name="feedback-type"]');
-        const subOptions = document.getElementById('same-event-sub-options');
+        const sameSubOptions = document.getElementById('same-event-sub-options');
+        const diffSubOptions = document.getElementById('different-event-sub-options');
         feedbackRadios.forEach(radio => {
             radio.addEventListener('change', () => {
-                if (subOptions) {
-                    subOptions.classList.toggle('visible', radio.value === 'same-event');
+                if (sameSubOptions) {
+                    sameSubOptions.classList.toggle('visible', radio.value === 'same-event');
+                }
+                if (diffSubOptions) {
+                    diffSubOptions.classList.toggle('visible', radio.value === 'different-event');
                 }
                 // Clear sub-option selection when switching away
                 if (radio.value !== 'same-event') {
                     const subRadios = document.querySelectorAll('input[name="same-event-rules"]');
                     subRadios.forEach(r => r.checked = false);
+                }
+                if (radio.value !== 'different-event') {
+                    const subRadios = document.querySelectorAll('input[name="different-event-reason"]');
+                    subRadios.forEach(r => r.checked = false);
+                    // Re-check the default "unspecified"
+                    const unspecified = document.querySelector('input[name="different-event-reason"][value="unspecified"]');
+                    if (unspecified) unspecified.checked = true;
                 }
             });
         });
@@ -2089,6 +2152,10 @@
         if (feedbackType.value === 'same-event') {
             const rulesType = document.querySelector('input[name="same-event-rules"]:checked');
             if (rulesType) feedbackValue = `same-event:${rulesType.value}`;
+        }
+        if (feedbackType.value === 'different-event') {
+            const reason = document.querySelector('input[name="different-event-reason"]:checked');
+            if (reason) feedbackValue = `different-event:${reason.value}`;
         }
 
         const payload = {
