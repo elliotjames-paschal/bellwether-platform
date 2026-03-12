@@ -3,7 +3,20 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(wc:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(cd C:\\\\Users\\\\vcbee\\\\bellwether-platform:*)",
+      "Bash(head:*)",
+      "Bash(python3:*)",
+      "Bash(cd:*)",
+      "WebFetch(domain:docs.google.com)",
+      "WebFetch(domain:doc-08-0g-sheets.googleusercontent.com)",
+      "Bash(gunzip:*)",
+      "Bash(sort -k2)",
+      "Bash(du:*)",
+      "Bash(echo === $\\(basename $file\\) ===:*)",
+      "Bash(git branch:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.farmshare.stanford.edu)"
     ]
   }
 }

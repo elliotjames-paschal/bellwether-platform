@@ -468,7 +468,7 @@
         const spread = formatSpread(e.pm_price, e.k_price);
 
         // Use question as title, fall back to label
-        const title = e.pm_question || e.k_question || e.label || 'Unknown market';
+        const title = e.pm_event_title || e.k_event_title || e.pm_question || e.k_question || e.label || 'Unknown market';
 
         // Determine tier and fragility - use static cost if available
         const tier = liveData?.price_tier || 0;
@@ -721,7 +721,7 @@
     function renderElectionModal(e) {
         const spread = formatSpread(e.pm_price, e.k_price);
         const spreadStatus = getSpreadStatus(spread.pts);
-        const title = e.pm_question || e.k_question || e.label || 'Unknown market';
+        const title = e.pm_event_title || e.k_event_title || e.pm_question || e.k_question || e.label || 'Unknown market';
 
         let pricesHtml = '';
         let pricesClass = '';
