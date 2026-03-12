@@ -339,6 +339,36 @@
                     <span class="feedback-option-desc">Incorrectly matched</span>
                 </span>
             </label>
+            <div class="feedback-sub-options" id="different-event-sub-options">
+                <label class="feedback-sub-option">
+                    <input type="radio" name="different-event-reason" value="threshold-mismatch">
+                    <span class="feedback-sub-option-text">
+                        <strong>Different Threshold</strong>
+                        <span class="feedback-option-desc">Different cutoff or win condition</span>
+                    </span>
+                </label>
+                <label class="feedback-sub-option">
+                    <input type="radio" name="different-event-reason" value="timeframe-mismatch">
+                    <span class="feedback-sub-option-text">
+                        <strong>Different Timeframe</strong>
+                        <span class="feedback-option-desc">Different dates or election cycle</span>
+                    </span>
+                </label>
+                <label class="feedback-sub-option">
+                    <input type="radio" name="different-event-reason" value="agent-mismatch">
+                    <span class="feedback-sub-option-text">
+                        <strong>Different Person/Entity</strong>
+                        <span class="feedback-option-desc">Different candidate, party, or subject</span>
+                    </span>
+                </label>
+                <label class="feedback-sub-option selected">
+                    <input type="radio" name="different-event-reason" value="unspecified" checked>
+                    <span class="feedback-sub-option-text">
+                        <strong>Just Different</strong>
+                        <span class="feedback-option-desc">Not the same event (no specific reason)</span>
+                    </span>
+                </label>
+            </div>
             <label class="feedback-option">
                 <input type="radio" name="feedback-type" value="not-political">
                 <span class="feedback-option-text">
