@@ -375,6 +375,10 @@ def parse_response(text: str, markets: List[Dict[str, str]]) -> List[Dict[str, A
     return results
 
 
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 2.0  # seconds, doubles each retry
+
+
 async def process_batch_async(
     client,
     markets: List[Dict[str, str]],
@@ -384,42 +388,54 @@ async def process_batch_async(
     semaphore: asyncio.Semaphore,
     pbar=None
 ) -> tuple:
-    """Process a batch asynchronously."""
+    """Process a batch asynchronously with retry on rate limits."""
     user_prompt = create_batch_prompt(markets)
 
     async with semaphore:
-        try:
-            response = await client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": TICKER_PROMPT},
-                    {"role": "user", "content": user_prompt}
-                ],
-            )
+        last_error = None
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": TICKER_PROMPT},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                )
 
-            if pbar:
-                pbar.update(1)
+                if pbar:
+                    pbar.update(1)
 
-            text = response.choices[0].message.content
-            results = parse_response(text, markets)
-            return (batch_idx, results)
+                text = response.choices[0].message.content
+                results = parse_response(text, markets)
+                return (batch_idx, results)
 
-        except Exception as e:
-            if pbar:
-                pbar.update(1)
-            print(f"    ERROR (batch {batch_idx + 1}): {e}")
-            return (batch_idx, [
-                {
-                    "market_id": m["market_id"],
-                    "platform": m["platform"],
-                    "original_question": m["question"],
-                    "timeframe": m["timeframe"],
-                    "threshold": m["threshold"],
-                    "round_suffix": m["round_suffix"],
-                    "error": str(e)
-                }
-                for m in markets
-            ])
+            except Exception as e:
+                last_error = e
+                error_str = str(e)
+                is_rate_limit = "429" in error_str or "rate limit" in error_str.lower()
+
+                if is_rate_limit and attempt < MAX_RETRIES:
+                    delay = RETRY_BASE_DELAY * (2 ** attempt)
+                    print(f"    Rate limited (batch {batch_idx + 1}), retrying in {delay:.0f}s (attempt {attempt + 1}/{MAX_RETRIES})...")
+                    await asyncio.sleep(delay)
+                    continue
+
+                if pbar:
+                    pbar.update(1)
+                print(f"    ERROR (batch {batch_idx + 1}): {e}")
+                return (batch_idx, [
+                    {
+                        "market_id": m["market_id"],
+                        "platform": m["platform"],
+                        "original_question": m["question"],
+                        "timeframe": m["timeframe"],
+                        "threshold": m["threshold"],
+                        "round_suffix": m["round_suffix"],
+                        "error": str(last_error)
+                    }
+                    for m in markets
+                ])
 
 
 # ============================================================
@@ -760,7 +776,9 @@ def filter_to_untickered(
         existing_data = json.load(f)
 
     existing_tickers = existing_data.get("tickers", [])
-    existing_ids = {t["market_id"] for t in existing_tickers if "market_id" in t}
+    existing_ids = {t["market_id"] for t in existing_tickers if "market_id" in t and "error" not in t}
+
+    errored_ids = {t["market_id"] for t in existing_tickers if "market_id" in t and "error" in t}
 
     filtered = []
     skipped = 0
@@ -771,7 +789,9 @@ def filter_to_untickered(
         else:
             filtered.append(m)
 
-    print(f"{len(filtered)} new markets need tickers, {skipped} already tickered (skipped)")
+    retry_count = sum(1 for m in filtered if get_market_id(m) in errored_ids)
+    new_count = len(filtered) - retry_count
+    print(f"{len(filtered)} markets need tickers ({new_count} new, {retry_count} retrying errors), {skipped} already tickered (skipped)")
     return filtered, existing_tickers
 
 
@@ -892,6 +912,12 @@ def main():
         action="store_true",
         help="Reprocess all markets (ignore existing tickers)"
     )
+    parser.add_argument(
+        "--max-retry",
+        type=int,
+        default=500,
+        help="Max errored markets to retry per run (default 500)"
+    )
 
     args = parser.parse_args()
 
@@ -910,6 +936,15 @@ def main():
         filtered, existing_tickers = markets, []
     else:
         filtered, existing_tickers = filter_to_untickered(markets, args.output)
+
+    # Cap retried errors to avoid re-hitting rate limits all at once
+    errored_ids = {t["market_id"] for t in existing_tickers if "market_id" in t and "error" in t}
+    new_markets = [m for m in filtered if get_market_id(m) not in errored_ids]
+    retry_markets = [m for m in filtered if get_market_id(m) in errored_ids]
+    if len(retry_markets) > args.max_retry:
+        print(f"Capping retries: {len(retry_markets)} errored markets, retrying {args.max_retry} this run")
+        retry_markets = retry_markets[:args.max_retry]
+    filtered = new_markets + retry_markets
 
     # Index existing tickers by market_id for merging
     existing_by_id = {t["market_id"]: t for t in existing_tickers if "market_id" in t}

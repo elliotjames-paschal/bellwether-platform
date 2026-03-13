@@ -76,25 +76,28 @@ bash packages/pipelines/hetzner/transfer_data.sh paschal <vps-ip>
 bash packages/pipelines/hetzner/transfer_data.sh --local <vps-ip>
 ```
 
-### Step 5: Set up GitHub deploy key (~3 min)
+### Step 5: Set up GitHub PAT for git push (~2 min)
 
 The VPS needs write access to push daily data updates.
 
+1. Go to https://github.com/settings/tokens?type=beta → **Generate new token**
+2. Configure:
+   - **Token name:** `bellwether-vps`
+   - **Expiration:** 1 year
+   - **Repository access:** Only select repositories → `elliotjames-paschal/bellwether-platform`
+   - **Permissions → Repository permissions → Contents:** Read and write
+3. Generate and copy the token
+
+Add it to the VPS env file:
+
 ```bash
-# On the VPS
-sudo -u bellwether ssh-keygen -t ed25519 -C "bellwether-hetzner" \
-    -f /home/bellwether/.ssh/id_ed25519 -N ""
-sudo cat /home/bellwether/.ssh/id_ed25519.pub
+nano /opt/bellwether/.env
 ```
 
-1. Copy the public key
-2. Go to https://github.com/vcbee/bellwether-platform/settings/keys
-3. Add deploy key, check "Allow write access"
-4. Switch remote to SSH:
+Add this line:
 
-```bash
-sudo -u bellwether git -C /opt/bellwether remote set-url origin \
-    git@github.com:vcbee/bellwether-platform.git
+```
+GITHUB_PAT=github_pat_XXXXX
 ```
 
 ### Step 6: Test run (~5-15 min)
