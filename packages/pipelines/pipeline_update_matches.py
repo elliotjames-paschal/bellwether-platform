@@ -30,6 +30,7 @@ VERDICTS_FILE = DATA_DIR / "cross_platform_resolution_verdicts.json"
 TICKERS_FILE = DATA_DIR / "tickers_postprocessed.json"
 NEAR_MATCHES_FILE = DATA_DIR / "near_matches.json"
 REVIEWED_PAIRS_FILE = DATA_DIR / "cross_platform_reviewed_pairs.json"
+PENDING_REVIEW_FILE = DATA_DIR / "matches_pending_review.json"
 
 
 def reassemble_ticker(ticker):
@@ -224,9 +225,112 @@ def update_reviewed_pairs(reviewed_data, all_processed_pairs):
     return reviewed_data
 
 
+def gate_with_predictionhunt(identical_verdicts, candidates_bucket_b, dry_run=False):
+    """Run PredictionHunt validation on IDENTICAL verdicts before auto-applying.
+
+    Returns:
+        (approved, flagged)
+        approved: list of verdicts that PH confirmed or had no data for (safe to apply)
+        flagged: list of verdicts where PH disagreed (sent to pending review)
+    """
+    try:
+        from predictionhunt_client import PredictionHuntClient, BudgetExhaustedError
+    except ImportError:
+        print("  PredictionHunt: Client not available, skipping validation gate")
+        return identical_verdicts, []
+
+    try:
+        client = PredictionHuntClient()
+    except ValueError:
+        print("  PredictionHunt: No API key set, skipping validation gate")
+        return identical_verdicts, []
+    try:
+        remaining, used, limit = client.check_budget()
+    except BudgetExhaustedError:
+        print(f"  PredictionHunt: Monthly budget exhausted, skipping validation gate")
+        return identical_verdicts, []
+
+    print(f"\n  PredictionHunt gate: {remaining} requests remaining ({used}/{limit} used)")
+
+    if dry_run:
+        print(f"  DRY RUN: Would query PH for {len(identical_verdicts)} IDENTICAL pairs")
+        return identical_verdicts, []
+
+    # Build lookup for candidate details
+    candidate_lookup = {}
+    for pair in candidates_bucket_b:
+        candidate_lookup[pair["pair_key"]] = pair
+
+    approved = []
+    flagged = []
+    skipped_budget = 0
+
+    # Import validation helper
+    from pipeline_validate_with_predictionhunt import classify_ph_response, load_pending_review
+
+    for i, verdict in enumerate(identical_verdicts):
+        try:
+            client.check_budget()
+        except BudgetExhaustedError:
+            # Budget hit — approve remaining without PH check
+            print(f"    Budget exhausted, approving remaining {len(identical_verdicts) - i} without PH check")
+            approved.extend(identical_verdicts[i:])
+            skipped_budget = len(identical_verdicts) - i
+            break
+
+        k_ticker = verdict["kalshi_market_id"]
+        p_id = verdict["poly_market_id"]
+        pair_info = candidate_lookup.get(verdict.get("pair_key", ""), {})
+
+        ph_result = client.query_by_kalshi_ticker(k_ticker, pipeline="validate_embedding")
+        status, ph_poly_ids = classify_ph_response(ph_result, p_id, client, our_kalshi_id=k_ticker)
+
+        if status == "confirmed" or status == "no_match":
+            approved.append(verdict)
+            label = "confirmed" if status == "confirmed" else "no_data"
+            print(f"    [{i+1}] {k_ticker} -> {label}, approved")
+        elif status == "disagreed":
+            flagged.append(verdict)
+            print(f"    [{i+1}] {k_ticker} -> DISAGREED (PH poly: {ph_poly_ids}), flagged for review")
+
+            # Add to pending review file
+            existing_review = load_pending_review()
+            existing_keys = {item.get("pair_key") for item in existing_review}
+            pair_key = verdict.get("pair_key", f"{k_ticker}|{p_id}")
+            if pair_key not in existing_keys:
+                existing_review.append({
+                    "source": "embedding_gpt",
+                    "pair_key": pair_key,
+                    "kalshi_market_id": k_ticker,
+                    "poly_market_id": p_id,
+                    "our_ticker": pair_info.get("kalshi_ticker", ""),
+                    "kalshi_question": pair_info.get("kalshi_question", ""),
+                    "poly_question": pair_info.get("poly_question", ""),
+                    "cosine_similarity": verdict.get("cosine_similarity", 0),
+                    "gpt_verdict": "IDENTICAL",
+                    "ph_status": "disagreed",
+                    "ph_matched_pm": ph_poly_ids,
+                    "created_at": datetime.now().isoformat(),
+                })
+                atomic_write_json(PENDING_REVIEW_FILE,
+                                  {"updated_at": datetime.now().isoformat(), "items": existing_review},
+                                  indent=2, ensure_ascii=False)
+        elif status == "error":
+            # Real API error — approve anyway (don't block on PH errors)
+            approved.append(verdict)
+            error_detail = ph_result.get("error", "unknown")
+            print(f"    [{i+1}] {k_ticker} -> PH error ({error_detail}), approved anyway")
+
+    print(f"  PredictionHunt gate: {len(approved)} approved, {len(flagged)} flagged"
+          + (f", {skipped_budget} skipped (budget)" if skipped_budget else ""))
+
+    return approved, flagged
+
+
 def main():
     parser = argparse.ArgumentParser(description="Apply cross-platform match fixes")
     parser.add_argument("--dry-run", action="store_true", help="Print changes without writing")
+    parser.add_argument("--skip-ph", action="store_true", help="Skip PredictionHunt validation gate")
     args = parser.parse_args()
 
     print(f"[{datetime.now().isoformat()}] Updating cross-platform matches...")
@@ -299,7 +403,13 @@ def main():
           f"OVERLAPPING={len(overlapping_verdicts)}, DIFFERENT={len(different_verdicts)}, "
           f"ERROR={len(error_verdicts)}")
 
-    # 3. Unify IDENTICAL tickers
+    # 2b. PredictionHunt validation gate (unless --skip-ph)
+    ph_flagged = []
+    if identical_verdicts and not args.skip_ph:
+        identical_verdicts, ph_flagged = gate_with_predictionhunt(
+            identical_verdicts, bucket_b, dry_run=args.dry_run)
+
+    # 3. Unify IDENTICAL tickers (only PH-approved ones)
     tickers_modified = 0
     if identical_verdicts:
         print(f"\n  Unifying {len(identical_verdicts)} IDENTICAL pairs...")
@@ -359,6 +469,11 @@ def main():
     atomic_write_json(NEAR_MATCHES_FILE, near_output, indent=2)
     print(f"  Saved {len(near_entries)} near matches to {NEAR_MATCHES_FILE}")
 
+    # PH-flagged verdicts don't get action_taken = unified, they stay unprocessed
+    for v in ph_flagged:
+        v["action_taken"] = "ph_flagged_for_review"
+    all_processed.extend(ph_flagged)
+
     # 7. Update reviewed pairs
     reviewed_data = load_reviewed_pairs()
     reviewed_data = update_reviewed_pairs(reviewed_data, all_processed)
@@ -369,6 +484,8 @@ def main():
     print(f"\n=== CROSS-PLATFORM UPDATE COMPLETE ===")
     print(f"  Bucket A (identical ticker bugs): {bucket_a_count}")
     print(f"  New matches fixed (IDENTICAL): {tickers_modified}")
+    if ph_flagged:
+        print(f"  PH flagged for review: {len(ph_flagged)}")
     print(f"  Near matches logged (OVERLAPPING): {len(overlapping_verdicts)}")
     print(f"  Different events (DIFFERENT): {len(different_verdicts)}")
     print(f"  Errors to retry: {len(error_verdicts)}")

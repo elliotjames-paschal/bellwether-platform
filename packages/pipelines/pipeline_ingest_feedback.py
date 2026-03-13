@@ -117,8 +117,8 @@ def resolve_market_ids(market_keys: list, ticker_lookup: dict) -> list:
     resolved = []
     for key in market_keys:
         if key in ticker_lookup:
-            # Use first market_id for this ticker
-            resolved.append(ticker_lookup[key][0])
+            # Expand all market_ids for this ticker (e.g. Kalshi + Polymarket)
+            resolved.extend(ticker_lookup[key])
         else:
             # Key might already be a market_id, or unresolvable
             resolved.append(key)
@@ -126,16 +126,29 @@ def resolve_market_ids(market_keys: list, ticker_lookup: dict) -> list:
 
 
 def build_ticker_lookup(tickers_data: dict) -> dict:
-    """Build BWR ticker -> [market_id] lookup from tickers data.
+    """Build multi-path lookup from tickers data.
 
-    Returns dict mapping ticker string to list of market_ids with that ticker.
+    Indexes by:
+      - BWR ticker string (e.g. "BWR-DEM-CONTROL-HOUSE-...")
+      - Raw market_id (e.g. "CONTROLH-2026-D")
+      - Frontend key format: "kalshi_{market_id}" or "polymarket_{market_id}"
+
+    Returns dict mapping key -> list of market_id strings.
     """
     lookup = {}
     for t in tickers_data.get("tickers", []):
         ticker_str = t.get("ticker", "")
         market_id = str(t.get("market_id", ""))
+        platform = t.get("platform", "")
         if ticker_str and market_id:
             lookup.setdefault(ticker_str, []).append(market_id)
+        if market_id:
+            # Direct market_id lookup (identity)
+            lookup.setdefault(market_id, []).append(market_id)
+            # Frontend key format: "kalshi_TICKER" or "polymarket_SLUG"
+            if platform:
+                prefixed = f"{platform.lower()}_{market_id}"
+                lookup.setdefault(prefixed, []).append(market_id)
     return lookup
 
 
@@ -250,15 +263,25 @@ def ingest_new_rows(csv_rows: list, existing_data: dict, tickers_data: dict, bat
         if not markets_raw:
             continue
 
-        # Extract market keys and platforms
+        # Extract market keys and platform-specific IDs
         market_keys = [m.get("key", "") for m in markets_raw if m.get("key")]
         platforms = list({m.get("platform", "Unknown") for m in markets_raw})
 
-        if not market_keys:
+        # Also extract platform IDs submitted by the frontend (richer payload)
+        all_resolvable = list(market_keys)
+        for m in markets_raw:
+            for field in ("pm_market_id", "k_ticker", "ticker"):
+                val = m.get(field)
+                if val and val not in all_resolvable:
+                    all_resolvable.append(val)
+
+        if not all_resolvable:
             continue
 
-        # Resolve to market IDs
-        market_ids = resolve_market_ids(market_keys, ticker_lookup)
+        # Resolve to market IDs and deduplicate
+        market_ids = resolve_market_ids(all_resolvable, ticker_lookup)
+        seen = set()
+        market_ids = [x for x in market_ids if not (x in seen or seen.add(x))]
 
         # Compute deterministic label ID
         label_id = compute_label_id(ts_str, market_ids)

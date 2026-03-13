@@ -44,6 +44,26 @@ def get_openai_client():
     return OpenAI(api_key=get_openai_api_key())
 
 
+def get_predictionhunt_api_key():
+    """Get PredictionHunt API key from environment variable or .env file."""
+    key = os.environ.get('PREDICTIONHUNT_API_KEY')
+    if key:
+        return key
+
+    # Fallback: read from .env file in project root
+    env_file = BASE_DIR / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith('PREDICTIONHUNT_API_KEY='):
+                return line.split('=', 1)[1].strip().strip('"').strip("'")
+
+    raise ValueError(
+        "PREDICTIONHUNT_API_KEY not found. Set PREDICTIONHUNT_API_KEY environment variable "
+        "or add it to .env in the project root."
+    )
+
+
 def get_latest_file(pattern, directory=None):
     """
     Find the latest file matching a glob pattern.
