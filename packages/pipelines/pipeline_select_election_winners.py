@@ -930,6 +930,11 @@ def main():
         df = pd.read_csv(MASTER_FILE, low_memory=False)
         log(f"  Total markets: {len(df):,}")
 
+        # Ensure vote share columns exist
+        for col in ['democrat_vote_share', 'republican_vote_share', 'vote_share_source']:
+            if col not in df.columns:
+                df[col] = pd.NA
+
         selections = load_selections()
         log(f"  Existing selections: {len(selections):,}")
 
@@ -950,6 +955,11 @@ def main():
     log("Loading master CSV...")
     df = pd.read_csv(MASTER_FILE, low_memory=False)
     log(f"  Total markets: {len(df):,}")
+
+    # Ensure vote share columns exist
+    for col in ['democrat_vote_share', 'republican_vote_share', 'vote_share_source']:
+        if col not in df.columns:
+            df[col] = pd.NA
 
     # Filter to US electoral markets
     electoral = df[

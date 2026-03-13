@@ -29,7 +29,7 @@ set -euo pipefail
 # --------------------------------------------------------------------------
 # Configuration — edit these before running
 # --------------------------------------------------------------------------
-REPO_URL="https://github.com/vcbee/bellwether-platform.git"
+REPO_URL="https://github.com/elliotjames-paschal/bellwether-platform.git"
 REPO_BRANCH="v2/data-full"
 SERVICE_USER="bellwether"
 INSTALL_DIR="/opt/bellwether"
@@ -177,6 +177,9 @@ DOME_API_KEY=REPLACE_ME
 # Required for election calendar
 GOOGLE_CIVIC_API_KEY=REPLACE_ME
 
+# GitHub PAT (fine-grained, Contents read/write on bellwether-platform)
+GITHUB_PAT=
+
 # Optional
 PREDICTIONHUNT_API_KEY=
 CLOUDFLARE_API_TOKEN=
@@ -271,7 +274,13 @@ source "$VENV_DIR/bin/activate"
 # Pull latest code
 # --------------------------------------------------------------------------
 cd "$INSTALL_DIR"
-git pull --ff-only origin v2/data-full 2>/dev/null || log "WARNING: git pull failed (continuing with current code)"
+
+if [[ -n "${GITHUB_PAT:-}" ]]; then
+    REPO_URL="https://x-access-token:${GITHUB_PAT}@github.com/elliotjames-paschal/bellwether-platform.git"
+    git pull --ff-only "$REPO_URL" v2/data-full 2>/dev/null || log "WARNING: git pull failed (continuing with current code)"
+else
+    git pull --ff-only origin v2/data-full 2>/dev/null || log "WARNING: git pull failed (continuing with current code)"
+fi
 
 # --------------------------------------------------------------------------
 # Run pipeline
@@ -302,17 +311,23 @@ else
     git commit -m "$COMMIT_MSG"
     log "Committed: $COMMIT_MSG"
 
-    if git push origin v2/data-full 2>&1; then
-        log "Pushed to GitHub - Pages will auto-deploy"
+    if [[ -n "${GITHUB_PAT:-}" ]]; then
+        PUSH_URL="https://x-access-token:${GITHUB_PAT}@github.com/elliotjames-paschal/bellwether-platform.git"
+        if git push "$PUSH_URL" v2/data-full 2>&1; then
+            log "Pushed to GitHub - Pages will auto-deploy"
+        else
+            log "ERROR: git push failed"
+        fi
+        unset PUSH_URL
     else
-        log "ERROR: git push failed"
+        log "WARNING: GITHUB_PAT not set, skipping push"
     fi
 fi
 
 # --------------------------------------------------------------------------
 # Cleanup secrets from environment
 # --------------------------------------------------------------------------
-unset OPENAI_API_KEY DOME_API_KEY GOOGLE_CIVIC_API_KEY PREDICTIONHUNT_API_KEY CLOUDFLARE_API_TOKEN
+unset OPENAI_API_KEY DOME_API_KEY GOOGLE_CIVIC_API_KEY PREDICTIONHUNT_API_KEY CLOUDFLARE_API_TOKEN GITHUB_PAT
 
 log "======================================================================"
 log "  Pipeline complete"
