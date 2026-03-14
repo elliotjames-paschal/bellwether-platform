@@ -11,6 +11,7 @@ If markets are unbiased, points should follow the 45-degree line.
 Deviations suggest systematic bias favoring one party.
 """
 
+import sys
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
@@ -43,7 +44,11 @@ print("="*80)
 
 print("\n1. Loading Panel A elections (election_winner_panel_a_detailed.csv)...")
 
-panel_a = pd.read_csv(f"{PAPER_DATA_DIR}/election_winner_panel_a_detailed.csv")
+panel_a_path = f"{PAPER_DATA_DIR}/election_winner_panel_a_detailed.csv"
+if not os.path.exists(panel_a_path):
+    print(f"ERROR: {panel_a_path} not found. Run election_winner_markets_comparison.py first.")
+    sys.exit(1)
+panel_a = pd.read_csv(panel_a_path)
 print(f"   Loaded {len(panel_a)} total elections (all platforms)")
 
 # Derive republican_won from winning_party if not already present

@@ -54,6 +54,10 @@ def load_trades():
 
 def load_panel_a_metadata():
     """Load Panel A metadata to get winning party and candidate for each market."""
+    if not PANEL_A_CSV.exists():
+        log(f"Error: Panel A file not found: {PANEL_A_CSV}")
+        log("Run election_winner_markets_comparison.py first")
+        sys.exit(1)
     panel_a = pd.read_csv(PANEL_A_CSV)
     panel_a = panel_a[panel_a['platform'] == 'Polymarket'].copy()
     panel_a['market_id'] = panel_a['market_id'].astype(str)

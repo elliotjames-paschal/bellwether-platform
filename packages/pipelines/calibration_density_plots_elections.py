@@ -8,6 +8,7 @@ Creates two calibration analysis plots filtered to election markets only:
 Uses the same color scheme as Polymarket/Kalshi pipeline for consistency.
 """
 
+import sys
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend for LaTeX
@@ -52,6 +53,9 @@ print("="*80)
 
 print(f"\n📊 Loading Polymarket prediction data...")
 df_pm = load_prediction_accuracy("polymarket")
+if df_pm is None:
+    print("ERROR: Polymarket prediction accuracy file not found. Run Brier score calculation first.")
+    sys.exit(1)
 df_pm['platform'] = 'Polymarket'
 print(f"✓ Loaded {len(df_pm):,} Polymarket all-political prediction records")
 
@@ -62,6 +66,9 @@ print(f"✓ Filtered to {len(df_pm):,} Polymarket election prediction records")
 # Load Kalshi data
 print(f"\n📊 Loading Kalshi prediction data...")
 df_kalshi = load_prediction_accuracy("kalshi")
+if df_kalshi is None:
+    print("ERROR: Kalshi prediction accuracy file not found. Run Brier score calculation first.")
+    sys.exit(1)
 df_kalshi['platform'] = 'Kalshi'
 print(f"✓ Loaded {len(df_kalshi):,} Kalshi all-political prediction records")
 

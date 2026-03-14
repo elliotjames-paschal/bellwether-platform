@@ -182,6 +182,22 @@ def main():
 
     # Create DataFrame
     log("\n3. Creating output DataFrame...")
+    if not all_metrics:
+        log("WARNING: No liquidity metrics calculated (no orderbook data found). Creating empty output.")
+        df = pd.DataFrame(columns=[
+            'platform', 'market_id', 'token_id', 'ticker', 'question', 'category',
+            'volume_usd', 'trading_close_time',
+            'n_snapshots', 'time_span_hours',
+            'spread_mean', 'spread_median', 'spread_std', 'spread_min', 'spread_max',
+            'rel_spread_mean', 'rel_spread_median', 'rel_spread_std',
+            'depth_mean', 'depth_median', 'depth_std', 'depth_max',
+            'bid_depth_mean', 'ask_depth_mean', 'depth_imbalance_mean',
+            'price_mean', 'price_std'
+        ])
+        df.to_csv(OUTPUT_FILE, index=False)
+        log(f"   Saved empty file to {OUTPUT_FILE.name}")
+        return
+
     df = pd.DataFrame(all_metrics)
 
     # Reorder columns

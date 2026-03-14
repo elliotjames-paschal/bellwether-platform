@@ -114,6 +114,11 @@ def main():
 
     # Filter to winner markets only if requested
     if winner_only:
+        panel_a_path = DATA_DIR / "election_winner_panel_a_detailed.csv"
+        if not panel_a_path.exists():
+            print("ERROR: election_winner_panel_a_detailed.csv not found. Skipping winner filter.")
+            winner_only = False
+    if winner_only:
         panel_a = pd.read_csv(DATA_DIR / "election_winner_panel_a_detailed.csv")
         # Panel A has market_ids - need to match against our data
         winner_market_ids = set(panel_a['market_id'].astype(str).unique())

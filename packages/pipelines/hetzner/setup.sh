@@ -30,7 +30,7 @@ set -euo pipefail
 # Configuration — edit these before running
 # --------------------------------------------------------------------------
 REPO_URL="https://github.com/elliotjames-paschal/bellwether-platform.git"
-REPO_BRANCH="v2/data-full"
+REPO_BRANCH="v2/hetzner"
 SERVICE_USER="bellwether"
 INSTALL_DIR="/opt/bellwether"
 DATA_DIR="/opt/bellwether/data"
@@ -277,9 +277,9 @@ cd "$INSTALL_DIR"
 
 if [[ -n "${GITHUB_PAT:-}" ]]; then
     REPO_URL="https://x-access-token:${GITHUB_PAT}@github.com/elliotjames-paschal/bellwether-platform.git"
-    git pull --ff-only "$REPO_URL" v2/data-full 2>/dev/null || log "WARNING: git pull failed (continuing with current code)"
+    git pull --ff-only "$REPO_URL" v2/hetzner 2>/dev/null || log "WARNING: git pull failed (continuing with current code)"
 else
-    git pull --ff-only origin v2/data-full 2>/dev/null || log "WARNING: git pull failed (continuing with current code)"
+    git pull --ff-only origin v2/hetzner 2>/dev/null || log "WARNING: git pull failed (continuing with current code)"
 fi
 
 # --------------------------------------------------------------------------
@@ -313,7 +313,7 @@ else
 
     if [[ -n "${GITHUB_PAT:-}" ]]; then
         PUSH_URL="https://x-access-token:${GITHUB_PAT}@github.com/elliotjames-paschal/bellwether-platform.git"
-        if git push "$PUSH_URL" v2/data-full 2>&1; then
+        if git push "$PUSH_URL" v2/hetzner 2>&1; then
             log "Pushed to GitHub - Pages will auto-deploy"
         else
             log "ERROR: git push failed"

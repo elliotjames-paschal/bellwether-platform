@@ -99,6 +99,9 @@ def get_panel_a_markets():
     Returns DataFrame with: market_id, pm_condition_id, winning_party, question, candidate_party
     """
     # Load Panel A detailed to get winning_party
+    if not PANEL_A_CSV.exists():
+        print(f"ERROR: {PANEL_A_CSV} not found. Run election_winner_markets_comparison.py first.")
+        sys.exit(1)
     panel_a = pd.read_csv(PANEL_A_CSV)
 
     # Filter to Polymarket only

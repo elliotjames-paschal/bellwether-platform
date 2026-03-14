@@ -220,7 +220,7 @@ def main():
     if not INPUT_FILE.exists():
         print(f"   ERROR: Input file not found: {INPUT_FILE}")
         print("   Please run calculate_liquidity_metrics.py first.")
-        return
+        sys.exit(1)
 
     df = pd.read_csv(INPUT_FILE)
     print(f"   Loaded {len(df):,} markets")

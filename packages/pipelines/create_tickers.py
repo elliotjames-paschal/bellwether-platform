@@ -375,7 +375,7 @@ def parse_response(text: str, markets: List[Dict[str, str]]) -> List[Dict[str, A
     return results
 
 
-MAX_RETRIES = 3
+MAX_RETRIES = 5
 RETRY_BASE_DELAY = 2.0  # seconds, doubles each retry
 
 
@@ -414,10 +414,11 @@ async def process_batch_async(
                 last_error = e
                 error_str = str(e)
                 is_rate_limit = "429" in error_str or "rate limit" in error_str.lower()
+                is_retryable = is_rate_limit or "timeout" in error_str.lower() or "500" in error_str or "502" in error_str or "503" in error_str
 
-                if is_rate_limit and attempt < MAX_RETRIES:
+                if is_retryable and attempt < MAX_RETRIES:
                     delay = RETRY_BASE_DELAY * (2 ** attempt)
-                    print(f"    Rate limited (batch {batch_idx + 1}), retrying in {delay:.0f}s (attempt {attempt + 1}/{MAX_RETRIES})...")
+                    print(f"    {'Rate limited' if is_rate_limit else 'Error'} (batch {batch_idx + 1}), retrying in {delay:.0f}s (attempt {attempt + 1}/{MAX_RETRIES})...")
                     await asyncio.sleep(delay)
                     continue
 
