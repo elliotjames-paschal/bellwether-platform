@@ -1247,6 +1247,34 @@ def build_pm_embed_url(row):
     return None
 
 
+def _get_end_datetime(row):
+    """Get effective end datetime for a market row.
+
+    Priority: scheduled_end_time > k_expiration_time > trading_close_time.
+    Returns None if no date field is populated.
+    """
+    for field in ('scheduled_end_time', 'k_expiration_time', 'trading_close_time'):
+        val = row.get(field)
+        if pd.notna(val):
+            try:
+                return pd.to_datetime(val, utc=True)
+            except Exception:
+                continue
+    return None
+
+
+def _is_contract_expired(row, now, grace_hours=24):
+    """True if contract end date + grace period has passed.
+
+    Returns False (not expired) if no end date is available,
+    so markets without date fields are never incorrectly hidden.
+    """
+    end_dt = _get_end_datetime(row)
+    if end_dt is None:
+        return False
+    return now > (end_dt + pd.Timedelta(hours=grace_hours))
+
+
 def generate_monitor_data(skip_prices=False):
     """Generate monitor data for all active political markets.
 
@@ -1303,6 +1331,13 @@ def generate_monitor_data(skip_prices=False):
     active = active[active['political_category'].isin(valid_categories)]
     excluded = before_filter - len(active)
     log(f"  Active markets: {len(active):,} ({excluded:,} excluded for invalid category)")
+
+    # Filter out contracts whose end date has passed (with 24h grace period).
+    # This catches stale contracts before resolution checking marks them closed.
+    now_utc = pd.Timestamp.now(tz='UTC')
+    before_expiry = len(active)
+    active = active[~active.apply(lambda row: _is_contract_expired(row, now_utc), axis=1)]
+    log(f"  Removed {before_expiry - len(active):,} expired contracts (end date + 24h grace passed)")
 
     # Build market_id -> row lookup from active markets
     mid_to_row = {}
@@ -1417,6 +1452,7 @@ def generate_monitor_data(skip_prices=False):
     # BUILD ENTRIES FROM TICKER GROUPS
     # =========================================================================
     all_entries = []
+    fully_expired_tickers = 0
 
     for ticker_str, group in ticker_groups.items():
         pm_markets = group['pm_markets']
@@ -1424,6 +1460,14 @@ def generate_monitor_data(skip_prices=False):
 
         if not pm_markets and not k_markets:
             continue
+
+        # Filter out expired contracts within the group (safety net)
+        pm_markets = [m for m in pm_markets if not _is_contract_expired(m, now_utc)]
+        k_markets = [m for m in k_markets if not _is_contract_expired(m, now_utc)]
+
+        if not pm_markets and not k_markets:
+            fully_expired_tickers += 1
+            continue  # All contracts expired → hide entire event
 
         # Pick best market per platform by volume
         pm_best = max(pm_markets, key=get_row_volume) if pm_markets else None
@@ -1554,7 +1598,7 @@ def generate_monitor_data(skip_prices=False):
 
     ticker_count = len(all_entries)
     cross_platform_count = sum(1 for e in all_entries if e['entry_type'] == 'cross_platform')
-    log(f"  Ticker-grouped entries: {ticker_count:,} ({cross_platform_count} cross-platform)")
+    log(f"  Ticker-grouped entries: {ticker_count:,} ({cross_platform_count} cross-platform, {fully_expired_tickers} tickers fully expired)")
 
     # =========================================================================
     # PROCESS MARKETS WITHOUT TICKERS (fallback individual entries)
