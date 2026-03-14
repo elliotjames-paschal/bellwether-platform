@@ -2395,7 +2395,12 @@ def main():
         from generate_monitor_data import generate_monitor_data, generate_monitor_summary
         output = generate_monitor_data()
         if output:
-            generate_monitor_summary(output.get('markets', []))
+            try:
+                generate_monitor_summary(output.get('markets', []))
+            except Exception as e:
+                log(f"  Warning: Monitor robustness summary failed: {e}")
+                import traceback
+                traceback.print_exc()
     except Exception as e:
         log(f"  Warning: Monitor data generation failed: {e}")
 

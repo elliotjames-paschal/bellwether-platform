@@ -1787,19 +1787,26 @@ def generate_monitor_summary(elections, max_workers=50):
     """Generate robustness summary for Finding 3 (parallel)."""
     log(f"Generating market robustness summary ({max_workers} workers)...")
 
-    total = 0
     robust_count = 0     # >= $100K
     caution_count = 0    # $10K-$100K
-    fragile_count = 0    # < $10K
     processed = 0
 
     # Track robust and caution markets for the reportable tab
     robust_markets = []
     caution_markets = []
 
-    # Filter to entries that have at least one token/ticker
-    assessable = [e for e in elections if e.get('pm_token_id') or e.get('k_ticker')]
-    log(f"  Assessable markets (have token/ticker): {len(assessable)}")
+    # Filter to entries with a token/ticker AND enough volume to possibly be reportable.
+    # Markets with <$10K total volume will never have $10K+ orderbook depth,
+    # so skip them to avoid ~20K unnecessary API calls.
+    MIN_VOLUME_FOR_REPORTABLE = 10000
+    assessable = [e for e in elections
+                  if (e.get('pm_token_id') or e.get('k_ticker'))
+                  and (e.get('total_volume') or 0) >= MIN_VOLUME_FOR_REPORTABLE]
+    total_with_ticker = sum(1 for e in elections if e.get('pm_token_id') or e.get('k_ticker'))
+    fragile_count = total_with_ticker - len(assessable)  # Low-volume markets are fragile by definition
+    total = total_with_ticker
+    log(f"  Assessable markets (volume >= ${MIN_VOLUME_FOR_REPORTABLE:,}): {len(assessable)} "
+        f"(skipping {fragile_count} low-volume as fragile)")
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(_assess_single_market, entry): entry for entry in assessable}
@@ -1807,7 +1814,6 @@ def generate_monitor_summary(elections, max_workers=50):
             entry = futures[future]
             min_cost = future.result()
             processed += 1
-            total += 1  # Count ALL assessable markets
 
             if min_cost is not None:
                 if min_cost >= 100000:
