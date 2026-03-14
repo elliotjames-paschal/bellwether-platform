@@ -735,8 +735,12 @@ def main():
                     ["git", "stash"],
                     cwd=repo_root, capture_output=True, text=True
                 )
+                current_branch = subprocess.run(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                    cwd=repo_root, capture_output=True, text=True, check=True
+                ).stdout.strip()
                 subprocess.run(
-                    ["git", "pull", "--rebase", "origin", "v2/data-full"],
+                    ["git", "pull", "--rebase", "origin", current_branch],
                     cwd=repo_root, check=True
                 )
                 subprocess.run(
@@ -755,7 +759,7 @@ def main():
                     cwd=repo_root, check=True
                 )
                 subprocess.run(
-                    ["git", "push", "origin", "v2/data-full"],
+                    ["git", "push", "origin", current_branch],
                     cwd=repo_root, check=True
                 )
 
