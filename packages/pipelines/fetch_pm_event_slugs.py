@@ -17,7 +17,7 @@ Output:
     data/pm_event_slug_mapping.json
 
 Usage:
-    python fetch_pm_event_slugs.py [--limit N]
+    python fetch_pm_event_slugs.py [--limit N] [--incremental]
 
 ================================================================================
 """
@@ -35,6 +35,8 @@ from pathlib import Path
 from config import DATA_DIR
 
 OUTPUT_FILE = DATA_DIR / "pm_event_slug_mapping.json"
+CHECKPOINT_FILE = DATA_DIR / "pm_event_slug_checkpoint.json"
+CHECKPOINT_INTERVAL = 50  # Save checkpoint every N pages
 
 # Gamma API (public, no auth required)
 GAMMA_API_BASE = "https://gamma-api.polymarket.com"
@@ -66,14 +68,41 @@ def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
 
-def fetch_all_events(limit_pages=None):
+def load_checkpoint():
+    """Load checkpoint from file, if it exists."""
+    if CHECKPOINT_FILE.exists():
+        try:
+            with open(CHECKPOINT_FILE, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    return None
+
+
+def save_checkpoint(data):
+    """Save or clear checkpoint file."""
+    if data is None:
+        if CHECKPOINT_FILE.exists():
+            CHECKPOINT_FILE.unlink()
+        return
+    data["saved_at"] = datetime.now().isoformat()
+    with open(CHECKPOINT_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2)
+
+
+def fetch_all_events(limit_pages=None, resume_offset=0, incremental_cutoff=None):
     """Fetch all events from Gamma API with their markets.
+
+    Args:
+        limit_pages: Max pages to fetch (for testing)
+        resume_offset: Offset to resume from (checkpoint)
+        incremental_cutoff: ISO timestamp; stop when events are older
 
     Returns:
         List of events with markets included
     """
     all_events = []
-    offset = 0
+    offset = resume_offset
     page = 0
     limit = 100
 
@@ -100,15 +129,33 @@ def fetch_all_events(limit_pages=None):
                     events = response.json()
 
                     if not events:
+                        save_checkpoint(None)
                         return all_events
+
+                    # Incremental mode: stop if all events on this page are older
+                    if incremental_cutoff:
+                        newest_on_page = max(
+                            (e.get("updatedAt", e.get("createdAt", "")) for e in events),
+                            default=""
+                        )
+                        if newest_on_page and newest_on_page < incremental_cutoff:
+                            log(f"  Reached events older than cutoff, stopping")
+                            save_checkpoint(None)
+                            return all_events
 
                     all_events.extend(events)
                     page += 1
+
+                    # Checkpoint every N pages
+                    if page % CHECKPOINT_INTERVAL == 0:
+                        save_checkpoint({"offset": offset + limit, "events_so_far": len(all_events)})
+                        log(f"  Checkpoint saved at offset {offset + limit}")
 
                     if page % 10 == 0:
                         log(f"  Fetched {page} pages, {len(all_events)} events...")
 
                     if len(events) < limit:
+                        save_checkpoint(None)
                         return all_events
 
                     offset += limit
@@ -122,6 +169,7 @@ def fetch_all_events(limit_pages=None):
 
                 else:
                     log(f"  API error {response.status_code}: {response.text[:200]}")
+                    save_checkpoint({"offset": offset, "events_so_far": len(all_events)})
                     return all_events
 
             except Exception as e:
@@ -129,13 +177,15 @@ def fetch_all_events(limit_pages=None):
                     time.sleep(5)
                     continue
                 log(f"  Error: {e}")
+                save_checkpoint({"offset": offset, "events_so_far": len(all_events)})
                 return all_events
 
+    save_checkpoint(None)
     return all_events
 
 
 def build_mapping(events):
-    """Build condition_id → event_slug mapping from events.
+    """Build condition_id -> event_slug mapping from events.
 
     Returns:
         dict: {condition_id: event_slug}
@@ -156,33 +206,6 @@ def build_mapping(events):
     return mapping
 
 
-def main():
-    # Parse args
-    limit_pages = None
-    if '--limit' in sys.argv:
-        idx = sys.argv.index('--limit')
-        if idx + 1 < len(sys.argv):
-            limit_pages = int(sys.argv[idx + 1])
-
-    log("Fetching all events from Gamma API...")
-
-    events = fetch_all_events(limit_pages)
-    log(f"  Total events: {len(events):,}")
-
-    # Count markets
-    total_markets = sum(len(e.get("markets", [])) for e in events)
-    log(f"  Total markets in events: {total_markets:,}")
-
-    # Build mapping
-    mapping = build_mapping(events)
-    log(f"  Unique condition_id mappings: {len(mapping):,}")
-
-    # Save output
-    save_output(mapping, len(events))
-
-    log("Done!")
-
-
 def save_output(mapping, event_count):
     """Save final mapping file."""
     output = {
@@ -196,6 +219,64 @@ def save_output(mapping, event_count):
         json.dump(output, f, indent=2)
 
     log(f"Saved to {OUTPUT_FILE}")
+
+
+def main():
+    # Parse args
+    limit_pages = None
+    incremental = "--incremental" in sys.argv
+    if '--limit' in sys.argv:
+        idx = sys.argv.index('--limit')
+        if idx + 1 < len(sys.argv):
+            limit_pages = int(sys.argv[idx + 1])
+
+    # Check for checkpoint (resume after crash)
+    checkpoint = load_checkpoint()
+    resume_offset = 0
+    if checkpoint:
+        resume_offset = checkpoint.get("offset", 0)
+        log(f"Resuming from checkpoint at offset {resume_offset}")
+
+    # Incremental mode: only fetch events newer than last run
+    incremental_cutoff = None
+    if incremental and OUTPUT_FILE.exists():
+        try:
+            with open(OUTPUT_FILE, 'r') as f:
+                existing = json.load(f)
+            incremental_cutoff = existing.get("generated_at")
+            if incremental_cutoff:
+                log(f"Incremental mode: fetching events updated after {incremental_cutoff}")
+        except (json.JSONDecodeError, IOError):
+            log("Could not read existing output, doing full fetch")
+
+    log("Fetching events from Gamma API...")
+    events = fetch_all_events(limit_pages, resume_offset, incremental_cutoff)
+    log(f"  Total events fetched: {len(events):,}")
+
+    total_markets = sum(len(e.get("markets", [])) for e in events)
+    log(f"  Total markets in events: {total_markets:,}")
+
+    # Build mapping from fetched events
+    new_mapping = build_mapping(events)
+
+    # In incremental mode, merge with existing mapping
+    if incremental and OUTPUT_FILE.exists():
+        try:
+            with open(OUTPUT_FILE, 'r') as f:
+                existing = json.load(f)
+            old_mapping = existing.get("mapping", {})
+            old_count = len(old_mapping)
+            old_mapping.update(new_mapping)  # New data overwrites old
+            mapping = old_mapping
+            log(f"  Merged: {len(new_mapping):,} new + {old_count:,} existing = {len(mapping):,} total")
+        except (json.JSONDecodeError, IOError):
+            mapping = new_mapping
+    else:
+        mapping = new_mapping
+
+    log(f"  Unique condition_id mappings: {len(mapping):,}")
+    save_output(mapping, len(events))
+    log("Done!")
 
 
 if __name__ == "__main__":

@@ -365,26 +365,45 @@ def main():
     if start_phase <= 3:
         log_phase(3, "PRICE DATA")
 
-        # Fetch prices from native APIs
+        # Fetch prices from native APIs (run in parallel — different APIs, different output files)
         price_args = ["--full-refresh"] if full_refresh else []
 
-        success = run_script(
-            "pull_polymarket_prices.py",
-            "Fetch Polymarket prices (CLOB API)",
-            args=price_args,
-            required=False
-        )
-        results["fetch_pm_prices"] = success
-        step_results["fetch_pm_prices"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+        logger.info("Starting Polymarket + Kalshi price fetches in parallel...")
+        python_exe = sys.executable
+        scripts_dir = SCRIPTS_DIR
 
-        success = run_script(
-            "pull_kalshi_prices.py",
-            "Fetch Kalshi prices (native API)",
-            args=price_args,
-            required=False
-        )
-        results["fetch_kalshi_prices"] = success
-        step_results["fetch_kalshi_prices"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+        pm_cmd = [python_exe, str(scripts_dir / "pull_polymarket_prices.py")] + price_args
+        kalshi_cmd = [python_exe, str(scripts_dir / "pull_kalshi_prices.py")] + price_args
+
+        pm_proc = subprocess.Popen(pm_cmd, cwd=str(scripts_dir), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        kalshi_proc = subprocess.Popen(kalshi_cmd, cwd=str(scripts_dir), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        pm_output, _ = pm_proc.communicate()
+        kalshi_output, _ = kalshi_proc.communicate()
+
+        # Log output
+        if pm_output:
+            for line in pm_output.decode('utf-8', errors='replace').strip().split('\n'):
+                logger.info(f"  [PM prices] {line}")
+        if kalshi_output:
+            for line in kalshi_output.decode('utf-8', errors='replace').strip().split('\n'):
+                logger.info(f"  [Kalshi prices] {line}")
+
+        pm_success = pm_proc.returncode == 0
+        kalshi_success = kalshi_proc.returncode == 0
+
+        results["fetch_pm_prices"] = pm_success
+        step_results["fetch_pm_prices"] = "OK" if pm_success else "FAIL"
+        results["fetch_kalshi_prices"] = kalshi_success
+        step_results["fetch_kalshi_prices"] = "OK" if kalshi_success else "FAIL"
+
+        if pm_success and kalshi_success:
+            logger.info("Both price fetches completed successfully")
+        else:
+            if not pm_success:
+                logger.warning(f"Polymarket price fetch failed (exit code {pm_proc.returncode})")
+            if not kalshi_success:
+                logger.warning(f"Kalshi price fetch failed (exit code {kalshi_proc.returncode})")
 
         # Truncate prices at election dates / trading_close_time
         success = run_script(
@@ -439,8 +458,8 @@ def main():
         results["brier_scores"] = success
         step_results["calculate_brier"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
-        # Run analysis scripts
-        analysis_scripts = [
+        # Analysis scripts that require Brier scores to have succeeded
+        brier_dependent_scripts = [
             ("create_brier_cohorts.py", "Create Brier cohorts"),
             ("brier_score_analysis.py", "Brier score analysis"),
             ("table_4_brier_by_election_type.py", "Brier by election type"),
@@ -448,30 +467,44 @@ def main():
             ("calibration_density_plots_elections.py", "Calibration (elections)"),
             ("election_winner_markets_comparison.py", "Election winner comparison"),
             ("partisan_bias_calibration.py", "Partisan bias calibration"),
-            # Dashboard tables and figures
+            ("calibration_by_race_closeness.py", "Calibration by race margin"),
+            ("table_partisan_bias_regression.py", "Partisan bias regression"),
+        ]
+
+        # Analysis scripts that run independently of Brier scores
+        independent_scripts = [
             ("table_1_aggregate.py", "Market counts by category"),
             ("table_2_election_types.py", "Election types breakdown"),
             ("table_3_platform_comparison.py", "Platform comparison"),
             ("volume_timeseries_by_category.py", "Volume timeseries"),
             ("prediction_vs_volume.py", "Prediction vs volume plots"),
-            ("calibration_by_race_closeness.py", "Calibration by race margin"),
-            ("table_partisan_bias_regression.py", "Partisan bias regression"),
-            # Liquidity analysis
             ("calculate_liquidity_metrics.py", "Calculate liquidity metrics"),
             ("generate_liquidity_analysis.py", "Generate liquidity analysis"),
-            # Trader-level partisanship analysis
             ("fetch_panel_a_trades.py", "Fetch Panel A trades (Data API)"),
             ("aggregate_trader_partisanship.py", "Aggregate trader partisanship"),
         ]
 
         analysis_success = 0
-        for script, desc in analysis_scripts:
+        total_scripts = len(independent_scripts)
+
+        # Always run independent scripts
+        for script, desc in independent_scripts:
             if run_script(script, desc, required=False):
                 analysis_success += 1
 
+        # Only run Brier-dependent scripts if Brier calculation succeeded
+        if results.get("brier_scores"):
+            total_scripts += len(brier_dependent_scripts)
+            for script, desc in brier_dependent_scripts:
+                if run_script(script, desc, required=False):
+                    analysis_success += 1
+        else:
+            logger.info(f"Skipping {len(brier_dependent_scripts)} Brier-dependent scripts (Brier calculation failed)")
+            step_results["brier_dependent"] = "SKIP"
+
         results["analysis"] = analysis_success > 0
-        step_results["analysis_scripts"] = f"OK ({analysis_success}/{len(analysis_scripts)})"
-        logger.info(f"Completed {analysis_success}/{len(analysis_scripts)} analysis scripts")
+        step_results["analysis_scripts"] = f"OK ({analysis_success}/{total_scripts})"
+        logger.info(f"Completed {analysis_success}/{total_scripts} analysis scripts")
     else:
         logger.info(f"Skipping Phase 4 (starting from Phase {start_phase})")
 
@@ -483,13 +516,22 @@ def main():
         log_phase(5, "WEB DATA GENERATION")
 
         # Fetch PM event slugs for URL building (needed by generate_monitor_data)
-        success = run_script(
-            "fetch_pm_event_slugs.py",
-            "Fetch Polymarket event slugs for URLs",
-            required=False
-        )
-        results["fetch_pm_slugs"] = success
-        step_results["fetch_pm_slugs"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+        # Only run on full refresh (Sunday) — takes ~8 hours, mapping persists between runs
+        slug_file = DATA_DIR / "pm_event_slug_mapping.json"
+        if full_refresh or not slug_file.exists():
+            slug_args = ["--incremental"] if slug_file.exists() else []
+            success = run_script(
+                "fetch_pm_event_slugs.py",
+                "Fetch Polymarket event slugs for URLs",
+                args=slug_args if slug_args else None,
+                required=False
+            )
+            results["fetch_pm_slugs"] = success
+            step_results["fetch_pm_slugs"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+        else:
+            logger.info("Skipping slug fetch (daily run, mapping file exists)")
+            results["fetch_pm_slugs"] = None
+            step_results["fetch_pm_slugs"] = "SKIP"
 
         # === V2 TICKER-BASED MATCHING ===
         # Step 1: Enrich markets with full API data
@@ -567,9 +609,14 @@ def main():
         step_results["generate_market_map"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
         # Step 4: Generate full worker index (all active markets) and upload to KV
+        worker_args = []
+        if not os.environ.get("CLOUDFLARE_API_TOKEN"):
+            worker_args.append("--skip-kv-upload")
+            logger.info("No CLOUDFLARE_API_TOKEN — passing --skip-kv-upload to generate_worker_index.py")
         success = run_script(
             "generate_worker_index.py",
             "Generate worker index for V2 workers (KV upload)",
+            args=worker_args if worker_args else None,
             required=False
         )
         results["worker_index"] = success
@@ -585,13 +632,18 @@ def main():
         step_results["generate_web_data"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
         # Step 6: Upload active_markets.json to KV (for /api/markets/search and /top)
-        success = run_script(
-            "upload_active_markets_kv.py",
-            "Upload active_markets.json to Cloudflare KV",
-            required=False
-        )
-        results["upload_active_markets_kv"] = success
-        step_results["upload_active_markets_kv"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+        if os.environ.get("CLOUDFLARE_API_TOKEN"):
+            success = run_script(
+                "upload_active_markets_kv.py",
+                "Upload active_markets.json to Cloudflare KV",
+                required=False
+            )
+            results["upload_active_markets_kv"] = success
+            step_results["upload_active_markets_kv"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+        else:
+            logger.info("Skipping KV upload (no CLOUDFLARE_API_TOKEN)")
+            results["upload_active_markets_kv"] = None
+            step_results["upload_active_markets_kv"] = "SKIP"
 
         # Export liquidity data for website
         success = run_script(
@@ -692,97 +744,8 @@ def main():
         results["audit"] = None
         step_results["audit"] = "SKIP"
 
-    # =========================================================================
-    # PHASE 6: DEPLOY TO GITHUB
-    # =========================================================================
-
-    if start_phase <= 6:
-        log_phase(6, "DEPLOY TO GITHUB")
-
-        # Deploy: commit docs/data/ and push. GitHub Pages serves from docs/.
-        def deploy_website():
-            """Commit updated data in docs/data/ and push."""
-            import subprocess
-            repo_root = BASE_DIR
-
-            try:
-                status = subprocess.run(
-                    ["git", "status", "--porcelain", "docs/data/"],
-                    cwd=repo_root,
-                    capture_output=True,
-                    text=True
-                )
-
-                if not status.stdout.strip():
-                    logger.info("No website data changes to deploy")
-                    return True
-
-                # Build commit message
-                master_file = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
-                if master_file.exists():
-                    import pandas as pd
-                    df = pd.read_csv(master_file, low_memory=False)
-                    total = len(df)
-                    pm_count = len(df[df['platform'] == 'Polymarket'])
-                    kalshi_count = len(df[df['platform'] == 'Kalshi'])
-                    market_info = f"{total:,} total markets ({pm_count:,} PM, {kalshi_count:,} Kalshi)"
-                else:
-                    market_info = "Updated market data"
-
-                # Pull remote changes FIRST so we commit on top of latest
-                # This prevents rebase conflicts when others push to the branch
-                subprocess.run(
-                    ["git", "stash"],
-                    cwd=repo_root, capture_output=True, text=True
-                )
-                current_branch = subprocess.run(
-                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                    cwd=repo_root, capture_output=True, text=True, check=True
-                ).stdout.strip()
-                subprocess.run(
-                    ["git", "pull", "--rebase", "origin", current_branch],
-                    cwd=repo_root, check=True
-                )
-                subprocess.run(
-                    ["git", "stash", "pop"],
-                    cwd=repo_root, capture_output=True, text=True
-                )
-
-                # Stage fresh data and commit on top of latest remote
-                subprocess.run(
-                    ["git", "add", "docs/data/"],
-                    cwd=repo_root, check=True
-                )
-                subprocess.run(
-                    ["git", "commit", "-m",
-                     f"Update website data - pipeline run\n\n- {market_info}"],
-                    cwd=repo_root, check=True
-                )
-                subprocess.run(
-                    ["git", "push", "origin", current_branch],
-                    cwd=repo_root, check=True
-                )
-
-                logger.info(f"Deployed website data: {market_info}")
-                return True
-
-            except subprocess.CalledProcessError as e:
-                logger.error(f"Git deploy failed: {e}")
-                return False
-            except Exception as e:
-                logger.error(f"Deploy error: {e}")
-                return False
-
-        log_step_start("Deploy website to GitHub")
-        deploy_start = time.time()
-        success = deploy_website()
-        deploy_duration = time.time() - deploy_start
-        log_step_done("Deploy website to GitHub", deploy_duration, success=success)
-
-        results["deploy"] = success
-        step_results["deploy_website"] = "OK" if success else "FAIL"
-    else:
-        logger.info(f"Skipping Phase 6 (starting from Phase {start_phase})")
+    # Note: Git deploy (commit + push docs/data/) is handled by run_pipeline.sh
+    # to avoid duplicate pushes. The shell script has PAT-based auth.
 
     # =========================================================================
     # SUMMARY
