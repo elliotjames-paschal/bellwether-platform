@@ -2392,8 +2392,10 @@ def main():
 
     # Generate monitor data (for Market Monitor section)
     try:
-        from generate_monitor_data import generate_monitor_data
-        generate_monitor_data()
+        from generate_monitor_data import generate_monitor_data, generate_monitor_summary
+        output = generate_monitor_data()
+        if output:
+            generate_monitor_summary(output.get('markets', []))
     except Exception as e:
         log(f"  Warning: Monitor data generation failed: {e}")
 
