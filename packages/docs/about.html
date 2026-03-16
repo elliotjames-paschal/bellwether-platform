@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4JTSRBJBY5"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-4JTSRBJBY5');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About — Bellwether</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bw-blue: #4A90D9;
+    --bw-blue-light: #EBF2FC;
+    --bw-blue-muted: #A8C8E8;
+    --bw-dark: #1A1A1A;
+    --bw-text: #2C2C2C;
+    --bw-text-secondary: #6B6B6B;
+    --bw-border: #E8E8E8;
+    --bw-bg: #FAFAFA;
+    --bw-white: #FFFFFF;
+    --bw-green: #3A8A5C;
+    --font-serif: 'Source Serif 4', Georgia, serif;
+    --font-sans: 'DM Sans', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans); color: var(--bw-text);
+    background: var(--bw-white); -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  nav {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--bw-border); transition: box-shadow 0.3s;
+  }
+  nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
+  .nav-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 32px;
+    height: 60px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-serif); font-weight: 600; font-size: 18px;
+    color: var(--bw-dark); text-decoration: none;
+  }
+  .nav-logo .dot { width: 10px; height: 10px; background: var(--bw-blue); border-radius: 50%; }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a { font-size: 14px; color: var(--bw-text-secondary); text-decoration: none; font-weight: 400; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--bw-dark); }
+  .nav-links a.active { color: var(--bw-dark); font-weight: 500; }
+  .nav-cta { font-size: 13px !important; color: var(--bw-white) !important; background: var(--bw-dark); padding: 8px 20px; border-radius: 6px; transition: background 0.2s !important; }
+  .nav-cta:hover { background: #333 !important; }
+  .nav-affil { font-size: 12px; color: var(--bw-text-secondary); opacity: 0.6; font-weight: 300; letter-spacing: 0.02em; }
+  .content { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+  .page-header { padding: 92px 32px 0; max-width: 1200px; margin: 0 auto; }
+  .page-header-top { padding-bottom: 28px; border-bottom: 1px solid var(--bw-border); }
+  .page-header-top h1 { font-family: var(--font-serif); font-size: 28px; font-weight: 600; color: var(--bw-dark); letter-spacing: -0.01em; margin-bottom: 6px; }
+  .page-header-top .subtitle { font-size: 15px; color: var(--bw-text-secondary); line-height: 1.5; }
+  .opening { padding: 56px 0; max-width: 720px; }
+  .opening p.lead { font-family: var(--font-serif); font-size: 22px; font-weight: 400; color: var(--bw-dark); line-height: 1.6; letter-spacing: -0.01em; margin-bottom: 24px; }
+  .opening p { font-size: 15px; color: var(--bw-text-secondary); line-height: 1.75; margin-bottom: 16px; }
+  .opening p:last-child { margin-bottom: 0; }
+  .why-section { padding: 56px 0; border-top: 1px solid var(--bw-border); display: grid; grid-template-columns: 280px 1fr; gap: 80px; align-items: start; }
+  .why-label { position: sticky; top: 92px; }
+  .why-label h2 { font-family: var(--font-serif); font-size: 24px; font-weight: 600; color: var(--bw-dark); margin-bottom: 12px; }
+  .why-label p { font-size: 13px; color: var(--bw-text-secondary); line-height: 1.6; }
+  .why-body p { font-size: 15px; color: var(--bw-text); line-height: 1.75; margin-bottom: 20px; }
+  .why-body p:last-child { margin-bottom: 0; }
+  .why-body strong { color: var(--bw-dark); font-weight: 600; }
+  .team-section { padding: 56px 0; border-top: 1px solid var(--bw-border); }
+  .team-section h2 { font-family: var(--font-serif); font-size: 24px; font-weight: 600; color: var(--bw-dark); margin-bottom: 32px; }
+  .team-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .team-card { border: 1px solid var(--bw-border); border-radius: 10px; padding: 28px; transition: all 0.2s; }
+  .team-card:hover { border-color: var(--bw-blue-muted); }
+  .team-card h3 { font-family: var(--font-serif); font-size: 18px; font-weight: 600; color: var(--bw-dark); margin-bottom: 4px; }
+  .team-role { font-size: 13px; color: var(--bw-blue); font-weight: 500; margin-bottom: 4px; }
+  .team-affil { font-size: 12px; color: var(--bw-text-secondary); margin-bottom: 12px; line-height: 1.5; }
+  .team-blurb { font-size: 14px; color: var(--bw-text-secondary); line-height: 1.55; margin-bottom: 14px; }
+  .team-link { font-size: 13px; font-weight: 500; color: var(--bw-blue); text-decoration: none; }
+  .team-link:hover { color: var(--bw-dark); }
+  .ack-section { padding: 56px 0; border-top: 1px solid var(--bw-border); }
+  .ack-section h2 { font-family: var(--font-serif); font-size: 22px; font-weight: 600; color: var(--bw-dark); margin-bottom: 16px; }
+  .ack-section p { font-size: 14px; color: var(--bw-text-secondary); line-height: 1.7; max-width: 600px; margin-bottom: 28px; }
+  .partner-logos { display: flex; align-items: center; gap: 40px; flex-wrap: wrap; }
+  .partner-primary { font-size: 13px; color: var(--bw-text-secondary); opacity: 0.7; }
+  .partner { font-size: 14px; font-weight: 500; color: var(--bw-text-secondary); opacity: 0.5; transition: opacity 0.2s; text-decoration: none; }
+  .partner:hover { opacity: 0.8; }
+  .cta-section { background: var(--bw-dark); }
+  .cta-inner { max-width: 1200px; margin: 0 auto; padding: 72px 32px; text-align: center; }
+  .cta-inner h2 { font-family: var(--font-serif); font-size: 28px; font-weight: 400; color: var(--bw-white); margin-bottom: 12px; letter-spacing: -0.01em; }
+  .cta-inner p { font-size: 15px; color: rgba(255,255,255,0.45); margin-bottom: 32px; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.6; }
+  .cta-actions { display: flex; gap: 16px; justify-content: center; }
+  .btn-white { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; background: var(--bw-white); color: var(--bw-dark); border: none; border-radius: 8px; font-size: 15px; font-family: var(--font-sans); font-weight: 500; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+  .btn-white:hover { background: #f0f0f0; transform: translateY(-1px); }
+  .btn-ghost { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; font-size: 15px; font-family: var(--font-sans); font-weight: 500; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+  .btn-ghost:hover { border-color: rgba(255,255,255,0.35); color: var(--bw-white); }
+  footer { border-top: 1px solid rgba(255,255,255,0.08); padding: 60px 32px; background: var(--bw-dark); }
+  .footer-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px; }
+  .footer-brand .logo { display: flex; align-items: center; gap: 8px; font-family: var(--font-serif); font-weight: 600; font-size: 16px; color: var(--bw-white); margin-bottom: 12px; }
+  .footer-brand .logo .dot { width: 8px; height: 8px; background: var(--bw-blue); border-radius: 50%; }
+  .footer-brand p { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6; max-width: 280px; margin-bottom: 16px; }
+  .footer-affil { font-size: 12px; color: rgba(255,255,255,0.25); }
+  .footer-col h4 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.35); margin-bottom: 16px; }
+  .footer-col a { display: block; font-size: 14px; color: rgba(255,255,255,0.6); text-decoration: none; padding: 4px 0; transition: color 0.2s; }
+  .footer-col a:hover { color: var(--bw-white); }
+  @media (max-width: 900px) {
+    .why-section { grid-template-columns: 1fr; gap: 32px; }
+    .why-label { position: static; }
+    .team-grid { grid-template-columns: 1fr; }
+    .footer-inner { grid-template-columns: 1fr 1fr; }
+    .nav-links a:not(.nav-cta) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="./" class="nav-logo"><span class="dot"></span>Bellwether</a>
+    <div class="nav-links">
+      <a href="monitor.html">Live Data</a>
+      <a href="globe.html">Globe</a>
+      <a href="blueprints.html">Blueprints</a>
+      <a href="research.html">Research</a>
+      <a href="docs.html">Docs</a>
+      <span class="nav-affil">Stanford · Hoover Institution</span>
+      <a href="#" class="nav-cta">Request Access</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="page-header-top">
+    <h1>About Bellwether</h1>
+    <span class="subtitle">Prediction market infrastructure built at Stanford.</span>
+  </div>
+</div>
+
+<div class="content">
+  <div class="opening">
+    <p class="lead">Prediction markets work. The infrastructure around them doesn't.</p>
+    <p>Markets that aggregate real-time probability estimates on elections, policy, and geopolitical events have the potential to meaningfully improve how institutions make decisions. But that potential depends on infrastructure that doesn't exist yet — reliable data, rigorous contract standards, and independent quality controls. Without it, prediction markets remain too fragile and too easily manipulated to serve the public interest.</p>
+    <p>Bellwether is a research institution at Stanford building that infrastructure. We don't operate an exchange. We build the data layer, design the market standards, and conduct the research that the entire category needs to be worthy of the trust people are starting to place in it.</p>
+  </div>
+</div>
+
+<div class="content">
+  <div class="why-section">
+    <div class="why-label">
+      <h2>Why a research lab builds&nbsp;this</h2>
+      <p>Independence, rigor, and no conflicts of interest.</p>
+    </div>
+    <div class="why-body">
+      <p>Most prediction market infrastructure is built by the platforms themselves — companies with financial incentives to present their markets in the best possible light. Bellwether is built at Stanford's Hall Lab, housed within the Hoover Institution. <strong>We don't operate an exchange, we don't make money from trading, and we have no financial interest in which direction a market moves.</strong> That independence is the product.</p>
+      <p>Academic rigor changes how you build. We define accuracy before we measure it. We research the failure modes before we design the standards. We build for the hardest cases first, because that's where trust breaks down.</p>
+      <p>Our research doesn't get published and go stale. It runs as a live system, maintained at the speed of the phenomena it studies.</p>
+    </div>
+  </div>
+</div>
+
+<div class="content">
+  <div class="team-section">
+    <h2>Team</h2>
+    <div class="team-grid">
+      <div class="team-card">
+        <h3>Andrew B. Hall</h3>
+        <div class="team-role">Principal Investigator</div>
+        <div class="team-affil">Davies Family Professor of Political Economy, Stanford GSB<br>Senior Fellow, Hoover Institution</div>
+        <a href="https://www.andrewbenjaminhall.com/" class="team-link" target="_blank">andrewbenjaminhall.com →</a>
+      </div>
+      <div class="team-card">
+        <h3>Elliot Paschal</h3>
+        <div class="team-role">Research Fellow</div>
+        <div class="team-affil">Stanford Graduate School of Business</div>
+        <a href="mailto:paschal@stanford.edu" class="team-link">paschal@stanford.edu →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="content">
+  <div class="ack-section">
+    <h2>Supported By</h2>
+    <p>This research is supported by the Hoover Institution and the Stanford Graduate School of Business.</p>
+    <div class="partner-logos">
+      <span class="partner-primary">Stanford GSB</span>
+      <span class="partner-primary">Hoover Institution</span>
+      <a href="https://polymarket.com" class="partner" target="_blank">Polymarket</a>
+      <a href="https://kalshi.com" class="partner" target="_blank">Kalshi</a>
+    </div>
+  </div>
+</div>
+
+<div class="cta-section">
+  <div class="cta-inner">
+    <h2>Built at Stanford. Free for research.<br>Open for partnerships.</h2>
+    <p>The Tape API is live. If you're a newsroom, researcher, or builder working with prediction market data, we'd like to hear from you.</p>
+    <div class="cta-actions">
+      <a href="mailto:paschal@stanford.edu" class="btn-white">Request API Access</a>
+      <a href="docs.html" class="btn-ghost">Read the Docs</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="logo"><span class="dot"></span> Bellwether</div>
+      <p>Prediction market infrastructure for research, journalism, and intelligent systems.</p>
+      <div class="footer-affil">Stanford GSB · Hall Lab · Hoover Institution</div>
+    </div>
+    <div class="footer-col">
+      <h4>Platform</h4>
+      <a href="docs.html">Tape API</a>
+      <a href="blueprints.html">Blueprints</a>
+      <a href="docs.html">Documentation</a>
+      <a href="globe.html">Globe</a>
+    </div>
+    <div class="footer-col">
+      <h4>Research</h4>
+      <a href="research.html">Dashboard</a>
+      <a href="papers/liquidity-accuracy/">Trustworthy Price</a>
+      <a href="papers/election-eve-methodology/">Measurement Timing</a>
+      <a href="papers/inside-the-markets/">Inside the Markets</a>
+    </div>
+    <div class="footer-col">
+      <h4>About</h4>
+      <a href="about.html">Team</a>
+      <a href="mailto:paschal@stanford.edu">Contact</a>
+      <a href="https://github.com/elliotjames-paschal/bellwether-platform" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 10));
+</script>
+</body>
+</html>

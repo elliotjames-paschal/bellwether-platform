@@ -1,0 +1,268 @@
+# Bellwether
+
+> Prediction market infrastructure for research, journalism, and intelligent systems. Built at Stanford GSB and the Hoover Institution.
+
+Bellwether aggregates political prediction markets from Polymarket and Kalshi into a single, standardized dataset with live VWAP pricing, cross-platform canonical tickers, and editorial reportability scores. It is a research institution — it does not operate an exchange.
+
+Website: https://bellwethermetrics.com
+API Docs: https://bellwethermetrics.com/docs.html
+MCP Server: npx bellwether-mcp
+Contact: paschal@stanford.edu
+
+## Team
+
+- Andrew B. Hall — Principal Investigator. Davies Family Professor of Political Economy, Stanford GSB. Senior Fellow, Hoover Institution.
+- Elliot Paschal — Research Fellow. Stanford Graduate School of Business.
+
+Supported by the Hoover Institution and the Stanford Graduate School of Business.
+
+## Products
+
+### Tape API
+REST API returning live prediction market data. Every market is scored for manipulation resistance, matched across platforms via canonical tickers, and tagged with a reportability label. Cached for 30 seconds. No authentication required.
+
+Base URL: https://bellwethermetrics.com/api
+
+### Market Blueprints
+Open, immutable contract specifications for prediction markets. A blueprint defines the event, resolution source, resolution criteria, edge cases, fallback sources, and settlement rules — all specified before trading begins. Any platform can list a blueprint. All resolve identically.
+
+### Research Dashboard
+Interactive analysis of prediction market accuracy, calibration, liquidity, and partisan bias across resolved markets. Includes Brier score convergence, calibration curves (quantile binning), liquidity-accuracy analysis, and platform comparison.
+
+### MCP Server
+Model Context Protocol server giving AI agents direct access to live market prices, search, and data quality assessments. Install: npx bellwether-mcp
+
+## API Endpoints
+
+### GET /api/metrics/event/{slug}
+Returns live price, VWAP, robustness metrics, and reportability for a market identified by its Bellwether slug.
+
+Parameters:
+- slug (required, string): Bellwether event slug, e.g. bwr-dem-control-house-certified-any-2026
+
+Response fields:
+- bellwether_price (float): Volume-weighted average price. Null if insufficient trade data.
+- price_tier (int): 1 = 6h VWAP with 10+ trades; 2 = 12-24h VWAP; 3 = stale or no data.
+- price_label (string): Human-readable price source, e.g. "6h VWAP across platforms".
+- price_source (string): Machine-readable: "6h_vwap", "12h_vwap", "24h_vwap", "stale_vwap", "no_data".
+- robustness.cost_to_move_5c (int): Dollars required to shift price by 5 cents via market order.
+- robustness.reportability (string): "reportable", "caution", or "fragile".
+- vwap_details.trade_count (int): Number of trades in the VWAP window.
+- vwap_details.total_volume (float): Total volume in the VWAP window.
+- orderbook_midpoint (float): Best bid/ask midpoint.
+- fetched_at (datetime): ISO 8601 timestamp of upstream data fetch.
+
+### GET /api/metrics/{platform}/{token_id}
+Returns tiered VWAP price, midpoint, order book depth, and reportability for a single-platform market.
+
+Parameters:
+- platform (required, string): "polymarket" or "kalshi"
+- token_id (required, string): Polymarket token ID or Kalshi market ticker
+
+Response fields: Same as /api/metrics/event/{slug}, plus:
+- orderbook_summary (object): bid_levels, ask_levels, best_bid, best_ask, top_5_bids, top_5_asks
+- robustness.cost_to_move_up_5c (int): Cost to push price up 5 cents.
+- robustness.cost_to_move_down_5c (int): Cost to push price down 5 cents.
+
+### GET /api/metrics/combined
+Returns volume-weighted combined data for a matched pair across both platforms.
+
+Parameters:
+- pm_token (string): Polymarket token ID
+- k_ticker (string): Kalshi market ticker
+- Provide at least one. Provide both for cross-platform aggregation.
+
+### GET /api/markets/search
+Search active political prediction markets by keyword.
+
+Parameters:
+- q (required, string): Search query
+- category (optional, string): Filter by political category
+- limit (optional, int): Max results, default 10, max 50
+
+### GET /api/markets/top
+Returns the most actively traded prediction markets by volume.
+
+Parameters:
+- category (optional, string): Filter by political category
+- limit (optional, int): Max results, default 10, max 50
+
+## Ticker Format
+
+All markets are assigned a canonical Bellwether ticker for cross-platform identification.
+
+Format: BWR-AGENT-ACTION-TARGET-MECHANISM-THRESHOLD-TIMEFRAME
+
+Components:
+- AGENT: The actor, party, or institution (DEM, GOP, FED, TRUMP, ZELENSKYY)
+- ACTION: What the agent does (WIN, CONTROL, CUT, HIKE, PARDON, LEAVE)
+- TARGET: What the action applies to (PRES, SEN_PA, GOV_CA, FFR, HOUSE)
+- MECHANISM: How the event resolves (CERTIFIED, SPECIFIC_MEETING, ANY_MEANS)
+- THRESHOLD: Numeric threshold or qualifier (ANY, 5BPS, 25BPS, GT_2.0PCT)
+- TIMEFRAME: When the event occurs (2026, JAN2026, 2025_Q4, DEC2025)
+
+Matching rule: Two markets on different platforms match if and only if their tickers are identical. Post-processing normalizes equivalent resolution mechanisms (e.g. "projected" = "certified" for elections).
+
+Examples:
+- BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-2026 — Democratic House control
+- BWR-FED-CUT-FFR-SPECIFIC_MEETING-25BPS-JAN2026 — Fed rate cut at specific meeting
+- BWR-FITZGERALD-WIN-PRES_IE-CERTIFIED-ANY-2025 — Irish presidential election
+- BWR-TRUMP-PARDON-MAXWELL-SIGNED_INTO_LAW-ANY-2026 — Executive action
+- BWR-NEWSOM-WIN-DEM_NOMINATION-CERTIFIED-ANY-NOV2028 — Party nomination
+
+## Reportability System
+
+Every market is scored for manipulation resistance based on live order book depth.
+
+The cost_to_move_5c field measures the dollar amount required to shift the market price by 5 cents via simulated market orders against the live order book. For cross-platform markets, the minimum cost across platforms is used (the weakest link).
+
+Tiers:
+- Reportable: cost_to_move_5c >= $100,000. Safe to cite. Requires institutional capital to manipulate.
+- Caution: $10,000 to $99,999. Cite with context. Note liquidity level alongside any price reported.
+- Fragile: < $10,000. Do not cite as market consensus. Trivially manipulable.
+
+Tier adjustments based on data freshness:
+- Tier 2 data (12-24h VWAP): Downgrades reportable to caution, caution to fragile.
+- Tier 3 data (stale or no trades): Always fragile regardless of depth.
+
+## VWAP Pricing
+
+The Bellwether price is a volume-weighted average price (VWAP): sum(price * size) / sum(size). It weights each transaction by dollar size. For cross-platform markets, transactions from both Polymarket and Kalshi are pooled into a single VWAP.
+
+Tier 1 (best): 6-hour window, 10+ trades required. Price source: "6h_vwap".
+Tier 2 (acceptable): 12 or 24-hour window. Price source: "12h_vwap" or "24h_vwap". Reportability downgraded one tier.
+Tier 3 (poor): Stale VWAP or no data. Price source: "stale_vwap" or "no_data". bellwether_price is null if insufficient data. Always fragile.
+
+Fallback cascade: Try 6h VWAP with 10+ trades. If insufficient, try 12h then 24h. If still insufficient, return stale or no_data.
+
+## Political Categories
+
+All markets are classified into one of 15 political categories:
+
+- ELECTORAL — Elections and nominations
+- MONETARY_POLICY — Central bank and interest rates
+- INTERNATIONAL — International affairs
+- POLITICAL_SPEECH — Statements and public speech
+- MILITARY_SECURITY — Military and security
+- APPOINTMENTS — Appointments and nominations
+- TIMING_EVENTS — Timing and scheduling
+- JUDICIAL — Courts and legal
+- PARTY_POLITICS — Party politics
+- GOVERNMENT_OPERATIONS — Government operations
+- REGULATORY — Regulatory
+- LEGISLATIVE — Legislation and policy
+- POLLING_APPROVAL — Polls and approval ratings
+- STATE_LOCAL — State and local government
+- CRISIS_EMERGENCY — Crisis and emergency
+
+## Research
+
+Three published research papers underpin the methodology.
+
+### How We Built a Trustworthy Price (February 2026)
+Addresses the problem of citing prediction market prices without disclosing source, timing, or manipulation vulnerability.
+
+Key finding: Liquidity does not predict accuracy. Analysis of ~3,000 resolved markets shows that markets with tighter spreads are not systematically more accurate. Precedent in Tetlock (2008) and Clinton & Huang (2025), where PredictIt with an $850 position cap outperformed liquid Polymarket in the 2024 election.
+
+Solutions: (1) VWAP weighting each transaction by dollar size, which is the optimal linear unbiased benchmark when agents have manipulation incentives (Duffie & Dworczak, 2021). Cross-platform pooling increases manipulation cost. (2) Robustness scoring via simulated market orders against the live order book, producing the cost_to_move_5c metric and reportability tiers.
+
+### When You Measure Matters (January 2026)
+Demonstrates that the timing of price sampling determines Brier scores, calibration curves, and platform comparisons.
+
+Key finding: "1 day before resolution" is not the same as "1 day before the event." Post-event trading reflects certainty, not forecasting. Including post-outcome convergence biases Brier scores downward, and the bias is not uniform across platforms due to different settlement windows (Polymarket: 24-48 hours, Kalshi: 3-12 hours).
+
+Bellwether approach: For electoral markets, use the election eve price at 00:00 UTC on election day — event-anchored, pre-outcome, reproducible. For non-electoral markets, truncate relative to trading close with platform-specific offsets (24h for Polymarket, 12h for Kalshi).
+
+### Inside the Markets Aggregating Political Reality (November 2025)
+By Andrew B. Hall. Examines governance challenges for prediction markets at scale: manipulation and unintended consequences, discovery and resolution at scale, and truth definition for contentious events.
+
+Documents real disputes including the Venezuela "invasion" market ($10M+ unresolved due to undefined terms), the Lebanon ground incursion oracle failure (UMA token-weighted voting overrode observable reality), and the government shutdown rule change (platform inserted earlier cutoff after trading began).
+
+## Market Blueprints
+
+Blueprints are open, immutable contract specifications. Each blueprint contains:
+
+- Ticker: Canonical identifier in BWR format.
+- Event: Plain-language description eliminating ambiguity.
+- Source: External authority for outcome determination. Never the platform itself.
+- Criteria: Precise conditions for YES, NO, or N/A resolution.
+- Edge Cases: Explicit handling of foreseeable ambiguities before trading begins.
+- Fallback: What happens if the primary source is unavailable or disputed.
+- Settlement: When and how resolution is evaluated.
+- Expiration: Date after which the market resolves NO if the event has not occurred.
+
+Published blueprints include specifications for U.S. military action in Venezuela, Israeli ground incursion into Lebanon, U.S. federal government shutdown, U.S. debt ceiling resolution, comprehensive U.S. federal AI legislation, and party control of the U.S. Senate after 2026 midterms.
+
+Organizations can commission custom blueprints. Process: define the question, Bellwether drafts the spec, organization reviews, spec is published as immutable, any platform can list it.
+
+## MCP Server Tools
+
+The bellwether-mcp package provides five tools for AI agents via MCP (Model Context Protocol).
+
+### search_markets
+Search active political prediction markets by topic or keyword.
+Parameters: query (required, string), category (optional, string), limit (optional, number, default 10, max 50).
+Returns: Array of results with ticker, title, category, volume_usd, is_matched, platforms.
+
+### get_market
+Get live price, VWAP, and data quality tier for a specific market.
+Parameters: ticker (required, string, must start with "BWR-").
+Returns: ticker, title, bellwether_price, price_label, price_tier, reportability, guidance, cost_to_move_5c, trade_count, fetched_at.
+
+### get_top_markets
+Get the most actively traded prediction markets, optionally filtered by category.
+Parameters: category (optional, string), limit (optional, number, default 10, max 50).
+Returns: Array of results with ticker, title, category, volume_usd, is_matched, platforms.
+
+### get_platform_spread
+Compare prices between Kalshi and Polymarket for a cross-platform matched market.
+Parameters: ticker (required, string, must start with "BWR-").
+Returns: ticker, kalshi_price, polymarket_price, spread_cents, spread_direction, reportability, fetched_at.
+
+### get_reportability
+Check whether a market is safe to cite in published content.
+Parameters: ticker (required, string).
+Returns: ticker, reportability, cost_to_move_5c, guidance, price_tier, fetched_at.
+
+## Data Glossary
+
+### Prices
+- bellwether_price: Volume-weighted average price (0.00 to 1.00), interpretable as implied probability.
+- orderbook_midpoint: Midpoint between best bid and best ask on the order book.
+- price_tier: Data quality tier (1 = best, 3 = stale). Determines VWAP window and reportability adjustments.
+
+### Robustness
+- cost_to_move_5c: Dollars required to shift price 5 cents via simulated market orders. For cross-platform markets, the minimum across platforms.
+- reportability: "reportable" (>=$100K), "caution" ($10K-$100K), or "fragile" (<$10K).
+- weakest_platform: Which platform has the lower cost_to_move_5c.
+
+### Volume and Trading
+- volume_usd: Total trading volume in USD.
+- trade_count: Number of trades in the VWAP window.
+- total_volume: Total volume in the VWAP window.
+
+### Liquidity
+- spread_mean: Mean bid-ask spread (0-1 scale).
+- depth_mean: Mean total order book depth (contracts at best bid + ask).
+- depth_imbalance_mean: Mean order book imbalance: (bid - ask) / (bid + ask).
+
+### Accuracy (research data)
+- brier_score: (prediction - outcome)^2. Scale 0-1, lower is better.
+- prediction_price: Market price at a given time horizon, interpretable as probability.
+- actual_outcome: Resolution outcome (1.0 = Yes, 0.0 = No).
+- days_before_event: Time horizon for price observation (60, 30, 14, 7, 3, 1 days).
+
+### Identifiers
+- bellwether_ticker: Canonical cross-platform ticker in BWR format.
+- market_id: Platform-specific market identifier.
+- pm_token_id_yes: Polymarket YES token ID.
+- pm_condition_id: Polymarket condition ID.
+- slug: URL-friendly identifier derived from the ticker.
+
+### Classification
+- political_category: One of 15 categories (see Political Categories section).
+- is_matched: True if the market has a counterpart on the other platform.
+
+## Response Format
+
+All API responses are JSON. Timestamps are ISO 8601. Prices are decimal probabilities (0.00 to 1.00). Upstream data is cached for 30 seconds.

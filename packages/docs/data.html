@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4JTSRBJBY5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-4JTSRBJBY5');
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data - Bellwether</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css?v=20260211a">
+    <style>
+        .glossary-section {
+            margin-top: 48px;
+        }
+        .glossary-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .glossary-table th {
+            text-align: left;
+            padding: 12px 16px;
+            background: var(--gray-100);
+            font-weight: 600;
+            color: var(--gray-700);
+            border-bottom: 1px solid var(--gray-200);
+        }
+        .glossary-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--gray-100);
+            vertical-align: top;
+        }
+        .glossary-table tr:hover {
+            background: var(--gray-50, #fafafa);
+        }
+        .field-name {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--pm-color);
+            background: rgba(37, 99, 235, 0.08);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .field-type {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .field-description {
+            color: var(--gray-600);
+        }
+
+        .download-section {
+            margin-top: 64px;
+            padding: 48px;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(16, 185, 129, 0.05));
+            border-radius: 12px;
+        }
+        .download-section h2 {
+            margin-bottom: 8px;
+        }
+        .download-section > p {
+            color: var(--gray-600);
+            margin-bottom: 32px;
+        }
+        .download-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 12px;
+            max-width: 600px;
+        }
+        .download-form input {
+            padding: 12px 16px;
+            font-size: 0.9375rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            background: var(--white);
+        }
+        .download-form input:focus {
+            outline: none;
+            border-color: var(--pm-color);
+        }
+        .download-success {
+            display: none;
+            padding: 16px 20px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--kalshi-color);
+            border-radius: 8px;
+            color: var(--kalshi-color);
+            margin-top: 16px;
+        }
+        .download-success.visible {
+            display: block;
+        }
+
+        .update-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--kalshi-color);
+            background: rgba(16, 185, 129, 0.1);
+            padding: 4px 10px;
+            border-radius: 4px;
+            margin-left: 12px;
+        }
+        .update-badge::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            background: var(--kalshi-color);
+            border-radius: 50%;
+        }
+
+        .glossary-toggle-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .glossary-toggle-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            background: var(--white);
+            color: var(--gray-600);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .glossary-toggle-btn:hover {
+            border-color: var(--pm-color);
+            color: var(--pm-color);
+        }
+        .glossary-toggle-btn.active {
+            background: var(--pm-color);
+            border-color: var(--pm-color);
+            color: white;
+        }
+        .glossary-content {
+            display: none;
+        }
+        .glossary-content.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .data-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .download-form {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-inner">
+            <div class="nav-left">
+                <a href="./" class="nav-logo"><span class="nav-logo-text">Bel<span class="nav-logo-bounce">l</span><span class="nav-logo-rest">wether</span></span></a>
+                <div class="nav-links">
+                    <a href="monitor.html">Live Data</a>
+                    <a href="globe.html">Globe</a>
+                    <a href="research.html">Research</a>
+                    <a href="data.html">Docs</a>
+                    <a href="about.html">About</a>
+                </div>
+            </div>
+            <a href="https://www.hoover.org" target="_blank" rel="noopener" class="nav-affiliation">
+                <img src="assets/hoover-tower.svg" alt="" class="nav-affiliation-icon">
+                <span>Hoover Institution</span>
+            </a>
+        </div>
+    </nav>
+    <script>
+    (function() {
+        var nav = document.querySelector('.nav');
+        var scrolled = false;
+        window.addEventListener('scroll', function() {
+            var s = window.scrollY > 20;
+            if (s !== scrolled) { scrolled = s; nav.classList.toggle('scrolled', s); }
+        }, { passive: true });
+    })();
+    </script>
+
+    <section class="hero" style="padding: 60px 32px; min-height: 400px;">
+        <div class="hero-inner">
+            <div class="hero-content">
+                <p class="hero-eyebrow">Open Data</p>
+                <h1>Political Prediction Markets Dataset</h1>
+                <p class="hero-description">
+<span class="brand-inline">Bell</span> tracks every political prediction market on Polymarket and Kalshi, updated daily. Request access to the full dataset below.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" style="padding-top: 24px;">
+        <div class="container">
+            <div class="glossary-section">
+                <h2>Data Glossary <span class="update-badge">Updated Daily</span></h2>
+
+                <div class="glossary-toggle-group" style="display: flex; gap: 8px; margin: 20px 0 24px;">
+                    <button class="glossary-toggle-btn active" onclick="switchGlossary('master', this)">Master</button>
+                    <button class="glossary-toggle-btn" onclick="switchGlossary('prices', this)">Prices</button>
+                    <button class="glossary-toggle-btn" onclick="switchGlossary('liquidity', this)">Liquidity</button>
+                </div>
+
+                <!-- Master Dataset Glossary -->
+                <div class="glossary-content active" id="glossary-master">
+                    <p style="color: var(--gray-600); margin: 0 0 24px;">
+                        <strong>political_markets_master.csv</strong> — One row per market outcome. All markets are classified into 15 political categories.
+                    </p>
+
+                    <h3 style="margin: 24px 0 16px;">Identifiers</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">market_id</span></td><td><span class="field-type">string</span></td><td class="field-description">Unique identifier for the market (platform-specific)</td></tr>
+                            <tr><td><span class="field-name">platform</span></td><td><span class="field-type">string</span></td><td class="field-description">Source platform: "polymarket" or "kalshi"</td></tr>
+                            <tr><td><span class="field-name">pm_condition_id</span></td><td><span class="field-type">string</span></td><td class="field-description">Polymarket condition ID (for price lookups)</td></tr>
+                            <tr><td><span class="field-name">pm_token_id_yes</span></td><td><span class="field-type">string</span></td><td class="field-description">Polymarket YES token ID</td></tr>
+                            <tr><td><span class="field-name">pm_token_id_no</span></td><td><span class="field-type">string</span></td><td class="field-description">Polymarket NO token ID</td></tr>
+                            <tr><td><span class="field-name">k_event_ticker</span></td><td><span class="field-type">string</span></td><td class="field-description">Kalshi event ticker symbol</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3 style="margin: 32px 0 16px;">Market Details</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">question</span></td><td><span class="field-type">string</span></td><td class="field-description">Full market question text</td></tr>
+                            <tr><td><span class="field-name">political_category</span></td><td><span class="field-type">string</span></td><td class="field-description">One of 15 categories: Electoral, Monetary Policy, Party Politics, Military Security, International, Appointments, Regulatory, Political Speech, etc.</td></tr>
+                            <tr><td><span class="field-name">volume_usd</span></td><td><span class="field-type">float</span></td><td class="field-description">Total trading volume in USD</td></tr>
+                            <tr><td><span class="field-name">tags</span></td><td><span class="field-type">string</span></td><td class="field-description">Comma-separated list of market tags from the platform</td></tr>
+                            <tr><td><span class="field-name">date_added</span></td><td><span class="field-type">datetime</span></td><td class="field-description">When the market was first added to our database</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3 style="margin: 32px 0 16px;">Electoral Markets (subset)</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">election_type</span></td><td><span class="field-type">string</span></td><td class="field-description">Type of election: Presidential, Senate, House, Governor, Primary, etc.</td></tr>
+                            <tr><td><span class="field-name">country</span></td><td><span class="field-type">string</span></td><td class="field-description">Country of election</td></tr>
+                            <tr><td><span class="field-name">location</span></td><td><span class="field-type">string</span></td><td class="field-description">State/region (for sub-national elections)</td></tr>
+                            <tr><td><span class="field-name">office</span></td><td><span class="field-type">string</span></td><td class="field-description">Office being contested (e.g., "President", "Senate", "House")</td></tr>
+                            <tr><td><span class="field-name">election_year</span></td><td><span class="field-type">float</span></td><td class="field-description">Year of the election (e.g., 2024.0)</td></tr>
+                            <tr><td><span class="field-name">is_primary</span></td><td><span class="field-type">boolean</span></td><td class="field-description">Whether the market is for a primary election (vs. general)</td></tr>
+                            <tr><td><span class="field-name">party</span></td><td><span class="field-type">string</span></td><td class="field-description">Political party: "R", "D", or null</td></tr>
+                            <tr><td><span class="field-name">candidate</span></td><td><span class="field-type">string</span></td><td class="field-description">Candidate name (if applicable)</td></tr>
+                            <tr><td><span class="field-name">election_eve_price</span></td><td><span class="field-type">float</span></td><td class="field-description">Market price at 00:00 UTC on election day</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3 style="margin: 32px 0 16px;">Resolution & Accuracy</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">is_closed</span></td><td><span class="field-type">boolean</span></td><td class="field-description">Whether market has stopped trading</td></tr>
+                            <tr><td><span class="field-name">resolution_outcome</span></td><td><span class="field-type">float</span></td><td class="field-description">Resolution: 1.0 if outcome occurred, 0.0 if not, null if unresolved</td></tr>
+                            <tr><td><span class="field-name">winning_outcome</span></td><td><span class="field-type">string</span></td><td class="field-description">The outcome that won (e.g., "Yes", "Trump")</td></tr>
+                            <tr><td><span class="field-name">trading_close_time</span></td><td><span class="field-type">datetime</span></td><td class="field-description">When trading closed</td></tr>
+                            <tr><td><span class="field-name">scheduled_end_time</span></td><td><span class="field-type">datetime</span></td><td class="field-description">Scheduled market end time</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3 style="margin: 32px 0 16px;">Platform-Specific Fields (Kalshi)</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">k_last_price</span></td><td><span class="field-type">float</span></td><td class="field-description">Most recent trade price (0-1)</td></tr>
+                            <tr><td><span class="field-name">k_yes_bid</span></td><td><span class="field-type">float</span></td><td class="field-description">Current best bid for YES</td></tr>
+                            <tr><td><span class="field-name">k_yes_ask</span></td><td><span class="field-type">float</span></td><td class="field-description">Current best ask for YES</td></tr>
+                            <tr><td><span class="field-name">k_volume_contracts</span></td><td><span class="field-type">int</span></td><td class="field-description">Total contracts traded</td></tr>
+                            <tr><td><span class="field-name">k_open_interest</span></td><td><span class="field-type">int</span></td><td class="field-description">Current open interest</td></tr>
+                            <tr><td><span class="field-name">k_liquidity</span></td><td><span class="field-type">float</span></td><td class="field-description">Platform-reported liquidity measure</td></tr>
+                            <tr><td><span class="field-name">k_status</span></td><td><span class="field-type">string</span></td><td class="field-description">Market status: "active", "closed", "settled"</td></tr>
+                            <tr><td><span class="field-name">k_result</span></td><td><span class="field-type">string</span></td><td class="field-description">Settlement result: "yes", "no", null</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Prices Dataset Glossary -->
+                <div class="glossary-content" id="glossary-prices" style="display: none;">
+                    <p style="color: var(--gray-600); margin: 0 0 24px;">
+                        <strong>price_histories.csv</strong> — Daily price observations for all tracked markets at multiple time horizons before resolution.
+                    </p>
+
+                    <h3 style="margin: 24px 0 16px;">Price Observation Fields</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">market_id</span></td><td><span class="field-type">string</span></td><td class="field-description">Market identifier — joins to market_id in master file</td></tr>
+                            <tr><td><span class="field-name">token_id</span></td><td><span class="field-type">string</span></td><td class="field-description">Token identifier (Polymarket) or ticker (Kalshi)</td></tr>
+                            <tr><td><span class="field-name">platform</span></td><td><span class="field-type">string</span></td><td class="field-description">Source platform: "polymarket" or "kalshi"</td></tr>
+                            <tr><td><span class="field-name">days_before_event</span></td><td><span class="field-type">int</span></td><td class="field-description">Days before resolution (60, 30, 14, 7, 3, 1)</td></tr>
+                            <tr><td><span class="field-name">prediction_price</span></td><td><span class="field-type">float</span></td><td class="field-description">Market price (0-1), interpretable as probability</td></tr>
+                            <tr><td><span class="field-name">reference_datetime</span></td><td><span class="field-type">datetime</span></td><td class="field-description">Price observation time (UTC)</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3 style="margin: 32px 0 16px;">Accuracy Fields</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">actual_outcome</span></td><td><span class="field-type">float</span></td><td class="field-description">Resolution outcome (1.0 = Yes, 0.0 = No)</td></tr>
+                            <tr><td><span class="field-name">brier_score</span></td><td><span class="field-type">float</span></td><td class="field-description">Brier score: (prediction - outcome)²</td></tr>
+                            <tr><td><span class="field-name">prediction_error</span></td><td><span class="field-type">float</span></td><td class="field-description">Signed prediction error (prediction - outcome)</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3 style="margin: 32px 0 16px;">Market Context</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">category</span></td><td><span class="field-type">string</span></td><td class="field-description">Political category of the market</td></tr>
+                            <tr><td><span class="field-name">election_type</span></td><td><span class="field-type">string</span></td><td class="field-description">Type of election (if electoral market)</td></tr>
+                            <tr><td><span class="field-name">trading_close_time</span></td><td><span class="field-type">datetime</span></td><td class="field-description">When trading closed</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Liquidity Dataset Glossary -->
+                <div class="glossary-content" id="glossary-liquidity" style="display: none;">
+                    <p style="color: var(--gray-600); margin: 0 0 24px;">
+                        <strong>liquidity_metrics.csv</strong> — Order book snapshots and derived liquidity metrics per market.
+                    </p>
+
+                    <h3 style="margin: 24px 0 16px;">Identifiers</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">market_id</span></td><td><span class="field-type">string</span></td><td class="field-description">Unique market identifier</td></tr>
+                            <tr><td><span class="field-name">token_id</span></td><td><span class="field-type">string</span></td><td class="field-description">Token/ticker identifier for joining</td></tr>
+                            <tr><td><span class="field-name">platform</span></td><td><span class="field-type">string</span></td><td class="field-description">Source platform</td></tr>
+                            <tr><td><span class="field-name">question</span></td><td><span class="field-type">string</span></td><td class="field-description">Market question text</td></tr>
+                            <tr><td><span class="field-name">category</span></td><td><span class="field-type">string</span></td><td class="field-description">Political category</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3 style="margin: 32px 0 16px;">Spread Metrics</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">spread_mean</span></td><td><span class="field-type">float</span></td><td class="field-description">Mean bid-ask spread (absolute, in price units 0-1)</td></tr>
+                            <tr><td><span class="field-name">spread_median</span></td><td><span class="field-type">float</span></td><td class="field-description">Median bid-ask spread</td></tr>
+                            <tr><td><span class="field-name">spread_std</span></td><td><span class="field-type">float</span></td><td class="field-description">Standard deviation of spread</td></tr>
+                            <tr><td><span class="field-name">spread_min</span></td><td><span class="field-type">float</span></td><td class="field-description">Minimum observed spread</td></tr>
+                            <tr><td><span class="field-name">spread_max</span></td><td><span class="field-type">float</span></td><td class="field-description">Maximum observed spread</td></tr>
+                            <tr><td><span class="field-name">rel_spread_mean</span></td><td><span class="field-type">float</span></td><td class="field-description">Mean relative spread (spread / midpoint price, as %)</td></tr>
+                            <tr><td><span class="field-name">rel_spread_median</span></td><td><span class="field-type">float</span></td><td class="field-description">Median relative spread</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3 style="margin: 32px 0 16px;">Depth Metrics</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">depth_mean</span></td><td><span class="field-type">float</span></td><td class="field-description">Mean total order book depth (contracts at best bid + ask)</td></tr>
+                            <tr><td><span class="field-name">depth_median</span></td><td><span class="field-type">float</span></td><td class="field-description">Median order book depth</td></tr>
+                            <tr><td><span class="field-name">depth_max</span></td><td><span class="field-type">float</span></td><td class="field-description">Maximum observed depth</td></tr>
+                            <tr><td><span class="field-name">bid_depth_mean</span></td><td><span class="field-type">float</span></td><td class="field-description">Mean depth on bid side only</td></tr>
+                            <tr><td><span class="field-name">ask_depth_mean</span></td><td><span class="field-type">float</span></td><td class="field-description">Mean depth on ask side only</td></tr>
+                            <tr><td><span class="field-name">depth_imbalance_mean</span></td><td><span class="field-type">float</span></td><td class="field-description">Mean order book imbalance: (bid - ask) / (bid + ask)</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3 style="margin: 32px 0 16px;">Sampling Metadata</h3>
+                    <table class="glossary-table">
+                        <thead>
+                            <tr><th style="width: 200px;">Field</th><th style="width: 100px;">Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><span class="field-name">n_snapshots</span></td><td><span class="field-type">int</span></td><td class="field-description">Number of order book snapshots collected</td></tr>
+                            <tr><td><span class="field-name">time_span_hours</span></td><td><span class="field-type">float</span></td><td class="field-description">Time span covered by snapshots</td></tr>
+                            <tr><td><span class="field-name">volume_usd</span></td><td><span class="field-type">float</span></td><td class="field-description">Total trading volume</td></tr>
+                            <tr><td><span class="field-name">price_mean</span></td><td><span class="field-type">float</span></td><td class="field-description">Mean midpoint price during sampling</td></tr>
+                            <tr><td><span class="field-name">price_std</span></td><td><span class="field-type">float</span></td><td class="field-description">Price volatility during sampling</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <div class="glossary-section" style="margin-top: 64px;">
+                <h2>Methodology</h2>
+                <p style="color: var(--gray-600); margin: 16px 0 24px;">
+                    How we measure prediction accuracy and why the choice of when to sample prices is a first-order decision.
+                </p>
+
+                <h3 style="margin: 32px 0 16px;">Brier Score Calculation</h3>
+                <p style="color: var(--gray-600); margin-bottom: 16px;">
+                    The Brier score measures forecast accuracy: <code style="background: var(--gray-100); padding: 2px 6px; border-radius: 3px;">(prediction &minus; outcome)&sup2;</code>.
+                    A score of 0 is perfect; 0.25 is equivalent to random guessing. We calculate Brier scores at multiple
+                    time horizons (60, 30, 14, 7, 3, 1 days before the event) and, for electoral markets, using the election eve price.
+                </p>
+
+                <h3 style="margin: 32px 0 16px;">Election Eve Price (Electoral Markets)</h3>
+                <p style="color: var(--gray-600); margin-bottom: 16px;">
+                    For electoral markets, we use the market price at <strong>00:00 UTC on election day</strong> as our primary forecast evaluation price.
+                    We call this the <em>election eve price</em>. For U.S. elections on November 5, this corresponds to approximately 7&ndash;8 PM Eastern
+                    on November 4&mdash;before any polls have closed.
+                </p>
+                <p style="color: var(--gray-600); margin-bottom: 16px;">
+                    This is an <strong>event-anchored</strong> truncation rule, not a resolution-anchored one. The distinction matters because
+                    Polymarket and Kalshi settle contracts at different speeds after outcomes are known (24&ndash;48 hours for Polymarket,
+                    3&ndash;12 hours for Kalshi). Any truncation rule defined relative to resolution time mixes genuine forecasts with
+                    post-outcome convergence and introduces a platform-specific bias into cross-platform comparisons.
+                </p>
+                <p style="color: var(--gray-600); margin-bottom: 16px;">
+                    The election eve price avoids this. The same election produces the same measurement timestamp on both platforms.
+                    The price reflects what the market believed before the outcome was known&mdash;which is what forecast accuracy should measure.
+                    For full discussion, see our <a href="papers/election-eve-methodology/" style="color: var(--pm-color);">methodological note</a>.
+                </p>
+
+                <h3 style="margin: 32px 0 16px;">Reference Dates by Market Type</h3>
+                <p style="color: var(--gray-600); margin-bottom: 16px;">
+                    Different market types use different reference dates, reflecting the information available to researchers
+                    and the settlement characteristics of each platform:
+                </p>
+
+                <table class="glossary-table" style="margin-bottom: 24px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 180px;">Market Type</th>
+                            <th style="width: 200px;">Reference Date</th>
+                            <th>Rationale</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Electoral Markets</strong></td>
+                            <td>00:00 UTC on election day</td>
+                            <td class="field-description">Event-anchored. Uses verified election dates from our lookup table. Price is queried at exact UTC midnight via the Dome API. This is pre-outcome for all U.S. elections and unambiguous across platforms.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Non-Electoral (Polymarket)</strong></td>
+                            <td>trading_close_time &minus; 2 days</td>
+                            <td class="field-description">Resolution-anchored with offset. Polymarket markets typically close 24&ndash;48 hours after event outcomes are known. The 2-day offset is a conservative pre-event estimate.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Non-Electoral (Kalshi)</strong></td>
+                            <td>trading_close_time &minus; 1 day</td>
+                            <td class="field-description">Resolution-anchored with offset. Kalshi markets settle within 3&ndash;12 hours. The 1-day offset provides a conservative pre-event window.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p style="color: var(--gray-600); margin-bottom: 16px; font-size: 0.875rem;">
+                    <strong>Note:</strong> For non-electoral markets, we do not have event dates and must rely on resolution-relative offsets.
+                    These offsets are less precise than event-anchored dates and may include some post-outcome trading, particularly on Polymarket.
+                    We document this limitation transparently. Where possible, we use the electoral approach as the benchmark.
+                </p>
+
+                <h3 style="margin: 32px 0 16px;">Platform Settlement Windows</h3>
+                <p style="color: var(--gray-600); margin-bottom: 16px;">
+                    Our methodology accounts for documented platform settlement procedures:
+                </p>
+                <ul style="color: var(--gray-600); margin-bottom: 24px; padding-left: 24px;">
+                    <li style="margin-bottom: 8px;">
+                        <strong>Polymarket:</strong> Per their documentation, "Markets are settled within 24 to 48 hours after the event outcome becomes definitively known."
+                        <a href="https://docs.polymarket.com/#settlement" style="color: var(--pm-color);" target="_blank">[docs]</a>
+                    </li>
+                    <li style="margin-bottom: 8px;">
+                        <strong>Kalshi:</strong> Markets settle via automated processes typically within 3&ndash;12 hours of outcome determination.
+                        <a href="https://kalshi.com/docs/kalshi-settlement-sources.pdf" style="color: var(--pm-color);" target="_blank">[settlement sources]</a>
+                    </li>
+                </ul>
+
+                <h3 style="margin: 32px 0 16px;">Price Data Sources</h3>
+                <p style="color: var(--gray-600); margin-bottom: 16px;">
+                    Election eve prices are queried from the <a href="https://domeapi.io" style="color: var(--pm-color);" target="_blank">Dome API</a>
+                    at exact Unix timestamps (UTC midnight on election day). This provides point-in-time prices rather than daily candle approximations.
+                    For time-horizon Brier scores (1d, 7d, etc.), we use daily price observations at 00:00 UTC intervals.
+                </p>
+            </div>
+
+            <div class="download-section">
+                <h2>Download Dataset</h2>
+                <p>
+                    Free for academic research. Enter your details and we'll send you access to the latest data.
+                </p>
+
+                <form class="download-form" id="downloadForm">
+                    <input type="text" name="name" placeholder="Full name" required>
+                    <input type="email" name="email" placeholder="Email address" required>
+                    <button type="submit" class="btn-primary">Request Access</button>
+                </form>
+
+                <div class="download-success" id="downloadSuccess">
+                    Thanks! Check your email for download instructions.
+                </div>
+            </div>
+
+            <div class="glossary-section" style="margin-top: 64px;">
+                <h2>Citation</h2>
+                <p style="color: var(--gray-600); margin: 16px 0 24px;">
+                    If you use this dataset in your research, please cite:
+                </p>
+                <div style="background: var(--gray-100); padding: 20px 24px; border-radius: 8px; font-family: var(--font-mono); font-size: 0.875rem; line-height: 1.6; overflow-x: auto;">
+                    Hall, A. B., &amp; Paschal, E. J. (2026). <em>Bellwether Political Prediction Markets Dataset</em> [Data set]. Stanford Graduate School of Business. https://elliotjames-paschal.github.io/Bellwether/data.html
+                </div>
+                <p style="color: var(--gray-500); margin-top: 16px; font-size: 0.875rem;">
+                    <strong>BibTeX:</strong>
+                </p>
+                <pre style="background: var(--gray-100); padding: 16px 20px; border-radius: 8px; font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.5; overflow-x: auto; margin-top: 8px;">@misc{hall2026bellwether,
+  author       = {Hall, Andrew B. and Paschal, Elliot J.},
+  title        = {Bellwether Political Prediction Markets Dataset},
+  year         = {2026},
+  publisher    = {Stanford Graduate School of Business},
+  howpublished = {\url{https://elliotjames-paschal.github.io/Bellwether/data.html}}
+}</pre>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-top">
+                <div class="footer-brand">
+                    <span class="footer-title">Bellwether</span>
+                    <span class="footer-tagline">Political prediction market research</span>
+                </div>
+                <div class="footer-nav">
+                    <a href="research.html">Research</a>
+                    <a href="about.html">About</a>
+                    <a href="https://github.com/elliotjames-paschal/Bellwether" target="_blank" rel="noopener">GitHub</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-legal">
+                    <span>&copy; 2026 Hall Lab</span>
+                    <span class="footer-sep">·</span>
+                    <a href="https://www.hoover.org" target="_blank" rel="noopener">Hoover Institution</a>
+                </div>
+                <div class="footer-sources">
+                    <span class="footer-sources-label">Data updated from</span>
+                    <a href="https://polymarket.com" target="_blank" rel="noopener"><img src="assets/logo-polymarket.svg" alt="" class="footer-source-logo">Polymarket</a>
+                    <a href="https://kalshi.com" target="_blank" rel="noopener"><img src="assets/logo-kalshi.svg" alt="" class="footer-source-logo">Kalshi</a>
+                    <a href="https://domeapi.com" target="_blank" rel="noopener"><img src="assets/logo-dome.svg" alt="" class="footer-source-logo">Dome</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Glossary toggle function
+        function switchGlossary(dataset, btn) {
+            // Update button states
+            document.querySelectorAll('.glossary-toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Show/hide content
+            document.querySelectorAll('.glossary-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('glossary-' + dataset).classList.add('active');
+            document.getElementById('glossary-' + dataset).style.display = 'block';
+
+            // Hide others
+            ['master', 'prices', 'liquidity'].forEach(d => {
+                if (d !== dataset) {
+                    document.getElementById('glossary-' + d).style.display = 'none';
+                }
+            });
+        }
+
+        document.getElementById('downloadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const form = this;
+            const success = document.getElementById('downloadSuccess');
+            const btn = form.querySelector('button');
+
+            // Disable button while submitting
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+
+            // Send to Google Sheets
+            fetch('https://script.google.com/macros/s/AKfycbxLZQLGDcyI--Sa8GfQugTRHu1HNRqLCrrBNVRa22Wm9uIWF2PXrAcrx_vrwjAS3S7scA/exec', {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: form.name.value,
+                    email: form.email.value
+                })
+            }).then(() => {
+                form.style.display = 'none';
+                success.classList.add('visible');
+            }).catch(() => {
+                // Still show success (no-cors doesn't return response)
+                form.style.display = 'none';
+                success.classList.add('visible');
+            });
+        });
+    </script>
+</body>
+</html>

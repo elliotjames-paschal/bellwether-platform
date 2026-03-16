@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4JTSRBJBY5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-4JTSRBJBY5');
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research — Bellwether</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css?v=20260211a">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+      :root {
+        --bw-blue: #4A90D9;
+        --bw-blue-light: #EBF2FC;
+        --bw-blue-muted: #A8C8E8;
+        --bw-dark: #1A1A1A;
+        --bw-text: #2C2C2C;
+        --bw-text-secondary: #6B6B6B;
+        --bw-border: #E8E8E8;
+        --bw-bg: #FAFAFA;
+        --bw-white: #FFFFFF;
+        --bw-red: #D94A4A;
+        --bw-green: #3A8A5C;
+        --bw-amber: #D4950A;
+        --font-serif: 'Source Serif 4', Georgia, serif;
+        --font-sans: 'DM Sans', -apple-system, sans-serif;
+        --font-mono: 'JetBrains Mono', monospace;
+      }
+
+      body {
+        font-family: var(--font-sans) !important;
+        color: var(--bw-text);
+        background: var(--bw-white);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ══ HIDE OLD NAV/HERO/FOOTER from styles.css ══ */
+      .nav, .hero, .footer { display: none !important; }
+
+      /* ══ V2 NAV ══ */
+      .v2-nav {
+        position: fixed; top: 0; width: 100%; z-index: 100;
+        background: rgba(255,255,255,0.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--bw-border);
+        transition: box-shadow 0.3s;
+      }
+      .v2-nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
+      .v2-nav .nav-inner {
+        max-width: 1200px; margin: 0 auto; padding: 0 32px;
+        height: 60px; display: flex; align-items: center; justify-content: space-between;
+      }
+      .v2-nav .nav-logo {
+        display: flex !important; align-items: center !important; gap: 10px !important;
+        font-family: var(--font-serif) !important; font-weight: 600 !important; font-size: 18px !important;
+        color: var(--bw-dark) !important; text-decoration: none !important; letter-spacing: 0 !important;
+      }
+      .v2-nav .nav-logo::before { display: none !important; content: none !important; }
+      .v2-nav .nav-logo .dot {
+        width: 10px; height: 10px; background: var(--bw-blue); border-radius: 50%; flex-shrink: 0;
+      }
+      .v2-nav .nav-links {
+        display: flex; align-items: center; gap: 32px;
+      }
+      .v2-nav .nav-links a {
+        font-family: var(--font-sans) !important; font-size: 14px !important; font-weight: 400 !important;
+        color: var(--bw-text-secondary) !important; text-decoration: none !important; transition: color 0.2s;
+      }
+      .v2-nav .nav-links a:hover { color: var(--bw-dark) !important; }
+      .v2-nav .nav-links a.active { color: var(--bw-dark) !important; font-weight: 500 !important; }
+      .v2-nav .nav-affil {
+        font-family: var(--font-sans); font-size: 12px; color: var(--bw-text-secondary);
+        opacity: 0.6; font-weight: 300; letter-spacing: 0.02em;
+      }
+      .v2-nav .nav-links a.nav-cta {
+        all: unset !important;
+        font-size: 13px !important; color: #FFFFFF !important;
+        background: #1A1A1A !important; padding: 8px 20px !important; border-radius: 6px !important;
+        cursor: pointer !important; transition: background 0.2s !important;
+        font-family: var(--font-sans) !important; text-decoration: none !important;
+        display: inline-block !important; box-sizing: border-box !important;
+      }
+      .v2-nav .nav-links a.nav-cta:hover { background: #333 !important; }
+
+      /* ══ PAGE HEADER ══ */
+      .page-header {
+        padding: 92px 32px 0;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .page-header-top {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding-bottom: 28px;
+        border-bottom: 1px solid var(--bw-border);
+      }
+      .page-header-left h1 {
+        font-family: var(--font-serif);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--bw-dark);
+        letter-spacing: -0.01em;
+        margin-bottom: 6px;
+      }
+      .page-header-left p {
+        font-size: 15px;
+        color: var(--bw-text-secondary);
+        line-height: 1.5;
+        max-width: 520px;
+      }
+      .page-header-meta {
+        display: flex; align-items: center; gap: 16px;
+        font-size: 13px; color: var(--bw-text-secondary);
+        flex-shrink: 0;
+      }
+      .live-badge {
+        display: inline-flex !important; align-items: center !important; gap: 6px !important;
+        font-size: 12px !important; font-weight: 500 !important; color: var(--bw-green) !important;
+        background: rgba(58,138,92,0.08) !important;
+        padding: 4px 12px !important; border-radius: 20px !important;
+        text-transform: none !important; letter-spacing: 0 !important;
+      }
+      .live-badge::before {
+        display: none !important; content: none !important;
+      }
+      .live-badge .pulse {
+        width: 7px; height: 7px; background: var(--bw-green); border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+      }
+      @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+      .meta-date {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--bw-text-secondary);
+      }
+
+      /* ══ STATS ROW ══ */
+      .v2-stats-row {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 32px 0;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+      .stat-card {
+        background: var(--bw-bg);
+        border: 1px solid var(--bw-border);
+        border-radius: 10px;
+        padding: 24px;
+        text-align: center;
+        transition: all 0.2s;
+      }
+      .stat-card:hover {
+        border-color: var(--bw-blue-muted);
+      }
+      .stat-card .stat-value,
+      .stat-card .insight-value {
+        font-family: var(--font-mono) !important;
+        font-size: 32px !important;
+        font-weight: 500 !important;
+        color: var(--bw-dark) !important;
+        line-height: 1 !important;
+        margin-bottom: 8px !important;
+      }
+      .stat-card .stat-label,
+      .stat-card .insight-label {
+        font-size: 13px !important;
+        font-weight: 500 !important;
+        color: var(--bw-text) !important;
+        margin-bottom: 4px !important;
+      }
+      .stat-card .stat-detail,
+      .stat-card .insight-context {
+        font-size: 12px !important;
+        color: var(--bw-text-secondary) !important;
+        line-height: 1.4 !important;
+      }
+
+      /* ══ RESEARCH LAYOUT — single column ══ */
+      .research-layout {
+        max-width: 1200px !important;
+        margin: 0 auto !important;
+        padding: 32px 32px 80px !important;
+        display: block !important;
+      }
+      .research-main {
+        min-width: 0;
+      }
+      .research-main-header {
+        display: none !important;
+      }
+
+      /* ══ TABS (dashboard uses .tab-btn + .tab-content) ══ */
+      .dashboard-tabs {
+        display: flex !important;
+        gap: 0 !important;
+        border-bottom: 1px solid var(--bw-border) !important;
+        margin-bottom: 32px !important;
+        background: none !important;
+        padding: 0 !important;
+        overflow-x: auto;
+      }
+      .tab-btn {
+        font-family: var(--font-sans) !important;
+        font-size: 14px !important;
+        font-weight: 400 !important;
+        color: var(--bw-text-secondary) !important;
+        padding: 12px 20px !important;
+        cursor: pointer !important;
+        border: none !important;
+        border-bottom: 2px solid transparent !important;
+        background: none !important;
+        transition: all 0.2s !important;
+        user-select: none;
+        white-space: nowrap;
+      }
+      .tab-btn:first-child { padding-left: 0 !important; }
+      .tab-btn:hover { color: var(--bw-dark) !important; }
+      .tab-btn.active {
+        color: var(--bw-dark) !important;
+        font-weight: 500 !important;
+        border-bottom-color: var(--bw-dark) !important;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+
+      /* ══ TAB INTRO ══ */
+      .tab-intro,
+      .tab-description {
+        font-size: 15px !important;
+        color: var(--bw-text-secondary) !important;
+        line-height: 1.6 !important;
+        margin-bottom: 24px !important;
+        max-width: 680px;
+      }
+
+      /* ══ SUBTAB PILLS ══ */
+      .subtab-nav {
+        display: flex !important;
+        gap: 8px !important;
+        margin-bottom: 32px !important;
+        flex-wrap: wrap;
+      }
+      .subtab-btn {
+        font-family: var(--font-sans) !important;
+        font-size: 13px !important;
+        font-weight: 400 !important;
+        color: var(--bw-text-secondary) !important;
+        background: var(--bw-white) !important;
+        border: 1px solid var(--bw-border) !important;
+        border-radius: 6px !important;
+        padding: 7px 16px !important;
+        cursor: pointer !important;
+        transition: all 0.2s !important;
+      }
+      .subtab-btn:hover { border-color: var(--bw-text-secondary) !important; }
+      .subtab-btn.active {
+        color: var(--bw-dark) !important;
+        font-weight: 500 !important;
+        border-color: var(--bw-dark) !important;
+        background: var(--bw-bg) !important;
+      }
+
+      /* ══ CHART CARDS ══ */
+      .chart-card, .chart-card-wide {
+        background: var(--bw-white) !important;
+        border: 1px solid var(--bw-border) !important;
+        border-radius: 10px !important;
+        padding: 24px !important;
+        margin-bottom: 24px !important;
+      }
+      .chart-header h3 {
+        font-family: var(--font-sans) !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        color: var(--bw-dark) !important;
+        margin-bottom: 4px !important;
+      }
+      .chart-header .chart-description,
+      .chart-header p {
+        font-size: 13px !important;
+        color: var(--bw-text-secondary) !important;
+        line-height: 1.5 !important;
+      }
+
+      /* ══ CHART TOGGLE BUTTONS ══ */
+      .chart-toggle-group {
+        display: inline-flex !important;
+        gap: 0 !important;
+        border: 1px solid var(--bw-border) !important;
+        border-radius: 6px !important;
+        overflow: hidden !important;
+        margin: 12px 0 !important;
+      }
+      .chart-toggle-btn {
+        font-family: var(--font-sans) !important;
+        font-size: 12px !important;
+        font-weight: 400 !important;
+        color: var(--bw-text-secondary) !important;
+        background: var(--bw-white) !important;
+        border: none !important;
+        padding: 6px 14px !important;
+        cursor: pointer !important;
+        transition: all 0.15s !important;
+      }
+      .chart-toggle-btn:not(:last-child) {
+        border-right: 1px solid var(--bw-border) !important;
+      }
+      .chart-toggle-btn.active {
+        color: var(--bw-dark) !important;
+        font-weight: 500 !important;
+        background: var(--bw-bg) !important;
+      }
+
+      /* ══ DATA TABLES (generated by dashboard.js) ══ */
+      .platform-stats-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+      }
+      .platform-stats-table th {
+        font-family: var(--font-sans) !important;
+        font-size: 11px !important;
+        font-weight: 500 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
+        color: var(--bw-text-secondary) !important;
+        padding: 14px 20px !important;
+        text-align: left !important;
+        border-bottom: 1px solid var(--bw-border) !important;
+        background: var(--bw-bg) !important;
+      }
+      .platform-stats-table td {
+        font-family: var(--font-sans) !important;
+        padding: 14px 20px !important;
+        font-size: 14px !important;
+        border-bottom: 1px solid var(--bw-border) !important;
+        vertical-align: middle !important;
+      }
+      .platform-stats-table tr:hover {
+        background: var(--bw-bg) !important;
+      }
+
+      /* Mono for numeric cells */
+      .chart-stats .stat-box-value,
+      .stats-highlight-value {
+        font-family: var(--font-mono) !important;
+      }
+
+      /* ══ INSIGHTS ROW — restyle as stat cards ══ */
+      .insights-row {
+        display: none !important;
+      }
+
+      /* ══ CHART CONTAINERS ══ */
+      .chart-row {
+        margin-bottom: 0 !important;
+      }
+      .chart, .chart-tall {
+        min-height: 360px;
+      }
+
+      /* ══ DROPDOWN STYLING ══ */
+      .category-dropdown-toggle {
+        font-family: var(--font-sans) !important;
+        font-size: 13px !important;
+        border: 1px solid var(--bw-border) !important;
+        border-radius: 6px !important;
+        padding: 7px 16px !important;
+        background: var(--bw-white) !important;
+        cursor: pointer !important;
+      }
+      .category-dropdown-menu {
+        font-family: var(--font-sans) !important;
+        border: 1px solid var(--bw-border) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+      }
+
+      /* ══ PAPERS SECTION ══ */
+      .papers-sidebar { display: none !important; }
+
+      .papers-section {
+        border-top: 1px solid var(--bw-border);
+        margin-top: 64px;
+        padding-top: 48px;
+      }
+      .papers-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 28px;
+      }
+      .papers-header h2 {
+        font-family: var(--font-serif);
+        font-size: 22px;
+        font-weight: 600;
+        color: var(--bw-dark);
+      }
+      .papers-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+      .paper-card {
+        border: 1px solid var(--bw-border);
+        border-radius: 10px;
+        padding: 24px;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: block;
+      }
+      .paper-card:hover {
+        border-color: var(--bw-blue-muted);
+        box-shadow: 0 2px 12px rgba(74,144,217,0.06);
+      }
+      .paper-card .paper-date {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--bw-text-secondary);
+        margin-bottom: 10px;
+      }
+      .paper-card h3 {
+        font-family: var(--font-serif);
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--bw-dark);
+        line-height: 1.3;
+        margin-bottom: 8px;
+      }
+      .paper-card .paper-author {
+        font-size: 13px;
+        color: var(--bw-text-secondary);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .paper-author .dot { width: 5px; height: 5px; background: var(--bw-blue); border-radius: 50%; }
+      .paper-card .paper-link {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--bw-blue);
+        text-decoration: none;
+      }
+      .paper-card .paper-link:hover { color: var(--bw-dark); }
+
+      /* ══ V2 FOOTER ══ */
+      .v2-footer {
+        border-top: 1px solid var(--bw-border);
+        padding: 60px 32px;
+        background: var(--bw-dark);
+      }
+      .v2-footer .footer-inner {
+        max-width: 1200px; margin: 0 auto;
+        display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px;
+      }
+      .v2-footer .footer-brand .logo {
+        display: flex; align-items: center; gap: 8px;
+        font-family: var(--font-serif); font-weight: 600; font-size: 16px;
+        color: var(--bw-white); margin-bottom: 12px;
+      }
+      .v2-footer .footer-brand .logo .dot { width: 8px; height: 8px; background: var(--bw-blue); border-radius: 50%; }
+      .v2-footer .footer-brand p {
+        font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6;
+        max-width: 280px; margin-bottom: 16px;
+      }
+      .v2-footer .footer-affil { font-size: 12px; color: rgba(255,255,255,0.25); }
+      .v2-footer .footer-col h4 {
+        font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+        color: rgba(255,255,255,0.35); margin-bottom: 16px;
+      }
+      .v2-footer .footer-col a {
+        display: block; font-size: 14px; color: rgba(255,255,255,0.6);
+        text-decoration: none; padding: 4px 0; transition: color 0.2s;
+      }
+      .v2-footer .footer-col a:hover { color: var(--bw-white); }
+
+      /* ══ RESPONSIVE ══ */
+      @media (max-width: 900px) {
+        .v2-stats-row { grid-template-columns: repeat(2, 1fr); }
+        .papers-grid { grid-template-columns: 1fr; }
+        .page-header-top { flex-direction: column; align-items: flex-start; gap: 16px; }
+        .v2-footer .footer-inner { grid-template-columns: 1fr 1fr; }
+        .v2-nav .nav-links a:not(.nav-cta) { display: none; }
+        .v2-nav .nav-affil { display: none; }
+        .dashboard-tabs { overflow-x: auto !important; }
+      }
+      @media (max-width: 600px) {
+        .v2-stats-row { grid-template-columns: 1fr; }
+      }
+
+      /* ══ MISC OVERRIDES ══ */
+      .chart-controls select {
+        font-family: var(--font-sans) !important;
+        font-size: 13px !important;
+        border: 1px solid var(--bw-border) !important;
+        border-radius: 6px !important;
+        padding: 6px 12px !important;
+        background: white !important;
+        color: var(--bw-text) !important;
+        cursor: pointer !important;
+      }
+      .election-outcomes-box {
+        font-family: var(--font-sans) !important;
+        border: 1px solid var(--bw-border) !important;
+        border-radius: 8px !important;
+      }
+    </style>
+</head>
+<body>
+
+<!-- V2 NAV -->
+<nav class="v2-nav" id="nav">
+  <div class="nav-inner">
+    <a href="./" class="nav-logo"><span class="dot"></span>Bellwether</a>
+    <div class="nav-links">
+      <a href="monitor.html">Live Data</a>
+      <a href="globe.html">Globe</a>
+      <a href="blueprints.html">Blueprints</a>
+      <a href="research.html" class="active">Research</a>
+      <a href="docs.html">Docs</a>
+      <span class="nav-affil">Stanford &middot; Hoover Institution</span>
+      <a href="mailto:paschal@stanford.edu" class="nav-cta">Request Access</a>
+    </div>
+  </div>
+</nav>
+<script>
+(function() {
+    var nav = document.getElementById('nav');
+    window.addEventListener('scroll', function() {
+        nav.classList.toggle('scrolled', window.scrollY > 10);
+    }, { passive: true });
+})();
+</script>
+
+<!-- ════════════ PAGE HEADER ════════════ -->
+<div class="page-header">
+  <div class="page-header-top">
+    <div class="page-header-left">
+      <h1>Research</h1>
+      <p>Live analysis of prediction market accuracy, calibration, and liquidity across Polymarket and Kalshi.</p>
+    </div>
+    <div class="page-header-meta">
+      <span class="live-badge"><span class="pulse"></span> Live</span>
+      <span class="meta-date">Updated <span id="update-date">&mdash;</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ STATS ROW ════════════ -->
+<div class="v2-stats-row">
+  <div class="stat-card">
+    <div class="insight-value" id="insight-brier">0.08</div>
+    <div class="insight-label">Combined Brier Score</div>
+    <div class="insight-context">1 day before election</div>
+  </div>
+  <div class="stat-card">
+    <div class="insight-value" id="insight-accuracy">85.9%</div>
+    <div class="insight-label">Winner Prediction Accuracy</div>
+    <div class="insight-context">Across both platforms, shared elections</div>
+  </div>
+  <div class="stat-card">
+    <div class="insight-value" id="insight-correlation">88.6%</div>
+    <div class="insight-label">Platform Correlation</div>
+    <div class="insight-context">Between shared elections</div>
+  </div>
+  <div class="stat-card">
+    <div class="insight-value" id="insight-electoral">6,810</div>
+    <div class="insight-label">Electoral Markets</div>
+    <div class="insight-context">Election prediction markets</div>
+  </div>
+</div>
+
+<!-- ════════════ MAIN CONTENT ════════════ -->
+<div class="research-layout">
+    <main class="research-main">
+        <!-- Hidden elements dashboard.js may look for -->
+        <div class="research-main-header">
+            <p class="dashboard-updated">
+                <span class="live-badge">Live</span> Last update: <span id="update-date-hidden">&mdash;</span>
+            </p>
+        </div>
+        <div class="insights-row">
+            <div class="insight-card">
+                <div class="insight-value" id="banner-brier">0.08</div>
+                <div class="insight-label">Combined Brier Score</div>
+                <div class="insight-context">1 day before election</div>
+            </div>
+            <div class="insight-card">
+                <div class="insight-value" id="banner-accuracy">85.9%</div>
+                <div class="insight-label">Winner Prediction Accuracy</div>
+                <div class="insight-context">Across both platforms, shared elections</div>
+            </div>
+            <div class="insight-card">
+                <div class="insight-value" id="banner-correlation">88.6%</div>
+                <div class="insight-label">Platform Correlation</div>
+                <div class="insight-context">Between shared elections</div>
+            </div>
+            <div class="insight-card">
+                <div class="insight-value" id="banner-electoral">6,810</div>
+                <div class="insight-label">Electoral Markets</div>
+                <div class="insight-context">Election prediction markets</div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="dashboard-tabs">
+            <button class="tab-btn active" data-tab="aggregate">Aggregate</button>
+            <button class="tab-btn" data-tab="coverage">Coverage</button>
+            <button class="tab-btn" data-tab="accuracy">Accuracy</button>
+            <button class="tab-btn" data-tab="calibration">Calibration</button>
+            <button class="tab-btn" data-tab="liquidity">Liquidity</button>
+            <button class="tab-btn" data-tab="bias">Bias</button>
+            <button class="tab-btn" data-tab="platforms">Platforms</button>
+        </div>
+
+        <!-- Tab: Aggregate Statistics -->
+        <div class="tab-content active" id="tab-aggregate">
+            <div class="tab-intro">
+                <p>Aggregate statistics across all 15 political market categories, combining data from both Polymarket and Kalshi platforms.</p>
+            </div>
+
+            <div class="subtab-nav">
+                <button class="subtab-btn active" onclick="switchSubtab('by-category', this)">By Category</button>
+                <button class="subtab-btn" onclick="switchSubtab('by-election-type', this)">By Election Type</button>
+            </div>
+
+            <div class="subtab-content active" id="subtab-by-category">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Aggregate Statistics by Political Category</h3>
+                            <p class="chart-description">Market counts and trading volume across all political categories (Polymarket + Kalshi combined).</p>
+                        </div>
+                        <div id="table-aggregate" class="chart-stats"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-by-election-type">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Electoral Markets by Election Type</h3>
+                            <p class="chart-description">Breakdown of electoral markets by election type, showing coverage on each platform.</p>
+                        </div>
+                        <div id="table-election-types" class="chart-stats"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Accuracy -->
+        <div class="tab-content" id="tab-accuracy">
+            <div class="tab-intro">
+                <p>We measure prediction accuracy using the <strong>Brier score</strong>—a metric where 0 is perfect and 1 is worst. Markets consistently achieve scores below 0.10, indicating strong predictive performance.</p>
+            </div>
+
+            <div class="subtab-nav">
+                <button class="subtab-btn active" onclick="switchSubtab('convergence', this)">Convergence</button>
+                <button class="subtab-btn" onclick="switchSubtab('accuracy-by-election-type', this)">By Election Type</button>
+                <button class="subtab-btn" onclick="switchSubtab('accuracy-by-political-category', this)">By Political Category</button>
+                <button class="subtab-btn" onclick="switchSubtab('accuracy-by-closeness', this)">By Race Closeness</button>
+            </div>
+
+            <div class="subtab-content active" id="subtab-convergence">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Accuracy Improves Near Election Day</h3>
+                            <p class="chart-description">Each line represents a cohort of markets open at least X days before resolution. Markets with longer trading windows (60d cohort) show lower Brier scores, indicating better predictions.</p>
+                        </div>
+                        <div id="chart-convergence" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-accuracy-by-election-type">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>By Election Type</h3>
+                            <p class="chart-description">Brier scores across different election types (top 10 by volume).</p>
+                        </div>
+                        <div id="chart-election-type" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-accuracy-by-political-category">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>By Political Category</h3>
+                            <p class="chart-description">Brier scores across all 15 political market categories.</p>
+                        </div>
+                        <div id="chart-category" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-accuracy-by-closeness">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Accuracy by Race Closeness</h3>
+                            <p class="chart-description">Brier scores by election margin. Close races (&lt; 5% margin) are harder to predict, resulting in higher Brier scores.</p>
+                        </div>
+                        <div id="chart-closeness" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Calibration -->
+        <div class="tab-content" id="tab-calibration">
+            <div class="tab-intro">
+                <p>A well-calibrated market means predictions match reality—when markets say 70%, outcomes should occur 70% of the time. We use <strong>quantile binning</strong> (equal sample sizes per bin) to ensure reliable estimates across the probability spectrum.</p>
+            </div>
+
+            <div class="subtab-nav">
+                <button class="subtab-btn active" onclick="switchSubtab('calibration-analysis', this)">Predicted vs Actual</button>
+                <button class="subtab-btn" onclick="switchSubtab('calibration-distribution', this)">Confidence Spread</button>
+            </div>
+
+            <div class="subtab-content active" id="subtab-calibration-analysis">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Predicted vs Actual Outcomes</h3>
+                            <p class="chart-description">When markets predict 70%, outcomes should occur 70% of the time. Points near the diagonal indicate accurate calibration.</p>
+                        </div>
+                        <div id="chart-calibration" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-calibration-distribution">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Where Markets Place Their Bets</h3>
+                            <p class="chart-description">Markets favor confident predictions near 0% or 100%, with fewer predictions in the uncertain middle ground.</p>
+                        </div>
+                        <div id="chart-calibration-dist" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Liquidity -->
+        <div class="tab-content" id="tab-liquidity">
+            <div class="tab-intro">
+                <p>Market liquidity analysis based on historical orderbook data. Tighter spreads and deeper books indicate more liquid markets where traders can execute with less slippage.</p>
+            </div>
+
+            <div class="subtab-nav">
+                <button class="subtab-btn active" onclick="switchSubtab('liquidity-by-category', this)">By Category</button>
+                <button class="subtab-btn" onclick="switchSubtab('liquidity-vs-accuracy', this)">Liquidity vs Accuracy</button>
+                <button class="subtab-btn" onclick="switchSubtab('liquidity-platforms', this)">Platform Comparison</button>
+                <button class="subtab-btn" onclick="switchSubtab('spread-vs-volume', this)">Spread vs Volume</button>
+                <button class="subtab-btn" onclick="switchSubtab('liquidity-over-time', this)">Over Time</button>
+            </div>
+
+            <div class="subtab-content active" id="subtab-liquidity-by-category">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3 id="liquidity-category-title">Bid-Ask Spread by Category</h3>
+                            <p class="chart-description" id="liquidity-category-desc">Median relative spread (%) by political category. Lower spreads indicate tighter markets with better liquidity.</p>
+                        </div>
+                        <div class="chart-toggle-group">
+                            <button class="chart-toggle-btn active" onclick="switchLiquidityCategoryMetric('spread', this)">Spread</button>
+                            <button class="chart-toggle-btn" onclick="switchLiquidityCategoryMetric('depth', this)">Depth</button>
+                        </div>
+                        <div id="chart-liquidity-category" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-liquidity-vs-accuracy">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Liquidity vs Prediction Accuracy</h3>
+                            <p class="chart-description">Each line shows how Brier score changes across liquidity percentiles within a category. Downward slope = higher liquidity improves accuracy. Dot size = number of markets.</p>
+                        </div>
+                        <div class="chart-controls" style="display: flex; gap: 16px; align-items: center; margin-bottom: 12px;">
+                            <div class="chart-toggle-group" id="liquidity-metric-toggle">
+                                <button class="chart-toggle-btn" id="btn-metric-spread" onclick="setLiquidityMetric('spread')">Spread</button>
+                                <button class="chart-toggle-btn active" id="btn-metric-depth" onclick="setLiquidityMetric('depth')">Depth</button>
+                            </div>
+                            <select id="liquidity-category-select" onchange="setLiquidityCategory(this.value)">
+                                <option value="overall" selected>All Markets</option>
+                                <option value="ELECTORAL">Electoral</option>
+                                <option value="MILITARY_SECURITY">Military &amp; Security</option>
+                                <option value="INTERNATIONAL">International</option>
+                                <option value="MONETARY_POLICY">Monetary Policy</option>
+                                <option value="APPOINTMENTS">Appointments</option>
+                                <option value="PARTY_POLITICS">Party Politics</option>
+                                <option value="GOVERNMENT_OPERATIONS">Government Operations</option>
+                                <option value="TIMING_EVENTS">Timing Events</option>
+                                <option value="POLITICAL_SPEECH">Political Speech</option>
+                                <option value="REGULATORY">Regulatory</option>
+                                <option value="JUDICIAL">Judicial</option>
+                                <option value="LEGISLATIVE">Legislative</option>
+                                <option value="POLLING_APPROVAL">Polling/Approval</option>
+                            </select>
+                        </div>
+                        <div id="chart-liquidity-accuracy" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-liquidity-platforms">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3 id="liquidity-platform-title">Spread Distribution by Platform</h3>
+                            <p class="chart-description" id="liquidity-platform-desc">Distribution of relative spreads across platforms. Which platform offers tighter markets?</p>
+                        </div>
+                        <div class="chart-toggle-group">
+                            <button class="chart-toggle-btn active" onclick="switchLiquidityPlatformMetric('spread', this)">Spread</button>
+                            <button class="chart-toggle-btn" onclick="switchLiquidityPlatformMetric('depth', this)">Depth</button>
+                        </div>
+                        <div id="chart-liquidity-spread-dist" class="chart chart-tall"></div>
+                        <div id="chart-liquidity-depth-dist" class="chart chart-tall" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-spread-vs-volume">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Spread vs Trading Volume</h3>
+                            <p class="chart-description">Do higher-volume markets have tighter spreads? Each point represents a market.</p>
+                        </div>
+                        <div class="chart-toggle-group">
+                            <button class="chart-toggle-btn active" onclick="switchLiquidityPlatform('polymarket', this)">Polymarket</button>
+                            <button class="chart-toggle-btn" onclick="switchLiquidityPlatform('kalshi', this)">Kalshi</button>
+                        </div>
+                        <div id="chart-spread-volume" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-liquidity-over-time">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Liquidity Over Time</h3>
+                            <p class="chart-description" id="liquidity-timeseries-description">Daily median relative spread (%) across all active markets. Lower spreads indicate tighter, more liquid markets. Data available from Oct 2025.</p>
+                        </div>
+                        <div class="chart-toggle-group">
+                            <button class="chart-toggle-btn active" onclick="switchLiquidityTimeseriesMetric('spread', this)">Bid-Ask Spread</button>
+                            <button class="chart-toggle-btn" onclick="switchLiquidityTimeseriesMetric('depth', this)">Order Book Depth</button>
+                        </div>
+                        <div id="chart-liquidity-timeseries" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Partisan Bias -->
+        <div class="tab-content" id="tab-bias">
+            <div class="tab-intro">
+                <p>Do prediction markets exhibit partisan bias? We analyze whether markets systematically over- or under-predict Republican victories, comparing calibration and regression results across both platforms.</p>
+            </div>
+
+            <div class="subtab-nav">
+                <button class="subtab-btn active" onclick="switchSubtab('bias-calibration', this)">Calibration</button>
+                <button class="subtab-btn" onclick="switchSubtab('bias-regression', this)">Regression</button>
+                <button class="subtab-btn" onclick="switchSubtab('trader-partisanship', this)">Trader Partisanship</button>
+                <button class="subtab-btn" onclick="switchSubtab('trader-accuracy', this)">Trader Accuracy</button>
+                <button class="subtab-btn" onclick="switchSubtab('trader-actual-vs-perfect', this)">Actual vs Perfect</button>
+            </div>
+
+            <div class="subtab-content active" id="subtab-bias-calibration">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Republican Win Probability Calibration</h3>
+                            <p class="chart-description">Predicted Republican win probability vs actual Republican win rate. Points above the diagonal indicate markets underestimate Republican chances; below indicates overestimation.</p>
+                        </div>
+                        <div class="chart-toggle-group">
+                            <button class="chart-toggle-btn active" onclick="switchCalibrationPlatform('polymarket', this)">Polymarket</button>
+                            <button class="chart-toggle-btn" onclick="switchCalibrationPlatform('kalshi', this)">Kalshi</button>
+                        </div>
+                        <div id="chart-partisan-calibration" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-bias-regression">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Partisan Bias Regression</h3>
+                            <p class="chart-description">OLS regression of prediction error on party and platform. Negative coefficients indicate the market was less confident in the winner (underpriced).</p>
+                        </div>
+                        <div id="table-partisan-regression" class="chart-stats"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-trader-partisanship">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Distribution of Trader Partisanship</h3>
+                            <p class="chart-description">Among traders who bet for a party, what % of their volume was on that party? Broken down by trading activity. Polymarket only.</p>
+                        </div>
+                        <div class="chart-toggle-group">
+                            <button class="chart-toggle-btn active" onclick="switchPartisanshipParty('republican', this)">Pro-Republican</button>
+                            <button class="chart-toggle-btn" onclick="switchPartisanshipParty('democrat', this)">Pro-Democrat</button>
+                        </div>
+                        <div id="chart-trader-partisanship" class="chart chart-tall"></div>
+                        <div id="election-outcomes-box" class="election-outcomes-box" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-trader-accuracy">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Distribution of Trader Accuracy</h3>
+                            <p class="chart-description">For each wallet, what % of their money was bet correctly? Broken down by trading activity level. One-time traders cluster at extremes (0% or 100%); active traders show more varied distributions. Polymarket only.</p>
+                        </div>
+                        <div id="chart-trader-accuracy" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-trader-actual-vs-perfect">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Trader Partisanship: Actual vs Perfect</h3>
+                            <p class="chart-description">What if all incorrect bets were flipped to the winning side? Compares actual partisanship with counterfactual. Filtered to traders with 2+ trades. Polymarket only.</p>
+                        </div>
+                        <div class="chart-toggle-group">
+                            <button class="chart-toggle-btn active" onclick="switchActualVsPerfectParty('republican', this)">Pro-Republican</button>
+                            <button class="chart-toggle-btn" onclick="switchActualVsPerfectParty('democrat', this)">Pro-Democrat</button>
+                        </div>
+                        <div id="chart-trader-actual-vs-perfect" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Platforms -->
+        <div class="tab-content" id="tab-platforms">
+            <div class="tab-intro">
+                <p>Polymarket and Kalshi often list the same elections, allowing direct comparison. On shared elections, both platforms show remarkably similar predictions with 96.7% correlation.</p>
+            </div>
+
+            <div class="subtab-nav">
+                <button class="subtab-btn active" onclick="switchSubtab('platform-agreement', this)">Agreement</button>
+                <button class="subtab-btn" onclick="switchSubtab('platform-comparison', this)">Comparison</button>
+            </div>
+
+            <div class="subtab-content active" id="subtab-platform-agreement">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Platform Agreement</h3>
+                            <p class="chart-description">Each point shows both platforms' final prediction for the winning candidate. Proximity to diagonal = agreement.</p>
+                        </div>
+                        <div id="chart-scatter" class="chart chart-tall"></div>
+                    </div>
+                </div>
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Head-to-Head Results</h3>
+                            <p class="chart-description">Which platform was more accurate on shared elections?</p>
+                        </div>
+                        <div id="chart-head-to-head" class="chart-stats"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-platform-comparison">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Platform Comparison</h3>
+                            <p class="chart-description">Key metrics across both prediction markets.</p>
+                        </div>
+                        <div id="chart-platform-stats" class="chart-stats"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Coverage -->
+        <div class="tab-content" id="tab-coverage">
+            <div class="tab-intro">
+                <p>We track 23,000+ political prediction markets across both platforms, covering elections, policy, appointments, and more. Electoral markets represent the largest category by both count and volume.</p>
+            </div>
+
+            <div class="subtab-nav">
+                <button class="subtab-btn active" onclick="switchSubtab('volume-over-time', this)">Volume Over Time</button>
+                <button class="subtab-btn" onclick="switchSubtab('markets-by-category', this)">Markets by Category</button>
+                <button class="subtab-btn" onclick="switchSubtab('prediction-vs-volume', this)">Prediction vs Volume</button>
+            </div>
+
+            <div class="subtab-content active" id="subtab-volume-over-time">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Trading Volume Over Time</h3>
+                            <p class="chart-description">Monthly volume in millions USD. November 2024 saw record activity during the US presidential election.</p>
+                        </div>
+                        <div class="category-dropdown-container">
+                            <button type="button" class="category-dropdown-toggle" id="volume-dropdown-toggle">
+                                <span id="volume-dropdown-label">8/8 categories</span>
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+                            </button>
+                            <div class="category-dropdown-menu" id="volume-dropdown-menu"></div>
+                        </div>
+                        <div id="chart-volume" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-markets-by-category">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Markets by Category</h3>
+                            <p class="chart-description">Distribution of political markets across 15 categories.</p>
+                        </div>
+                        <div id="chart-distribution" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="subtab-content" id="subtab-prediction-vs-volume">
+                <div class="chart-row">
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3>Prediction Confidence vs Trading Volume</h3>
+                            <p class="chart-description">How trading volume relates to prediction confidence. Points colored by outcome correctness. Use buttons to toggle platforms.</p>
+                        </div>
+                        <div class="chart-toggle-group">
+                            <button class="chart-toggle-btn active" onclick="switchPredVolPlatform('polymarket', this)">Polymarket</button>
+                            <button class="chart-toggle-btn" onclick="switchPredVolPlatform('kalshi', this)">Kalshi</button>
+                        </div>
+                        <div id="chart-pred-volume" class="chart chart-tall"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Hidden sidebar — preserved for dashboard.js compatibility, not displayed -->
+    <aside class="papers-sidebar">
+        <div class="papers-sidebar-header">Research</div>
+        <div class="papers-sidebar-list"></div>
+    </aside>
+
+    <!-- ════════════ V2 PAPERS SECTION ════════════ -->
+    <div class="papers-section">
+      <div class="papers-header">
+        <h2>Methodology &amp; Papers</h2>
+      </div>
+      <div class="papers-grid">
+        <a href="papers/liquidity-accuracy/" class="paper-card">
+          <div class="paper-date">Feb 2026</div>
+          <h3>How We Built a Trustworthy Price</h3>
+          <div class="paper-author"><span class="dot"></span> Bell Team</div>
+          <span class="paper-link">Read &rarr;</span>
+        </a>
+        <a href="papers/election-eve-methodology/" class="paper-card">
+          <div class="paper-date">Jan 2026</div>
+          <h3>When You Measure Matters</h3>
+          <div class="paper-author"><span class="dot"></span> Bell Team</div>
+          <span class="paper-link">Read &rarr;</span>
+        </a>
+        <a href="papers/inside-the-markets/" class="paper-card">
+          <div class="paper-date">Nov 2025</div>
+          <h3>Inside the Markets Aggregating Political Reality</h3>
+          <div class="paper-author"><span class="dot"></span> Andrew B. Hall</div>
+          <span class="paper-link">Read &rarr;</span>
+        </a>
+      </div>
+    </div>
+</div>
+
+<!-- ════════════ V2 FOOTER ════════════ -->
+<footer class="v2-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="logo"><span class="dot"></span> Bellwether</div>
+      <p>Prediction market infrastructure for research, journalism, and intelligent systems.</p>
+      <div class="footer-affil">Stanford GSB &middot; Hall Lab &middot; Hoover Institution</div>
+    </div>
+    <div class="footer-col">
+      <h4>Platform</h4>
+      <a href="docs.html">Tape API</a>
+      <a href="docs.html">Documentation</a>
+      <a href="globe.html">Globe</a>
+    </div>
+    <div class="footer-col">
+      <h4>Research</h4>
+      <a href="research.html">Dashboard</a>
+      <a href="papers/liquidity-accuracy/">Trustworthy Price</a>
+      <a href="papers/election-eve-methodology/">Measurement Timing</a>
+      <a href="papers/inside-the-markets/">Inside the Markets</a>
+    </div>
+    <div class="footer-col">
+      <h4>About</h4>
+      <a href="about.html">Team</a>
+      <a href="mailto:paschal@stanford.edu">Contact</a>
+      <a href="https://github.com/elliotjames-paschal/bellwether-platform" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+<script src="js/dashboard.js?v=20260212"></script>
+</body>
+</html>

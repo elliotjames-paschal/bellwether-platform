@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docs — Bellwether</title>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4JTSRBJBY5"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-4JTSRBJBY5');
+</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bw-blue: #4A90D9;
+    --bw-blue-light: #EBF2FC;
+    --bw-blue-muted: #A8C8E8;
+    --bw-dark: #1A1A1A;
+    --bw-text: #2C2C2C;
+    --bw-text-secondary: #6B6B6B;
+    --bw-border: #E8E8E8;
+    --bw-bg: #FAFAFA;
+    --bw-white: #FFFFFF;
+    --bw-green: #3A8A5C;
+    --bw-amber: #D4950A;
+    --bw-red: #D94A4A;
+    --font-serif: 'Source Serif 4', Georgia, serif;
+    --font-sans: 'DM Sans', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    color: var(--bw-text);
+    background: var(--bw-white);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--bw-border);
+    transition: box-shadow 0.3s;
+  }
+  nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
+  .nav-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 32px;
+    height: 60px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-serif); font-weight: 600; font-size: 18px;
+    color: var(--bw-dark); text-decoration: none;
+  }
+  .nav-logo .dot { width: 10px; height: 10px; background: var(--bw-blue); border-radius: 50%; }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a {
+    font-size: 14px; color: var(--bw-text-secondary); text-decoration: none;
+    font-weight: 400; transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--bw-dark); }
+  .nav-links a.active { color: var(--bw-dark); font-weight: 500; }
+  .nav-cta {
+    font-size: 13px !important; color: var(--bw-white) !important;
+    background: var(--bw-dark); padding: 8px 20px; border-radius: 6px;
+    transition: background 0.2s !important;
+  }
+  .nav-cta:hover { background: #333 !important; }
+  .nav-affil { font-size: 12px; color: var(--bw-text-secondary); opacity: 0.6; font-weight: 300; letter-spacing: 0.02em; }
+
+  /* ── DOCS LAYOUT ── */
+  .docs-wrapper {
+    padding-top: 60px;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── SIDEBAR ── */
+  .docs-sidebar {
+    border-right: 1px solid var(--bw-border);
+    padding: 32px 24px;
+    position: sticky;
+    top: 60px;
+    height: calc(100vh - 60px);
+    overflow-y: auto;
+    background: var(--bw-bg);
+  }
+  .sidebar-section {
+    margin-bottom: 28px;
+  }
+  .sidebar-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--bw-text-secondary);
+    margin-bottom: 12px;
+  }
+  .sidebar-link {
+    display: block;
+    font-size: 13px;
+    color: var(--bw-text-secondary);
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+  }
+  .sidebar-link:hover { color: var(--bw-dark); background: rgba(0,0,0,0.03); }
+  .sidebar-link.active {
+    color: var(--bw-blue);
+    background: var(--bw-blue-light);
+    font-weight: 500;
+  }
+  .sidebar-link.nested {
+    padding-left: 22px;
+    font-size: 12px;
+  }
+
+  /* ── MAIN CONTENT ── */
+  .docs-main {
+    padding: 40px 56px 80px;
+    max-width: 860px;
+  }
+
+  /* Page title */
+  .docs-main > h1 {
+    font-family: var(--font-serif);
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    letter-spacing: -0.01em;
+    margin-bottom: 8px;
+  }
+  .docs-main > .subtitle {
+    font-size: 16px;
+    color: var(--bw-text-secondary);
+    line-height: 1.6;
+    margin-bottom: 40px;
+    max-width: 600px;
+  }
+
+  /* Section anchors */
+  .doc-section {
+    margin-bottom: 56px;
+    scroll-margin-top: 80px;
+  }
+  .doc-section h2 {
+    font-family: var(--font-serif);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--bw-border);
+  }
+  .doc-section h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+  .doc-section p {
+    font-size: 14px;
+    color: var(--bw-text);
+    line-height: 1.7;
+    margin-bottom: 16px;
+  }
+  .doc-section p.muted {
+    color: var(--bw-text-secondary);
+  }
+
+  /* Inline code */
+  code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--bw-bg);
+    border: 1px solid var(--bw-border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--bw-dark);
+  }
+
+  /* Code blocks */
+  .code-block {
+    background: var(--bw-dark);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .code-block-header {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .code-block-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+  }
+  .code-block-method {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .method-get { background: rgba(58,138,92,0.2); color: #8BC89F; }
+  .code-block pre {
+    padding: 16px 20px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.85);
+    overflow-x: auto;
+  }
+  .code-block .key { color: var(--bw-blue-muted); }
+  .code-block .str { color: #8BC89F; }
+  .code-block .num { color: #E8B87A; }
+  .code-block .dim { color: rgba(255,255,255,0.3); }
+
+  /* Endpoint cards */
+  .endpoint-card {
+    border: 1px solid var(--bw-border);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .endpoint-header {
+    padding: 14px 20px;
+    background: var(--bw-bg);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--bw-border);
+  }
+  .endpoint-method {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(58,138,92,0.1);
+    color: var(--bw-green);
+  }
+  .endpoint-path {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--bw-dark);
+    font-weight: 500;
+  }
+  .endpoint-desc {
+    font-size: 13px;
+    color: var(--bw-text-secondary);
+    margin-left: auto;
+  }
+  .endpoint-body {
+    padding: 20px;
+  }
+
+  /* Param tables */
+  .param-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+  }
+  .param-table thead th {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--bw-text-secondary);
+    padding: 10px 0;
+    text-align: left;
+    border-bottom: 1px solid var(--bw-border);
+  }
+  .param-table tbody td {
+    padding: 10px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--bw-border);
+    vertical-align: top;
+  }
+  .param-table tbody tr:last-child td { border-bottom: none; }
+  .param-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--bw-dark);
+  }
+  .param-type {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--bw-text-secondary);
+  }
+  .param-required {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bw-red);
+    margin-left: 6px;
+  }
+  .param-optional {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--bw-text-secondary);
+    margin-left: 6px;
+  }
+  .param-desc {
+    font-size: 13px;
+    color: var(--bw-text-secondary);
+    line-height: 1.5;
+  }
+
+  /* Data glossary tables */
+  .glossary-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--bw-border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .glossary-table thead th {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--bw-text-secondary);
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--bw-border);
+    background: var(--bw-bg);
+  }
+  .glossary-table tbody td {
+    padding: 10px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--bw-border);
+    vertical-align: top;
+  }
+  .glossary-table tbody tr:last-child td { border-bottom: none; }
+  .glossary-table tbody tr { transition: background 0.15s; }
+  .glossary-table tbody tr:hover { background: var(--bw-bg); }
+  .field-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--bw-blue);
+  }
+  .field-type {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--bw-text-secondary);
+    text-transform: uppercase;
+  }
+
+  /* Status badge */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--bw-green);
+    background: rgba(58,138,92,0.08);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 24px;
+  }
+  .status-badge .pulse {
+    width: 7px; height: 7px; background: var(--bw-green); border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+  /* Callout */
+  .callout {
+    border-left: 3px solid var(--bw-blue);
+    background: var(--bw-blue-light);
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 24px;
+  }
+  .callout p {
+    font-size: 13px;
+    color: var(--bw-text);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .callout strong {
+    font-weight: 600;
+  }
+
+  /* Sub-tabs */
+  .sub-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .sub-tab {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--bw-text-secondary);
+    background: var(--bw-white);
+    border: 1px solid var(--bw-border);
+    border-radius: 6px;
+    padding: 7px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .sub-tab:hover { border-color: var(--bw-text-secondary); }
+  .sub-tab.active {
+    color: var(--bw-white);
+    font-weight: 500;
+    background: var(--bw-dark);
+    border-color: var(--bw-dark);
+  }
+
+  /* Glossary tab content */
+  .glossary-content { display: none; }
+  .glossary-content.active { display: block; }
+  .glossary-filename {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--bw-dark);
+    margin-bottom: 4px;
+  }
+  .glossary-desc {
+    font-size: 13px;
+    color: var(--bw-text-secondary);
+    margin-bottom: 20px;
+  }
+  .glossary-group-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bw-dark);
+    margin-top: 20px;
+    margin-bottom: 12px;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--bw-border);
+    padding: 60px 32px;
+    background: var(--bw-dark);
+  }
+  .footer-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px;
+  }
+  .footer-brand .logo {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-serif); font-weight: 600; font-size: 16px;
+    color: var(--bw-white); margin-bottom: 12px;
+  }
+  .footer-brand .logo .dot { width: 8px; height: 8px; background: var(--bw-blue); border-radius: 50%; }
+  .footer-brand p {
+    font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6;
+    max-width: 280px; margin-bottom: 16px;
+  }
+  .footer-affil { font-size: 12px; color: rgba(255,255,255,0.25); }
+  .footer-col h4 {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.35); margin-bottom: 16px;
+  }
+  .footer-col a {
+    display: block; font-size: 14px; color: rgba(255,255,255,0.6);
+    text-decoration: none; padding: 4px 0; transition: color 0.2s;
+  }
+  .footer-col a:hover { color: var(--bw-white); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .docs-wrapper { grid-template-columns: 1fr; }
+    .docs-sidebar {
+      position: static; height: auto;
+      border-right: none; border-bottom: 1px solid var(--bw-border);
+      padding: 20px 24px;
+      display: flex; gap: 24px; overflow-x: auto;
+    }
+    .sidebar-section { margin-bottom: 0; white-space: nowrap; }
+    .sidebar-section-title { margin-bottom: 8px; }
+    .sidebar-link.nested { padding-left: 10px; }
+    .docs-main { padding: 32px 24px 80px; }
+    .footer-inner { grid-template-columns: 1fr 1fr; }
+    .nav-links a:not(.nav-cta) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="./" class="nav-logo"><span class="dot"></span>Bellwether</a>
+    <div class="nav-links">
+      <a href="monitor.html">Live Data</a>
+      <a href="globe.html">Globe</a>
+      <a href="blueprints.html">Blueprints</a>
+      <a href="research.html">Research</a>
+      <a href="docs.html" class="active">Docs</a>
+      <span class="nav-affil">Stanford &middot; Hoover Institution</span>
+      <a href="#contact" class="nav-cta">Request Access</a>
+    </div>
+  </div>
+</nav>
+
+<!-- DOCS LAYOUT -->
+<div class="docs-wrapper">
+
+  <!-- SIDEBAR -->
+  <aside class="docs-sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Getting Started</div>
+      <a href="#overview" class="sidebar-link active">Overview</a>
+      <a href="#quickstart" class="sidebar-link">Quick Start</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">API</div>
+      <a href="#events" class="sidebar-link">Events</a>
+      <a href="#events-get" class="sidebar-link nested">Get event</a>
+      <a href="#markets" class="sidebar-link">Markets</a>
+      <a href="#markets-platform" class="sidebar-link nested">Platform data</a>
+      <a href="#markets-combined" class="sidebar-link nested">Combined data</a>
+      <a href="#reportability" class="sidebar-link">Reportability</a>
+      <a href="#tickers" class="sidebar-link">Tickers</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Embeds</div>
+      <a href="#embeds" class="sidebar-link">Embed a Market</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">MCP</div>
+      <a href="#mcp" class="sidebar-link">MCP Server</a>
+      <a href="#mcp-tools" class="sidebar-link nested">Tools</a>
+      <a href="#mcp-setup" class="sidebar-link nested">Setup</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Data</div>
+      <a href="#glossary" class="sidebar-link">Data Glossary</a>
+      <a href="#categories" class="sidebar-link">Categories</a>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="docs-main">
+    <h1>Documentation</h1>
+    <p class="subtitle">Everything you need to integrate Bellwether's prediction market data into your application, newsroom, or research pipeline.</p>
+
+    <!-- OVERVIEW -->
+    <div class="doc-section" id="overview">
+      <h2>Overview</h2>
+      <span class="status-badge"><span class="pulse"></span> API Live — v2</span>
+      <p>Bellwether tracks every political prediction market on Polymarket and Kalshi. The API provides canonical tickers, volume-weighted prices, cross-platform matching, and manipulation resistance scores — updated continuously via live order book and trade data.</p>
+
+      <div class="callout">
+        <p><strong>Open access.</strong> The API is currently public with no authentication required. Email <code>paschal@stanford.edu</code> for questions or support. Academic and research use is free.</p>
+      </div>
+
+      <h3>Base URL</h3>
+      <div class="code-block">
+        <div class="code-block-header">
+          <span class="code-block-label">Base URL</span>
+        </div>
+<pre>https://api.bellwethermetrics.com/api</pre>
+      </div>
+
+      <h3>Response Format</h3>
+      <p>All responses are JSON. Timestamps are ISO 8601. Prices are decimal probabilities (0.00 – 1.00). Volume is in contracts traded (not USD).</p>
+    </div>
+
+    <!-- QUICK START -->
+    <div class="doc-section" id="quickstart">
+      <h2>Quick Start</h2>
+      <p>Fetch a market by its Bellwether event slug:</p>
+      <div class="code-block">
+        <div class="code-block-header">
+          <span class="code-block-label">cURL</span>
+          <span class="code-block-method method-get">GET</span>
+        </div>
+<pre>curl https://api.bellwethermetrics.com/api/metrics/event/bwr-fitzgerald-win-pres-ie</pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-block-header">
+          <span class="code-block-label">Response</span>
+        </div>
+<pre>{
+  <span class="key">"slug"</span>: <span class="str">"bwr-fitzgerald-win-pres-ie"</span>,
+  <span class="key">"ticker"</span>: <span class="str">"BWR-FITZGERALD-WIN-PRES_IE-CERTIFIED-ANY-2025"</span>,
+  <span class="key">"title"</span>: <span class="str">"Will Frances Fitzgerald win the Irish Presidential Election?"</span>,
+  <span class="key">"category"</span>: <span class="str">"ELECTORAL"</span>,
+  <span class="key">"country"</span>: <span class="str">"ie"</span>,
+  <span class="key">"bellwether_price"</span>: <span class="num">0.6234</span>,
+  <span class="key">"price_tier"</span>: <span class="num">1</span>,
+  <span class="key">"price_label"</span>: <span class="str">"6h VWAP across platforms"</span>,
+  <span class="key">"price_source"</span>: <span class="str">"6h_vwap"</span>,
+  <span class="key">"robustness"</span>: {
+    <span class="key">"cost_to_move_5c"</span>: <span class="num">31400</span>,
+    <span class="key">"reportability"</span>: <span class="str">"caution"</span>,
+    <span class="key">"raw_reportability"</span>: <span class="str">"caution"</span>,
+    <span class="key">"weakest_platform"</span>: <span class="str">"kalshi"</span>
+  },
+  <span class="key">"vwap_details"</span>: {
+    <span class="key">"window_hours"</span>: <span class="num">6</span>,
+    <span class="key">"trade_count"</span>: <span class="num">47</span>,
+    <span class="key">"total_volume"</span>: <span class="num">18420</span>
+  },
+  <span class="key">"orderbook_midpoint"</span>: <span class="num">0.62</span>,
+  <span class="key">"fetched_at"</span>: <span class="str">"2026-02-26T17:30:00.000Z"</span>
+}</pre>
+      </div>
+    </div>
+
+    <!-- EVENTS ENDPOINTS -->
+    <div class="doc-section" id="events">
+      <h2>Events</h2>
+      <p>Events represent Bellwether's unified view of a market — potentially spanning both platforms. Each event has a slug and an optional canonical ticker.</p>
+
+      <div class="endpoint-card" id="events-get">
+        <div class="endpoint-header">
+          <span class="endpoint-method">GET</span>
+          <span class="endpoint-path">/api/metrics/event/{slug}</span>
+          <span class="endpoint-desc">Get single event with live data</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="muted" style="margin-bottom:16px">Returns live price, VWAP, robustness metrics, and reportability for an event resolved via the market index. Data is fetched from native Polymarket and Kalshi APIs in real time (cached for 30 seconds).</p>
+          <table class="param-table">
+            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">slug</span><span class="param-required">required</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Bellwether event slug. E.g. <code>bwr-fitzgerald-win-pres-ie</code></span></td>
+              </tr>
+            </tbody>
+          </table>
+          <h3 style="margin-top:20px; font-size:14px">Response fields</h3>
+          <table class="param-table">
+            <thead><tr><th style="width:180px">Field</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="param-name">bellwether_price</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Volume-weighted price (VWAP). Null if insufficient trade data.</span></td></tr>
+              <tr><td><span class="param-name">price_tier</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Data quality tier: 1 (6h VWAP, 10+ trades), 2 (12-24h VWAP), 3 (stale or no data).</span></td></tr>
+              <tr><td><span class="param-name">price_label</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Human-readable description of the price source. E.g. <code>6h VWAP across platforms</code>.</span></td></tr>
+              <tr><td><span class="param-name">price_source</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Machine-readable source: <code>6h_vwap</code>, <code>12h_vwap</code>, <code>24h_vwap</code>, <code>stale_vwap</code>, or <code>no_data</code>.</span></td></tr>
+              <tr><td><span class="param-name">robustness</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>cost_to_move_5c</code>, <code>reportability</code>, <code>raw_reportability</code>, and <code>weakest_platform</code>.</span></td></tr>
+              <tr><td><span class="param-name">vwap_details</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>window_hours</code>, <code>trade_count</code>, and <code>total_volume</code>.</span></td></tr>
+              <tr><td><span class="param-name">orderbook_midpoint</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Best bid/ask midpoint from current order book.</span></td></tr>
+              <tr><td><span class="param-name">fetched_at</span></td><td><span class="param-type">datetime</span></td><td><span class="param-desc">When upstream data was last fetched. Cached for 30 seconds.</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MARKETS (platform-specific) -->
+    <div class="doc-section" id="markets">
+      <h2>Markets</h2>
+      <p>For direct access to platform-specific data. These endpoints fetch live order book and trade data from the native Polymarket CLOB and Kalshi Elections APIs.</p>
+
+      <div class="endpoint-card" id="markets-platform">
+        <div class="endpoint-header">
+          <span class="endpoint-method">GET</span>
+          <span class="endpoint-path">/api/metrics/{platform}/{token_id}</span>
+          <span class="endpoint-desc">Platform market data</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="muted" style="margin-bottom:16px">Returns tiered VWAP price, midpoint, order book depth, and reportability for a single platform market.</p>
+          <table class="param-table">
+            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">platform</span><span class="param-required">required</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc"><code>polymarket</code> or <code>kalshi</code></span></td>
+              </tr>
+              <tr>
+                <td><span class="param-name">token_id</span><span class="param-required">required</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Polymarket token ID or Kalshi market ticker</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <h3 style="margin-top:20px; font-size:14px">Response fields</h3>
+          <table class="param-table">
+            <thead><tr><th style="width:180px">Field</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="param-name">bellwether_price</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Tiered VWAP price. Null if insufficient trade data.</span></td></tr>
+              <tr><td><span class="param-name">price_tier</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Data quality tier: 1 (6h VWAP), 2 (12-24h VWAP), 3 (stale/no data).</span></td></tr>
+              <tr><td><span class="param-name">price_label</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Human-readable source label. E.g. <code>6h VWAP</code>.</span></td></tr>
+              <tr><td><span class="param-name">price_source</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Machine-readable source: <code>6h_vwap</code>, <code>12h_vwap</code>, <code>24h_vwap</code>, <code>stale_vwap</code>, or <code>no_data</code>.</span></td></tr>
+              <tr><td><span class="param-name">robustness</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>cost_to_move_5c</code>, <code>cost_to_move_up_5c</code>, <code>cost_to_move_down_5c</code>, <code>reportability</code>, and <code>raw_reportability</code>.</span></td></tr>
+              <tr><td><span class="param-name">vwap_details</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>window_hours</code>, <code>trade_count</code>, and <code>total_volume</code>.</span></td></tr>
+              <tr><td><span class="param-name">orderbook_midpoint</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Best bid/ask midpoint from current order book.</span></td></tr>
+              <tr><td><span class="param-name">orderbook_summary</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>bid_levels</code>, <code>ask_levels</code>, <code>best_bid</code>, <code>best_ask</code>, <code>top_5_bids</code>, <code>top_5_asks</code>.</span></td></tr>
+              <tr><td><span class="param-name">fetched_at</span></td><td><span class="param-type">datetime</span></td><td><span class="param-desc">When upstream data was last fetched. Cached for 30 seconds.</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint-card" id="markets-combined">
+        <div class="endpoint-header">
+          <span class="endpoint-method">GET</span>
+          <span class="endpoint-path">/api/metrics/combined</span>
+          <span class="endpoint-desc">Cross-platform aggregation</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="muted" style="margin-bottom:16px">Returns volume-weighted combined data for a matched pair. The combined VWAP is computed across trades from both platforms in the same time window.</p>
+          <table class="param-table">
+            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">pm_token</span><span class="param-optional">one required</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Polymarket token ID</span></td>
+              </tr>
+              <tr>
+                <td><span class="param-name">k_ticker</span><span class="param-optional">one required</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Kalshi market ticker</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="muted" style="margin-top:12px; font-size:12px">Provide at least one of <code>pm_token</code> or <code>k_ticker</code>. Provide both for cross-platform aggregation.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORTABILITY -->
+    <div class="doc-section" id="reportability">
+      <h2>Reportability</h2>
+      <p>Every market is scored for manipulation resistance based on live order book depth. The <code>cost_to_move_5c</code> field (nested inside <code>robustness</code>) tells you how many dollars it would take to shift the market price by 5 cents — the core metric behind the reportability tiers.</p>
+      <table class="param-table" style="margin-top: 16px">
+        <thead><tr><th>Rating</th><th>Cost to Move 5¢</th><th>Guidance</th></tr></thead>
+        <tbody>
+          <tr><td><span style="color:var(--bw-green); font-weight:600">Reportable</span></td><td><span class="param-type">&ge; $100,000</span></td><td><span class="param-desc">Safe to cite. Price reflects broad market consensus.</span></td></tr>
+          <tr><td><span style="color:var(--bw-amber); font-weight:600">Caution</span></td><td><span class="param-type">$10,000 – $99,999</span></td><td><span class="param-desc">Cite with context. Note liquidity level.</span></td></tr>
+          <tr><td><span style="color:var(--bw-red); font-weight:600">Fragile</span></td><td><span class="param-type">&lt; $10,000</span></td><td><span class="param-desc">Do not cite as consensus. Easily manipulated.</span></td></tr>
+        </tbody>
+      </table>
+      <p class="muted" style="margin-top:16px">Tier 2 data (12-24h VWAP window) downgrades reportable to caution and caution to fragile. Tier 3 data (stale VWAP or no data) is always rated fragile regardless of depth.</p>
+    </div>
+
+    <!-- TICKERS -->
+    <div class="doc-section" id="tickers">
+      <h2>Tickers</h2>
+      <p>Bellwether assigns a canonical ticker to every market using an automated matching engine. Tickers follow the format:</p>
+      <div class="code-block">
+        <div class="code-block-header"><span class="code-block-label">Ticker format</span></div>
+<pre><span class="dim">BWR</span>-<span class="str">AGENT</span>-<span class="str">ACTION</span>-<span class="str">TARGET</span>-<span class="str">MECHANISM</span>-<span class="str">THRESHOLD</span>-<span class="str">TIMEFRAME</span>
+
+<span class="dim">Examples:</span>
+<span class="str">BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-2026</span>           <span class="dim">Party control</span>
+<span class="str">BWR-FITZGERALD-WIN-PRES_IE-CERTIFIED-ANY-2025</span>     <span class="dim">Election</span>
+<span class="str">BWR-FED-CUT-FFR-SPECIFIC_MEETING-5BPS-JAN2026</span>    <span class="dim">Monetary policy</span>
+<span class="str">BWR-TRUMP-PARDON-MAXWELL-SIGNED_INTO_LAW-ANY-2026</span> <span class="dim">Executive action</span></pre>
+      </div>
+      <p>Two markets on different platforms match if and only if their tickers are identical. Post-processing rules normalize equivalent resolution mechanisms (e.g. "projected" = "certified" for elections, "primary" = "certified" for nominations).</p>
+      <table class="param-table" style="margin-top:16px">
+        <thead><tr><th>Component</th><th>Description</th><th>Examples</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">AGENT</span></td><td><span class="param-desc">The actor, party, or institution</span></td><td><span class="param-type">DEM, GOP, FED, TRUMP, ZELENSKYY</span></td></tr>
+          <tr><td><span class="param-name">ACTION</span></td><td><span class="param-desc">What the agent does</span></td><td><span class="param-type">WIN, CONTROL, CUT, HIKE, PARDON, LEAVE</span></td></tr>
+          <tr><td><span class="param-name">TARGET</span></td><td><span class="param-desc">What the action applies to</span></td><td><span class="param-type">PRES, SEN_PA, GOV_CA, FFR, HOUSE</span></td></tr>
+          <tr><td><span class="param-name">MECHANISM</span></td><td><span class="param-desc">How the event resolves</span></td><td><span class="param-type">CERTIFIED, SPECIFIC_MEETING, ANY_MEANS</span></td></tr>
+          <tr><td><span class="param-name">THRESHOLD</span></td><td><span class="param-desc">Numeric threshold or qualifier</span></td><td><span class="param-type">ANY, 5BPS, 25BPS, GT_2.0PCT</span></td></tr>
+          <tr><td><span class="param-name">TIMEFRAME</span></td><td><span class="param-desc">When the event occurs</span></td><td><span class="param-type">2026, JAN2026, 2025_Q4, DEC2025</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- EMBEDS -->
+    <div class="doc-section" id="embeds">
+      <h2>Embed a Market</h2>
+      <p>Drop a live Bellwether market card into any article. Paste a ticker below to preview the embed and copy the iframe snippet for your CMS.</p>
+
+      <div style="display:flex; gap:8px; max-width:560px; margin-bottom:24px">
+        <input type="text" id="embed-ticker" placeholder="e.g. BWR-NEWSOM-WIN-DEM_NOMINATION-CERTIFIED-ANY-NOV2028" style="flex:1; padding:10px 14px; font-family:var(--font-mono); font-size:12px; border:1px solid var(--bw-border); border-radius:6px; background:var(--bw-white); color:var(--bw-dark)">
+        <button id="embed-preview-btn" style="padding:10px 20px; font-family:var(--font-sans); font-size:13px; font-weight:500; background:var(--bw-dark); color:var(--bw-white); border:none; border-radius:6px; cursor:pointer; white-space:nowrap">Preview</button>
+      </div>
+
+      <div id="embed-preview-area" style="display:none; margin-bottom:24px">
+        <div style="font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:0.06em; color:var(--bw-text-secondary); margin-bottom:10px">Preview</div>
+        <div style="border:1px solid var(--bw-border); border-radius:8px; padding:20px; background:var(--bw-bg); display:inline-block">
+          <iframe id="embed-iframe" width="400" height="320" style="display:block; border:none"></iframe>
+        </div>
+      </div>
+
+      <div id="embed-snippet-area" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+          <span style="font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:0.06em; color:var(--bw-text-secondary)">Embed Code</span>
+          <button id="embed-copy-btn" style="padding:5px 12px; font-family:var(--font-sans); font-size:12px; font-weight:500; background:var(--bw-white); color:var(--bw-text-secondary); border:1px solid var(--bw-border); border-radius:4px; cursor:pointer">Copy Embed Code</button>
+        </div>
+        <div class="code-block"><pre id="embed-snippet-code" style="word-break:break-all; white-space:pre-wrap"></pre></div>
+      </div>
+
+      <h3>Example tickers</h3>
+      <p class="muted">Click a ticker to preview it.</p>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px">
+        <code class="embed-example" style="cursor:pointer">BWR-NEWSOM-WIN-DEM_NOMINATION-CERTIFIED-ANY-NOV2028</code>
+        <code class="embed-example" style="cursor:pointer">BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-FEB2027</code>
+      </div>
+    </div>
+
+    <!-- MCP SERVER -->
+    <div class="doc-section" id="mcp">
+      <h2>MCP Server</h2>
+      <p>The Bellwether MCP server gives AI agents direct access to live prediction market data. Compatible with Claude Desktop, Claude Code, Cursor, and any MCP-compatible client.</p>
+
+      <p>Published on <a href="https://www.npmjs.com/package/bellwether-mcp" target="_blank" rel="noopener">npm</a> and the <a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noopener">official MCP registry</a>.</p>
+
+      <h3 id="mcp-setup">Setup</h3>
+
+      <p>Run directly with npx:</p>
+      <div class="code-block"><pre>npx bellwether-mcp</pre></div>
+
+      <p style="margin-top:20px"><strong>Claude Desktop</strong> &mdash; add to <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>:</p>
+      <div class="code-block"><pre>{
+  <span class="str">"mcpServers"</span>: {
+    <span class="str">"bellwether"</span>: {
+      <span class="str">"command"</span>: <span class="str">"npx"</span>,
+      <span class="str">"args"</span>: [<span class="str">"bellwether-mcp"</span>]
+    }
+  }
+}</pre></div>
+
+      <p style="margin-top:20px"><strong>Claude Code</strong> &mdash; add via the CLI:</p>
+      <div class="code-block"><pre>claude mcp add bellwether -- npx bellwether-mcp</pre></div>
+
+      <h3 id="mcp-tools">Tools</h3>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="endpoint-method">TOOL</span>
+          <span class="endpoint-path">search_markets</span>
+          <span class="endpoint-desc">Search markets by keyword</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="muted" style="margin-bottom:16px">Search active political prediction markets by topic or keyword. Returns matching markets with tickers, categories, volumes, and platform availability.</p>
+          <table class="param-table">
+            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">query</span><span class="param-required">required</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Topic or keyword. E.g. <code>senate</code>, <code>federal reserve</code></span></td>
+              </tr>
+              <tr>
+                <td><span class="param-name">category</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Filter by category. E.g. <code>ELECTORAL</code>, <code>MONETARY_POLICY</code></span></td>
+              </tr>
+              <tr>
+                <td><span class="param-name">limit</span></td>
+                <td><span class="param-type">number</span></td>
+                <td><span class="param-desc">Max results. Default 10, max 50.</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="endpoint-method">TOOL</span>
+          <span class="endpoint-path">get_market</span>
+          <span class="endpoint-desc">Live price for a market</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="muted" style="margin-bottom:16px">Get live VWAP price, data quality tier, reportability, and editorial guidance for a specific market.</p>
+          <table class="param-table">
+            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">ticker</span><span class="param-required">required</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Bellwether ticker. E.g. <code>BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-2026</code></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="endpoint-method">TOOL</span>
+          <span class="endpoint-path">get_top_markets</span>
+          <span class="endpoint-desc">Most active markets</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="muted" style="margin-bottom:16px">Get the most actively traded prediction markets, optionally filtered by category.</p>
+          <table class="param-table">
+            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">category</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Filter by category</span></td>
+              </tr>
+              <tr>
+                <td><span class="param-name">limit</span></td>
+                <td><span class="param-type">number</span></td>
+                <td><span class="param-desc">Max results. Default 10, max 50.</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="endpoint-method">TOOL</span>
+          <span class="endpoint-path">get_platform_spread</span>
+          <span class="endpoint-desc">Cross-platform price comparison</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="muted" style="margin-bottom:16px">Compare prices between Kalshi and Polymarket for cross-platform matched markets. Returns spread in cents and direction.</p>
+          <table class="param-table">
+            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">ticker</span><span class="param-required">required</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Bellwether ticker for a matched market (<code>is_matched: true</code>)</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="endpoint-method">TOOL</span>
+          <span class="endpoint-path">get_reportability</span>
+          <span class="endpoint-desc">Editorial safety check</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="muted" style="margin-bottom:16px">Check whether a market is safe to cite in published content. Returns reportability tier, cost to move price 5 cents, and editorial guidance.</p>
+          <table class="param-table">
+            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">ticker</span><span class="param-required">required</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Bellwether ticker</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h3>Example Workflow</h3>
+      <div class="code-block"><pre><span class="comment">// Step 1: Find markets</span>
+search_markets(<span class="str">"2026 midterms"</span>)
+
+<span class="comment">// Step 2: Get live price</span>
+get_market(<span class="str">"BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-2026"</span>)
+
+<span class="comment">// Step 3: Check if safe to cite</span>
+get_reportability(<span class="str">"BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-2026"</span>)</pre></div>
+    </div>
+
+    <!-- DATA GLOSSARY -->
+    <div class="doc-section" id="glossary">
+      <h2>Data Glossary</h2>
+      <p>Reference for the data fields used across Bellwether's market datasets.</p>
+
+      <div class="sub-tabs">
+        <button class="sub-tab active" data-glossary="master">Master</button>
+        <button class="sub-tab" data-glossary="prices">Prices</button>
+        <button class="sub-tab" data-glossary="liquidity">Liquidity</button>
+      </div>
+
+      <!-- Master -->
+      <div class="glossary-content active" id="glossary-master">
+        <div class="glossary-filename">political_markets_master.csv</div>
+        <div class="glossary-desc">One row per market outcome. All markets classified into 15 political categories.</div>
+
+        <div class="glossary-group-title">Identifiers</div>
+        <table class="glossary-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><span class="field-name">market_id</span></td><td><span class="field-type">string</span></td><td>Unique identifier for the market (platform-specific)</td></tr>
+            <tr><td><span class="field-name">platform</span></td><td><span class="field-type">string</span></td><td>Source platform: "polymarket" or "kalshi"</td></tr>
+            <tr><td><span class="field-name">pm_condition_id</span></td><td><span class="field-type">string</span></td><td>Polymarket condition ID (for price lookups)</td></tr>
+            <tr><td><span class="field-name">pm_token_id_yes</span></td><td><span class="field-type">string</span></td><td>Polymarket YES token ID</td></tr>
+            <tr><td><span class="field-name">bellwether_ticker</span></td><td><span class="field-type">string</span></td><td>Canonical Bellwether ticker for cross-platform matching</td></tr>
+          </tbody>
+        </table>
+
+        <div class="glossary-group-title">Classification</div>
+        <table class="glossary-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><span class="field-name">question</span></td><td><span class="field-type">string</span></td><td>Full market question text</td></tr>
+            <tr><td><span class="field-name">political_category</span></td><td><span class="field-type">string</span></td><td>One of 15 categories (see Categories section)</td></tr>
+            <tr><td><span class="field-name">volume_usd</span></td><td><span class="field-type">float</span></td><td>Total trading volume in USD</td></tr>
+            <tr><td><span class="field-name">is_matched</span></td><td><span class="field-type">bool</span></td><td>True if matched with a market on the other platform</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Prices -->
+      <div class="glossary-content" id="glossary-prices">
+        <div class="glossary-filename">price_histories.csv</div>
+        <div class="glossary-desc">Daily price observations at multiple time horizons before resolution. One row per market per time horizon.</div>
+        <table class="glossary-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><span class="field-name">market_id</span></td><td><span class="field-type">string</span></td><td>Links to master table</td></tr>
+            <tr><td><span class="field-name">days_before_event</span></td><td><span class="field-type">int</span></td><td>Days before resolution (60, 30, 14, 7, 3, 1)</td></tr>
+            <tr><td><span class="field-name">prediction_price</span></td><td><span class="field-type">float</span></td><td>Market price (0-1), interpretable as probability</td></tr>
+            <tr><td><span class="field-name">actual_outcome</span></td><td><span class="field-type">float</span></td><td>Resolution outcome (1.0 = Yes, 0.0 = No)</td></tr>
+            <tr><td><span class="field-name">brier_score</span></td><td><span class="field-type">float</span></td><td>Brier score: (prediction - outcome)&sup2;</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Liquidity -->
+      <div class="glossary-content" id="glossary-liquidity">
+        <div class="glossary-filename">liquidity_metrics.csv</div>
+        <div class="glossary-desc">Order book snapshots and derived liquidity metrics per market.</div>
+        <table class="glossary-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><span class="field-name">market_id</span></td><td><span class="field-type">string</span></td><td>Links to master table</td></tr>
+            <tr><td><span class="field-name">spread_mean</span></td><td><span class="field-type">float</span></td><td>Mean bid-ask spread (absolute, 0-1)</td></tr>
+            <tr><td><span class="field-name">spread_median</span></td><td><span class="field-type">float</span></td><td>Median bid-ask spread</td></tr>
+            <tr><td><span class="field-name">depth_mean</span></td><td><span class="field-type">float</span></td><td>Mean total order book depth (contracts at best bid + ask)</td></tr>
+            <tr><td><span class="field-name">bid_depth_mean</span></td><td><span class="field-type">float</span></td><td>Mean depth on bid side</td></tr>
+            <tr><td><span class="field-name">ask_depth_mean</span></td><td><span class="field-type">float</span></td><td>Mean depth on ask side</td></tr>
+            <tr><td><span class="field-name">depth_imbalance_mean</span></td><td><span class="field-type">float</span></td><td>Mean order book imbalance: (bid - ask) / (bid + ask)</td></tr>
+            <tr><td><span class="field-name">n_snapshots</span></td><td><span class="field-type">int</span></td><td>Number of order book snapshots collected</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CATEGORIES -->
+    <div class="doc-section" id="categories">
+      <h2>Categories</h2>
+      <p>All markets are classified into one of 15 political categories:</p>
+      <table class="glossary-table" style="margin-top:16px">
+        <thead><tr><th>Code</th><th>Label</th><th style="text-align:right">Markets</th></tr></thead>
+        <tbody>
+          <tr><td><span class="field-name">ELECTORAL</span></td><td>Elections & Nominations</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">5,405</td></tr>
+          <tr><td><span class="field-name">MONETARY_POLICY</span></td><td>Central Bank & Interest Rates</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">1,674</td></tr>
+          <tr><td><span class="field-name">INTERNATIONAL</span></td><td>International Affairs</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">685</td></tr>
+          <tr><td><span class="field-name">POLITICAL_SPEECH</span></td><td>Statements & Public Speech</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">669</td></tr>
+          <tr><td><span class="field-name">MILITARY_SECURITY</span></td><td>Military & Security</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">492</td></tr>
+          <tr><td><span class="field-name">APPOINTMENTS</span></td><td>Appointments & Nominations</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">437</td></tr>
+          <tr><td><span class="field-name">TIMING_EVENTS</span></td><td>Timing & Scheduling</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">310</td></tr>
+          <tr><td><span class="field-name">JUDICIAL</span></td><td>Courts & Legal</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">261</td></tr>
+          <tr><td><span class="field-name">PARTY_POLITICS</span></td><td>Party Politics</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">243</td></tr>
+          <tr><td><span class="field-name">GOVERNMENT_OPERATIONS</span></td><td>Government Operations</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">222</td></tr>
+          <tr><td><span class="field-name">REGULATORY</span></td><td>Regulatory</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">112</td></tr>
+          <tr><td><span class="field-name">LEGISLATIVE</span></td><td>Legislation & Policy</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">108</td></tr>
+          <tr><td><span class="field-name">POLLING_APPROVAL</span></td><td>Polls & Approval Ratings</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">55</td></tr>
+          <tr><td><span class="field-name">STATE_LOCAL</span></td><td>State & Local Government</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">30</td></tr>
+          <tr><td><span class="field-name">CRISIS_EMERGENCY</span></td><td>Crisis & Emergency</td><td style="text-align:right; font-family:var(--font-mono); font-size:13px">23</td></tr>
+        </tbody>
+      </table>
+      <p class="muted" style="margin-top: 12px">Market counts are approximate and change as new markets are listed. Total: 10,726 markets across both platforms.</p>
+    </div>
+
+  </main>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="logo"><span class="dot"></span> Bellwether</div>
+      <p>Prediction market infrastructure for research, journalism, and intelligent systems.</p>
+      <div class="footer-affil">Stanford GSB · Hall Lab · Hoover Institution</div>
+    </div>
+    <div class="footer-col">
+      <h4>Platform</h4>
+      <a href="data.html">Data</a>
+      <a href="docs.html">Documentation</a>
+    </div>
+    <div class="footer-col">
+      <h4>Research</h4>
+      <a href="research.html">Methodology</a>
+      <a href="research.html">Papers</a>
+      <a href="globe.html">Globe</a>
+    </div>
+    <div class="footer-col">
+      <h4>About</h4>
+      <a href="about.html">Team</a>
+      <a href="mailto:paschal@stanford.edu">Contact</a>
+      <a href="https://github.com/elliotjames-paschal/Bellwether" target="_blank">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Nav scroll
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 10));
+
+  // Sidebar active link tracking
+  const sections = document.querySelectorAll('.doc-section');
+  const sidebarLinks = document.querySelectorAll('.sidebar-link');
+
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(section => {
+      const top = section.offsetTop - 100;
+      if (window.scrollY >= top) current = section.id;
+    });
+    sidebarLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+    });
+  });
+
+  // Glossary sub-tabs
+  document.querySelectorAll('.sub-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.glossary-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('glossary-' + tab.dataset.glossary).classList.add('active');
+    });
+  });
+
+  // Embed preview
+  (function() {
+    const input = document.getElementById('embed-ticker');
+    const btn = document.getElementById('embed-preview-btn');
+    const previewArea = document.getElementById('embed-preview-area');
+    const iframe = document.getElementById('embed-iframe');
+    const snippetArea = document.getElementById('embed-snippet-area');
+    const snippetCode = document.getElementById('embed-snippet-code');
+    const copyBtn = document.getElementById('embed-copy-btn');
+
+    const baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+
+    function doPreview() {
+      const ticker = input.value.trim();
+      if (!ticker) return;
+      const embedUrl = 'embed.html?ticker=' + encodeURIComponent(ticker);
+      const fullUrl = baseUrl + embedUrl;
+      iframe.src = embedUrl;
+      previewArea.style.display = 'block';
+      const snippet = '<iframe src="' + fullUrl + '" width="400" height="320" frameborder="0" style="border:1px solid #d4d4d4;border-radius:2px;max-width:100%"></iframe>';
+      snippetCode.textContent = snippet;
+      snippetArea.style.display = 'block';
+    }
+
+    btn.addEventListener('click', doPreview);
+    input.addEventListener('keydown', function(e) { if (e.key === 'Enter') doPreview(); });
+
+    copyBtn.addEventListener('click', function() {
+      navigator.clipboard.writeText(snippetCode.textContent).then(function() {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(function() { copyBtn.textContent = 'Copy Embed Code'; }, 2000);
+      });
+    });
+
+    document.querySelectorAll('.embed-example').forEach(function(el) {
+      el.addEventListener('click', function() {
+        input.value = el.textContent;
+        doPreview();
+        document.getElementById('embeds').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  })();
+</script>
+</body>
+</html>
