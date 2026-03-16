@@ -12,6 +12,7 @@ Single-phase pipeline that:
 import json
 import gzip
 import re
+import sys
 import argparse
 import asyncio
 from pathlib import Path
@@ -962,12 +963,18 @@ def main():
         return
 
     # Run GPT pipeline on new/filtered markets only
-    new_results = asyncio.run(run_pipeline_async(
-        filtered,
-        args.model,
-        args.workers,
-        args.batch_size
-    ))
+    try:
+        new_results = asyncio.run(run_pipeline_async(
+            filtered,
+            args.model,
+            args.workers,
+            args.batch_size
+        ))
+    except Exception as e:
+        print(f"\nERROR in async pipeline: {e}")
+        print("Saving existing tickers (no new results)...")
+        save_tickers(list(existing_by_id.values()), args.output, args.model)
+        sys.exit(1)
 
     # Merge: new results overwrite/add to existing
     for t in new_results:
