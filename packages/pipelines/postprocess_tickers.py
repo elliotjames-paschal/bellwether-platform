@@ -861,7 +861,7 @@ def main():
     parser.add_argument(
         "--tickers", "-t",
         type=Path,
-        default=DATA_DIR / "tickers_all.json",
+        default=DATA_DIR / "tickers.json",
         help="Input tickers file"
     )
     parser.add_argument(

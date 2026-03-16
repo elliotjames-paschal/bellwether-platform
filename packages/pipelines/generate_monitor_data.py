@@ -1401,7 +1401,11 @@ def generate_monitor_data(skip_prices=False):
 
         if ticker_entry:
             ticker_str = ticker_entry['ticker']
-            if platform == 'Polymarket':
+            # Never group UNKNOWN tickers cross-platform — they are
+            # collision buckets from GPT failures, not real matches.
+            if 'UNKNOWN' in ticker_str:
+                no_ticker_markets.append(row)
+            elif platform == 'Polymarket':
                 ticker_groups[ticker_str]['pm_markets'].append(row)
             elif platform == 'Kalshi':
                 ticker_groups[ticker_str]['k_markets'].append(row)

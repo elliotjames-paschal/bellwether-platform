@@ -378,6 +378,7 @@ def parse_response(text: str, markets: List[Dict[str, str]]) -> List[Dict[str, A
 
 MAX_RETRIES = 5
 RETRY_BASE_DELAY = 2.0  # seconds, doubles each retry
+INTER_BATCH_DELAY = 1.0  # seconds between batches to avoid rate limits
 
 
 async def process_batch_async(
@@ -393,6 +394,8 @@ async def process_batch_async(
     user_prompt = create_batch_prompt(markets)
 
     async with semaphore:
+        # Stagger requests to avoid bursting the rate limit
+        await asyncio.sleep(INTER_BATCH_DELAY * (batch_idx % 3))
         last_error = None
         for attempt in range(MAX_RETRIES + 1):
             try:
@@ -742,6 +745,227 @@ def assemble_ticker(t: Dict[str, Any]) -> str:
 
 
 # ============================================================
+# REGEX FALLBACK FOR GPT FAILURES
+# ============================================================
+
+US_STATE_NAMES = {
+    'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR',
+    'california': 'CA', 'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE',
+    'florida': 'FL', 'georgia': 'GA', 'hawaii': 'HI', 'idaho': 'ID',
+    'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA', 'kansas': 'KS',
+    'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+    'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN',
+    'mississippi': 'MS', 'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE',
+    'nevada': 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+    'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC',
+    'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK', 'oregon': 'OR',
+    'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+    'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT',
+    'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA',
+    'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY',
+}
+
+
+def _extract_state(text: str) -> str:
+    """Extract US state code from text. Returns '' if not found."""
+    text_lower = text.lower()
+    # Check full state names (longest first to match "new hampshire" before "new")
+    for name, code in sorted(US_STATE_NAMES.items(), key=lambda x: -len(x[0])):
+        if name in text_lower:
+            return code
+    return ''
+
+
+# Patterns: "Will [party] win the [office] race in [state]"
+# Also matches: "Will [party] win the [state] [office] race"
+_PARTY_WIN_RE = re.compile(
+    r'will\s+(?:the\s+)?'
+    r'(republicans?|democratics?|democrats?|republican\s+party|democratic\s+party|gop|dem)\s+'
+    r'win\s+(?:the\s+)?'
+    r'(governor(?:ship)?|senate|house)\s+'
+    r'(?:race\s+)?(?:in|for)\s+'
+    r'(.+?)(?:\?|$)',
+    re.IGNORECASE
+)
+
+# Patterns: "Will [party] win the [state] [office] race in [year]"
+_PARTY_WIN_STATE_FIRST_RE = re.compile(
+    r'will\s+(?:the\s+)?'
+    r'(republicans?|democratics?|democrats?|republican\s+party|democratic\s+party|gop|dem)\s+'
+    r'win\s+(?:the\s+)?'
+    r'(.+?)\s+'
+    r'(governor|senate|house)\s+'
+    r'race',
+    re.IGNORECASE
+)
+
+# Patterns: "Will [name] be the [party] nominee for [office] in [state]"
+_NOMINEE_RE = re.compile(
+    r'wil[l]?\s+'
+    r'(.+?)\s+'
+    r'be\s+the\s+'
+    r'(republican|democratic|dem|gop)\s+'
+    r'nominee\s+for\s+'
+    r'(?:the\s+)?'
+    r'(governor|senate|house|senator)\s+'
+    r'(?:race\s+)?(?:in|of)\s+'
+    r'(.+?)(?:\?|$)',
+    re.IGNORECASE
+)
+
+# Patterns: "Will [party] win the governorship in [state]"
+_GOV_WIN_RE = re.compile(
+    r'will\s+(?:the\s+)?'
+    r'(republicans?|democratics?|democrats?|republican\s+party|democratic\s+party)\s+'
+    r'(?:party\s+)?win\s+(?:the\s+)?governorship\s+in\s+'
+    r'(.+?)(?:\?|$)',
+    re.IGNORECASE
+)
+
+
+def _party_to_agent(party_str: str) -> str:
+    """Normalize party string to agent code."""
+    p = party_str.strip().lower()
+    if p in ('republican', 'republicans', 'republican party', 'gop'):
+        return 'GOP'
+    if p in ('democratic', 'democratics', 'democrats', 'democratic party', 'dem'):
+        return 'DEM'
+    return p.upper()
+
+
+def _office_to_target(office_str: str, state_code: str) -> str:
+    """Convert office + state to target code."""
+    o = office_str.strip().lower()
+    if o in ('governor', 'governorship'):
+        return f'GOV_{state_code}' if state_code else 'GOV'
+    if o in ('senate', 'senator'):
+        return f'SEN_{state_code}' if state_code else 'SENATE'
+    if o == 'house':
+        return f'HOUSE_{state_code}' if state_code else 'HOUSE'
+    return o.upper()
+
+
+def regex_fallback_classify(ticker_entry: dict) -> bool:
+    """Attempt to classify an errored ticker using regex patterns.
+
+    Modifies ticker_entry in-place if successful.
+    Returns True if classification succeeded, False otherwise.
+    """
+    q = ticker_entry.get('original_question', '')
+    if not q:
+        return False
+
+    # Pattern 1: "Will [party] win the governorship in [state]"
+    m = _GOV_WIN_RE.search(q)
+    if m:
+        agent = _party_to_agent(m.group(1))
+        state = _extract_state(m.group(2))
+        if agent and state:
+            ticker_entry['agent'] = agent
+            ticker_entry['action'] = 'WIN'
+            ticker_entry['target'] = f'GOV_{state}'
+            ticker_entry['mechanism'] = 'CERTIFIED'
+            ticker_entry.pop('error', None)
+            ticker_entry['classified_by'] = 'regex_fallback'
+            return True
+
+    # Pattern 2: "Will [party] win the [office] race in [state]"
+    m = _PARTY_WIN_RE.search(q)
+    if m:
+        agent = _party_to_agent(m.group(1))
+        office = m.group(2).strip()
+        state = _extract_state(m.group(3))
+        if agent and state:
+            ticker_entry['agent'] = agent
+            ticker_entry['action'] = 'WIN'
+            ticker_entry['target'] = _office_to_target(office, state)
+            ticker_entry['mechanism'] = 'CERTIFIED'
+            ticker_entry.pop('error', None)
+            ticker_entry['classified_by'] = 'regex_fallback'
+            return True
+
+    # Pattern 2b: "Will [party] win the [state] [office] race"
+    m = _PARTY_WIN_STATE_FIRST_RE.search(q)
+    if m:
+        agent = _party_to_agent(m.group(1))
+        state = _extract_state(m.group(2))
+        office = m.group(3).strip()
+        if agent and state:
+            ticker_entry['agent'] = agent
+            ticker_entry['action'] = 'WIN'
+            ticker_entry['target'] = _office_to_target(office, state)
+            ticker_entry['mechanism'] = 'CERTIFIED'
+            ticker_entry.pop('error', None)
+            ticker_entry['classified_by'] = 'regex_fallback'
+            return True
+
+    # Pattern 3: "Will [name] be the [party] nominee for [office] in [state]"
+    m = _NOMINEE_RE.search(q)
+    if m:
+        name = m.group(1).strip().split()[-1].upper()  # Last name
+        office = m.group(3).strip()
+        state = _extract_state(m.group(4))
+        if name and state:
+            ticker_entry['agent'] = name
+            ticker_entry['action'] = 'WIN_NOM'
+            ticker_entry['target'] = _office_to_target(office, state)
+            ticker_entry['mechanism'] = 'CERTIFIED'
+            ticker_entry.pop('error', None)
+            ticker_entry['classified_by'] = 'regex_fallback'
+            return True
+
+    return False
+
+
+# ============================================================
+# POST-CLASSIFICATION STATE VALIDATION
+# ============================================================
+
+def validate_state_consistency(ticker_entry: dict) -> bool:
+    """Check that states mentioned in question match the target field.
+
+    Returns True if consistent (or no state to check). Returns False if
+    the question mentions a different state than the target, indicating
+    a GPT misclassification. Sets error field on the entry if invalid.
+    """
+    q = ticker_entry.get('original_question', '')
+    target = ticker_entry.get('target', '')
+    if not q or not target or 'error' in ticker_entry:
+        return True  # Nothing to validate
+
+    # Extract state from question
+    q_state = _extract_state(q)
+    if not q_state:
+        return True  # No state in question — can't validate
+
+    # Extract state from target (e.g., GOV_AR -> AR, SEN_MN -> MN, HOUSE_PA10 -> PA)
+    target_state = ''
+    for code in US_STATE_CODES:
+        # Match state code at end of target or followed by district number
+        if re.search(rf'_{code}(\d*)$', target):
+            target_state = code
+            break
+
+    if not target_state:
+        return True  # Target doesn't contain a state — can't validate
+
+    if q_state != target_state:
+        ticker_entry['error'] = (
+            f'state_mismatch: question mentions {q_state} '
+            f'but target is {target} ({target_state})'
+        )
+        ticker_entry['classified_by'] = 'state_validation_rejected'
+        # Remove the ticker so it gets UNKNOWN instead of a wrong match
+        ticker_entry.pop('ticker', None)
+        ticker_entry.pop('agent', None)
+        ticker_entry.pop('action', None)
+        ticker_entry.pop('target', None)
+        return False
+
+    return True
+
+
+# ============================================================
 # MAIN PIPELINE
 # ============================================================
 
@@ -829,8 +1053,12 @@ async def run_pipeline_async(
     ]
 
     for coro in asyncio.as_completed(tasks):
-        batch_idx, results = await coro
-        results_by_batch[batch_idx] = results
+        try:
+            batch_idx, results = await coro
+            results_by_batch[batch_idx] = results
+        except Exception as e:
+            print(f"    Batch failed with unhandled error: {e}")
+            # Continue processing other batches instead of crashing
 
     if pbar:
         pbar.close()
@@ -842,10 +1070,26 @@ async def run_pipeline_async(
 
     # Post-process and assemble tickers
     print("Post-processing and assembling tickers...")
+    regex_rescued = 0
+    state_rejected = 0
     for t in all_results:
-        if "error" not in t:
+        if "error" in t:
+            # Attempt regex fallback for errored (rate-limited) tickers
+            if regex_fallback_classify(t):
+                regex_rescued += 1
+                postprocess_ticker(t)
+                t["ticker"] = assemble_ticker(t)
+        else:
             postprocess_ticker(t)
             t["ticker"] = assemble_ticker(t)
+            # Validate state consistency on GPT-classified tickers
+            if not validate_state_consistency(t):
+                state_rejected += 1
+
+    if regex_rescued:
+        print(f"  Regex fallback rescued {regex_rescued} errored tickers")
+    if state_rejected:
+        print(f"  State validation rejected {state_rejected} GPT-classified tickers")
 
     return all_results
 
@@ -889,14 +1133,14 @@ def main():
     parser.add_argument(
         "--model", "-m",
         type=str,
-        default="gpt-4o-search-preview",
-        help="OpenAI model (gpt-4o-search-preview for web search)"
+        default="gpt-4o",
+        help="OpenAI model for ticker classification"
     )
     parser.add_argument(
         "--workers", "-w",
         type=int,
-        default=10,
-        help="Parallel workers"
+        default=3,
+        help="Parallel workers (keep low to avoid rate limits)"
     )
     parser.add_argument(
         "--batch-size", "-b",
@@ -972,15 +1216,28 @@ def main():
         ))
     except Exception as e:
         print(f"\nERROR in async pipeline: {e}")
+        import traceback
+        traceback.print_exc()
         print("Saving existing tickers (no new results)...")
         save_tickers(list(existing_by_id.values()), args.output, args.model)
-        sys.exit(1)
+        # Exit 0 so postprocess_tickers.py still runs on existing data
+        return
 
     # Merge: new results overwrite/add to existing
     for t in new_results:
         mid = t.get("market_id")
         if mid:
             existing_by_id[mid] = t
+
+    # Run regex fallback on any remaining errored tickers from prior runs
+    prior_rescued = 0
+    for t in existing_by_id.values():
+        if "error" in t and regex_fallback_classify(t):
+            postprocess_ticker(t)
+            t["ticker"] = assemble_ticker(t)
+            prior_rescued += 1
+    if prior_rescued:
+        print(f"Regex fallback rescued {prior_rescued} previously-errored tickers")
 
     # Prune tickers whose market_id is no longer in enriched input
     before = len(existing_by_id)
