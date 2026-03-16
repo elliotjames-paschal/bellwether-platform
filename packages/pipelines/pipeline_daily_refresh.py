@@ -566,6 +566,41 @@ def main():
         results["postprocess_tickers"] = success
         step_results["postprocess_tickers"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
+        # Generate a shared batch ID for all feedback pipeline steps
+        from datetime import datetime as _dt, timezone as _tz
+        feedback_batch_id = _dt.now(_tz.utc).strftime("batch_%Y%m%d_%H%M%S")
+        logger.info(f"Feedback pipeline batch: {feedback_batch_id}")
+
+        # Step 2b.1: Ingest human feedback from Google Sheet
+        success = run_script(
+            "pipeline_ingest_feedback.py",
+            "Ingest human feedback from Google Sheet",
+            args=["--batch-id", feedback_batch_id],
+            required=False
+        )
+        results["ingest_feedback"] = success
+        step_results["ingest_feedback"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # Step 2b.2: Apply human labels as final overrides
+        success = run_script(
+            "pipeline_apply_human_labels.py",
+            "Apply human labels (ground truth overrides)",
+            args=["--batch-id", feedback_batch_id],
+            required=False
+        )
+        results["apply_human_labels"] = success
+        step_results["apply_human_labels"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # Step 2b.3: Evaluate match accuracy against human labels (report only)
+        success = run_script(
+            "pipeline_evaluate_matches.py",
+            "Evaluate match accuracy vs human labels",
+            args=["--batch-id", feedback_batch_id],
+            required=False
+        )
+        results["evaluate_matches"] = success
+        step_results["evaluate_matches"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
         # Step 2c: Cross-platform discovery (embedding-based, no GPT needed)
         success = run_script(
             "pipeline_discover_cross_platform.py",
@@ -599,6 +634,16 @@ def main():
         results["update_matches"] = success
         step_results["update_matches"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
+        # Step 2f: Generate ticker corrections for NEXT run's postprocessing
+        success = run_script(
+            "generate_ticker_corrections.py",
+            "Generate ticker corrections from human feedback errors",
+            args=["--batch-id", feedback_batch_id],
+            required=False
+        )
+        results["ticker_corrections"] = success
+        step_results["ticker_corrections"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
         # Step 3: Generate market map using ticker-based matching
         success = run_script(
             "generate_market_map.py",
@@ -630,6 +675,15 @@ def main():
         )
         results["web_data"] = success
         step_results["generate_web_data"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # Step 5b: Extract contract rules for Market Monitor
+        success = run_script(
+            "generate_market_rules.py",
+            "Extract contract rules for monitor",
+            required=False
+        )
+        results["market_rules"] = success
+        step_results["generate_market_rules"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
         # Step 6: Upload active_markets.json to KV (for /api/markets/search and /top)
         if os.environ.get("CLOUDFLARE_API_TOKEN"):
