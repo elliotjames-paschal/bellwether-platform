@@ -414,7 +414,8 @@ async def process_batch_async(
                 last_error = e
                 error_str = str(e)
                 is_rate_limit = "429" in error_str or "rate limit" in error_str.lower()
-                is_retryable = is_rate_limit or "timeout" in error_str.lower() or "500" in error_str or "502" in error_str or "503" in error_str
+                error_lower = error_str.lower()
+                is_retryable = is_rate_limit or "timeout" in error_lower or "timed out" in error_lower or "500" in error_str or "502" in error_str or "503" in error_str or "connection" in error_lower
 
                 if is_retryable and attempt < MAX_RETRIES:
                     delay = RETRY_BASE_DELAY * (2 ** attempt)

@@ -99,10 +99,22 @@ print("\n3. Loading CORRECTED historical price data (contamination adjustments a
 
 # Polymarket - load both price files and merge
 # CORRECTED is preferred when non-empty, fall back to v3 for empty/missing entries
-with open(DATA_DIR / "polymarket_all_political_prices_CORRECTED.json", 'r') as f:
+pm_corrected_path = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
+pm_v3_path = DATA_DIR / "polymarket_all_political_prices_CORRECTED_v3.json"
+
+if not pm_corrected_path.exists():
+    print(f"   ERROR: {pm_corrected_path} not found. Run truncate_polymarket_prices.py first.")
+    sys.exit(1)
+
+with open(pm_corrected_path, 'r') as f:
     pm_prices_main = json.load(f)
-with open(DATA_DIR / "polymarket_all_political_prices_CORRECTED_v3.json", 'r') as f:
-    pm_prices_v3 = json.load(f)
+
+if pm_v3_path.exists():
+    with open(pm_v3_path, 'r') as f:
+        pm_prices_v3 = json.load(f)
+else:
+    print(f"   Note: {pm_v3_path.name} not found, using CORRECTED only")
+    pm_prices_v3 = {}
 
 # Merge: use CORRECTED data if non-empty, otherwise use v3
 pm_prices = {}
@@ -119,9 +131,20 @@ print(f"   ✓ Loaded {len(pm_prices):,} Polymarket tokens (merged CORRECTED + v
 print(f"     - {main_only:,} from CORRECTED, {v3_fallback:,} from v3 fallback")
 
 # Kalshi - load corrected all-political prices (v3: truncated at actual trading_close_time)
-with open(DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json", 'r') as f:
-    kalshi_prices = json.load(f)
-print(f"   ✓ Loaded {len(kalshi_prices):,} Kalshi markets (CORRECTED v3)")
+kalshi_v3_path = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
+kalshi_plain_path = DATA_DIR / "kalshi_all_political_prices_CORRECTED.json"
+
+if kalshi_v3_path.exists():
+    with open(kalshi_v3_path, 'r') as f:
+        kalshi_prices = json.load(f)
+    print(f"   ✓ Loaded {len(kalshi_prices):,} Kalshi markets (CORRECTED v3)")
+elif kalshi_plain_path.exists():
+    with open(kalshi_plain_path, 'r') as f:
+        kalshi_prices = json.load(f)
+    print(f"   ✓ Loaded {len(kalshi_prices):,} Kalshi markets (CORRECTED, v3 not found)")
+else:
+    print(f"   ERROR: No Kalshi price files found. Run truncate_kalshi_prices.py first.")
+    sys.exit(1)
 
 # ============================================================================
 # 4. Helper Functions
