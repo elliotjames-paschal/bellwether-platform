@@ -74,6 +74,7 @@ if CAPITAL_COORDS_FILE.exists():
 # Paths
 MASTER_FILE = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
 TICKERS_FILE = DATA_DIR / "tickers_postprocessed.json"
+MATCH_EXCLUSIONS_FILE = DATA_DIR / "match_exclusions.json"
 PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
 KALSHI_PRICES_FILE = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
 KALSHI_DAILY_PRICES_DIR = DATA_DIR / "kalshi_daily_prices"
@@ -1275,6 +1276,32 @@ def _is_contract_expired(row, now, grace_hours=24):
     return now > (end_dt + pd.Timedelta(hours=grace_hours))
 
 
+def load_match_exclusions() -> set:
+    """Load match exclusions as a set of frozenset pairs of market IDs.
+
+    Each exclusion means "these two markets should NOT be grouped together"
+    even if they share a BWR ticker. Created by pipeline_apply_human_labels.py
+    when users flag matches as "different events".
+    """
+    if not MATCH_EXCLUSIONS_FILE.exists():
+        return set()
+    try:
+        with open(MATCH_EXCLUSIONS_FILE) as f:
+            data = json.load(f)
+        exclusions = set()
+        for exc in data.get("exclusions", []):
+            pair = frozenset([str(exc["market_id_a"]), str(exc["market_id_b"])])
+            exclusions.add(pair)
+        return exclusions
+    except (json.JSONDecodeError, OSError, KeyError):
+        return set()
+
+
+def is_excluded_pair(market_a_id: str, market_b_id: str, exclusions: set) -> bool:
+    """Check if two markets are in the exclusion set."""
+    return frozenset([market_a_id, market_b_id]) in exclusions
+
+
 def generate_monitor_data(skip_prices=False):
     """Generate monitor data for all active political markets.
 
@@ -1306,6 +1333,10 @@ def generate_monitor_data(skip_prices=False):
     for t in ticker_entries:
         mid = str(t['market_id'])
         mid_to_ticker[mid] = t
+
+    # Load match exclusions (human feedback: "different events")
+    match_exclusions = load_match_exclusions()
+    log(f"  Loaded {len(match_exclusions):,} match exclusions")
 
     candlesticks = load_candlestick_prices()
     log(f"  Loaded {len(candlesticks):,} tokens with price history")
@@ -1457,6 +1488,7 @@ def generate_monitor_data(skip_prices=False):
     # =========================================================================
     all_entries = []
     fully_expired_tickers = 0
+    excluded_by_feedback = 0
 
     for ticker_str, group in ticker_groups.items():
         pm_markets = group['pm_markets']
@@ -1476,6 +1508,18 @@ def generate_monitor_data(skip_prices=False):
         # Pick best market per platform by volume
         pm_best = max(pm_markets, key=get_row_volume) if pm_markets else None
         k_best = max(k_markets, key=get_row_volume) if k_markets else None
+
+        # Check match exclusions: if the best PM and K markets are excluded
+        # (human flagged as "different events"), split into separate entries
+        if pm_best is not None and k_best is not None and match_exclusions:
+            pm_id = str(pm_best.get('market_id', '')).split('.')[0]
+            k_id = str(k_best.get('market_id', '')).split('.')[0]
+            if is_excluded_pair(pm_id, k_id, match_exclusions):
+                # Demote to two single-platform entries
+                no_ticker_markets.append(pm_best)
+                no_ticker_markets.append(k_best)
+                excluded_by_feedback += 1
+                continue
 
         has_pm = pm_best is not None
         has_k = k_best is not None
@@ -1602,7 +1646,7 @@ def generate_monitor_data(skip_prices=False):
 
     ticker_count = len(all_entries)
     cross_platform_count = sum(1 for e in all_entries if e['entry_type'] == 'cross_platform')
-    log(f"  Ticker-grouped entries: {ticker_count:,} ({cross_platform_count} cross-platform, {fully_expired_tickers} tickers fully expired)")
+    log(f"  Ticker-grouped entries: {ticker_count:,} ({cross_platform_count} cross-platform, {fully_expired_tickers} tickers fully expired, {excluded_by_feedback} split by human feedback)")
 
     # =========================================================================
     # PROCESS MARKETS WITHOUT TICKERS (fallback individual entries)
