@@ -120,8 +120,24 @@ def resolve_market_ids(market_keys: list, ticker_lookup: dict) -> list:
             # Expand all market_ids for this ticker (e.g. Kalshi + Polymarket)
             resolved.extend(ticker_lookup[key])
         else:
-            # Key might already be a market_id, or unresolvable
-            resolved.append(key)
+            # Try prefix matching for grouped ticker keys (e.g.
+            # "BWR-FED-HOLD-FFR-SPECIFIC_MEETING-ANY-DEC2026" should match
+            # all specific variants like "...-0BPS-DEC2026", "...-25BPS-...")
+            # The frontend submits keys with "ANY" as a wildcard for the
+            # specificity segment; find all tickers sharing the same prefix
+            # and suffix.
+            prefix_matches = []
+            if key.startswith("BWR-") and "-ANY-" in key:
+                parts = key.split("-ANY-", 1)
+                prefix, suffix = parts[0], parts[1]
+                for tk in ticker_lookup:
+                    if tk.startswith(prefix + "-") and tk.endswith("-" + suffix):
+                        prefix_matches.extend(ticker_lookup[tk])
+            if prefix_matches:
+                resolved.extend(prefix_matches)
+            else:
+                # Key might already be a market_id, or unresolvable
+                resolved.append(key)
     return resolved
 
 

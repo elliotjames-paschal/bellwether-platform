@@ -340,6 +340,30 @@ def apply_different_event(labels: list, tickers_by_id: dict, batch_id: str = Non
             continue
 
         market_ids = label.get("market_ids", [])
+
+        # If we have a single unresolved ticker key, expand it to all
+        # market IDs sharing that ticker. This handles the case where the
+        # frontend submits a grouped key like "BWR-...-ANY-DEC2026" with
+        # platform "Both" — we need to find the actual Kalshi + Polymarket
+        # market IDs under this ticker to create cross-platform exclusions.
+        if len(market_ids) == 1:
+            single = market_ids[0]
+            if single not in tickers_by_id:
+                # Not a real market_id — try matching as a ticker string
+                # or prefix (with ANY wildcard)
+                expanded = []
+                for mid, obj in tickers_by_id.items():
+                    tk = obj.get("ticker", "")
+                    if tk == single:
+                        expanded.append(mid)
+                    elif single.startswith("BWR-") and "-ANY-" in single:
+                        parts = single.split("-ANY-", 1)
+                        prefix, suffix = parts[0], parts[1]
+                        if tk.startswith(prefix + "-") and tk.endswith("-" + suffix):
+                            expanded.append(mid)
+                if len(expanded) >= 2:
+                    market_ids = expanded
+
         if len(market_ids) < 2:
             label["status"] = "needs_review"
             results.append(("skip", label["label_id"], "single market"))
