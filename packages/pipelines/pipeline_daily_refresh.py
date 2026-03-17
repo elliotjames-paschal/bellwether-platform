@@ -734,6 +734,16 @@ def main():
         results["liquidity_timeseries"] = success
         step_results["export_liquidity_ts"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
+        # Optimize liquidity accuracy weights (weekly full refresh only)
+        if full_refresh:
+            success = run_script(
+                "optimize_liquidity_accuracy.py",
+                "Optimize liquidity accuracy weights",
+                required=False
+            )
+            results["liquidity_accuracy"] = success
+            step_results["optimize_liquidity_accuracy"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
         # Generate civic elections data for US Election Calendar
         success = run_script(
             "generate_civic_elections.py",
