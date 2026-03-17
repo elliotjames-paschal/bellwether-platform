@@ -72,7 +72,13 @@ def normalize_label_type(raw_type: str) -> str:
     'other'
     """
     normalized = raw_type.strip().lower()
-    return LABEL_TYPE_MAP.get(normalized, "other")
+    if normalized in LABEL_TYPE_MAP:
+        return LABEL_TYPE_MAP[normalized]
+    # Handle subtypes: "different-event:agent-mismatch" -> "different_event"
+    prefix = normalized.split(":")[0]
+    if prefix in LABEL_TYPE_MAP:
+        return LABEL_TYPE_MAP[prefix]
+    return "other"
 
 
 def compute_label_id(timestamp: str, market_ids: list) -> str:
