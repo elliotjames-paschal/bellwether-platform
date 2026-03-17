@@ -55,6 +55,11 @@ def calculate_market_metrics(market_data):
     ask_depths = [m['ask_depth'] for m in metrics_list if m.get('ask_depth') is not None]
     midpoints = [m['midpoint'] for m in metrics_list if m.get('midpoint') is not None]
 
+    # Filter non-finite values
+    spreads = [s for s in spreads if np.isfinite(s)]
+    rel_spreads = [s for s in rel_spreads if np.isfinite(s)]
+    total_depths = [d for d in total_depths if np.isfinite(d)]
+
     timestamps = [m['timestamp'] for m in metrics_list if m.get('timestamp')]
 
     result = {
@@ -114,8 +119,11 @@ def calculate_market_metrics(market_data):
         result['bid_depth_mean'] = np.mean(bid_depths)
         result['ask_depth_mean'] = np.mean(ask_depths)
         # Imbalance: positive = more bids, negative = more asks
-        imbalances = [(b - a) / (b + a) if (b + a) > 0 else 0
-                      for b, a in zip(bid_depths, ask_depths)]
+        imbalances = []
+        for m in metrics_list:
+            b, a = m.get('bid_depth'), m.get('ask_depth')
+            if b is not None and a is not None and np.isfinite(b) and np.isfinite(a) and (b + a) > 0:
+                imbalances.append((b - a) / (b + a))
         result['depth_imbalance_mean'] = np.mean(imbalances)
     else:
         result['bid_depth_mean'] = None
@@ -143,8 +151,12 @@ def main():
     # Process Polymarket
     log("\n1. Processing Polymarket orderbooks...")
     if PM_INPUT_FILE.exists():
-        with open(PM_INPUT_FILE) as f:
-            pm_data = json.load(f)
+        try:
+            with open(PM_INPUT_FILE) as f:
+                pm_data = json.load(f)
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"   Error reading {PM_INPUT_FILE}: {e}")
+            pm_data = {}
 
         log(f"   Loaded {len(pm_data):,} markets")
 
@@ -163,8 +175,12 @@ def main():
     # Process Kalshi
     log("\n2. Processing Kalshi orderbooks...")
     if KALSHI_INPUT_FILE.exists():
-        with open(KALSHI_INPUT_FILE) as f:
-            kalshi_data = json.load(f)
+        try:
+            with open(KALSHI_INPUT_FILE) as f:
+                kalshi_data = json.load(f)
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"   Error reading {KALSHI_INPUT_FILE}: {e}")
+            kalshi_data = {}
 
         log(f"   Loaded {len(kalshi_data):,} markets")
 

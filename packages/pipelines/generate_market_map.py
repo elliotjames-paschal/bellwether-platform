@@ -336,14 +336,26 @@ def generate_market_map():
         'markets': matched_markets,
     }
 
+    # Clean NaN values from output before serialization
+    def clean_nan(obj):
+        if isinstance(obj, float) and (obj != obj):  # NaN check
+            return None
+        if isinstance(obj, dict):
+            return {k: clean_nan(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [clean_nan(v) for v in obj]
+        return obj
+
+    output = clean_nan(output)
+
     # Write output to both locations
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
-        json.dump(output, f, indent=2)
+        json.dump(output, f, indent=2, allow_nan=False)
 
     WEBSITE_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     with open(WEBSITE_OUTPUT, 'w', encoding='utf-8') as f:
-        json.dump(output, f, indent=2)
+        json.dump(output, f, indent=2, allow_nan=False)
 
     # Count pm_token_id coverage
     with_token_id = sum(1 for m in matched_markets if m.get('pm_token_id'))

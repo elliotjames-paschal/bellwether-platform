@@ -17,7 +17,7 @@ import numpy as np
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from collections import defaultdict
 
@@ -36,8 +36,12 @@ def process_orderbook_file(filepath, platform):
         print(f"   Warning: {filepath.name} not found")
         return {}
 
-    with open(filepath) as f:
-        data = json.load(f)
+    try:
+        with open(filepath) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"   Warning: Could not load {filepath.name}: {e}")
+        return {}
 
     # Aggregate by day
     daily_data = defaultdict(lambda: {'spreads': [], 'depths': [], 'n_snapshots': 0})
@@ -49,7 +53,7 @@ def process_orderbook_file(filepath, platform):
                 continue
 
             # Convert to date string
-            date_str = datetime.fromtimestamp(ts / 1000).strftime('%Y-%m-%d')
+            date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime('%Y-%m-%d')
 
             # Get spread and depth
             rel_spread = metric.get('relative_spread')
@@ -118,12 +122,14 @@ def main():
     # Save
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_FILE, 'w') as f:
-        json.dump(output, f, indent=2)
+        json.dump(output, f, indent=2, allow_nan=False)
 
     print(f"\n   Saved to {OUTPUT_FILE.name}")
-    print(f"   Date range: {output['summary']['date_range']}")
-    print(f"   PM avg spread: {output['summary']['pm_avg_spread']}%")
-    print(f"   Kalshi avg spread: {output['summary']['kalshi_avg_spread']}%")
+    print(f"   Date range: {output['summary']['date_range'] or 'N/A'}")
+    pm_spread = output['summary']['pm_avg_spread']
+    k_spread = output['summary']['kalshi_avg_spread']
+    print(f"   PM avg spread: {f'{pm_spread}%' if pm_spread is not None else 'N/A'}")
+    print(f"   Kalshi avg spread: {f'{k_spread}%' if k_spread is not None else 'N/A'}")
 
 
 if __name__ == "__main__":

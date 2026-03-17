@@ -1174,6 +1174,9 @@ get_reportability(<span class="str">"BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-2026"</
       navigator.clipboard.writeText(snippetCode.textContent).then(function() {
         copyBtn.textContent = 'Copied!';
         setTimeout(function() { copyBtn.textContent = 'Copy Embed Code'; }, 2000);
+      }).catch(function() {
+        copyBtn.textContent = 'Copy failed';
+        setTimeout(function() { copyBtn.textContent = 'Copy Embed Code'; }, 2000);
       });
     });
 

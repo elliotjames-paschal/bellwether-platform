@@ -144,8 +144,8 @@ def export_platform_comparison(df):
             'bins': [round(b, 1) for b in bins[:-1].tolist()],
             'polymarket': pm_hist.tolist(),
             'kalshi': k_hist.tolist(),
-            'pm_median': round(float(pm.median()), 2),
-            'k_median': round(float(k.median()), 2),
+            'pm_median': round(float(pm.median()), 2) if len(pm) > 0 else 0,
+            'k_median': round(float(k.median()), 2) if len(k) > 0 else 0,
             'pm_count': int(len(pm)),
             'k_count': int(len(k))
         },
@@ -153,8 +153,8 @@ def export_platform_comparison(df):
             'bins': [round(b, 0) for b in depth_bins[:-1].tolist()],
             'polymarket': pm_depth_hist.tolist(),
             'kalshi': k_depth_hist.tolist(),
-            'pm_median': round(float(pm_depth.median()), 0),
-            'k_median': round(float(k_depth.median()), 0),
+            'pm_median': round(float(pm_depth.median()), 0) if len(pm_depth) > 0 else 0,
+            'k_median': round(float(k_depth.median()), 0) if len(k_depth) > 0 else 0,
             'pm_count': int(len(pm_depth)),
             'k_count': int(len(k_depth))
         }
@@ -185,9 +185,14 @@ def export_spread_vs_volume(df):
         # Calculate correlation
         log_vol = np.log10(plat_df['volume_usd'])
         corr = np.corrcoef(log_vol, plat_df['rel_spread_mean'])[0, 1]
+        if not np.isfinite(corr):
+            corr = 0.0
+
+        if len(plat_df) < 2:
+            continue
 
         # Create binned trend line
-        plat_df['vol_bin'] = pd.qcut(plat_df['volume_usd'], q=20, duplicates='drop')
+        plat_df['vol_bin'] = pd.qcut(plat_df['volume_usd'], q=min(20, len(plat_df)), duplicates='drop')
         trend = plat_df.groupby('vol_bin').agg({
             'volume_usd': 'median',
             'rel_spread_mean': 'median'
@@ -232,17 +237,17 @@ def main():
     print("   Exporting liquidity_by_category.json...")
     cat_data = export_liquidity_by_category(df)
     with open(WEBSITE_DATA_DIR / "liquidity_by_category.json", 'w') as f:
-        json.dump(cat_data, f, indent=2)
+        json.dump(cat_data, f, indent=2, allow_nan=False)
 
     print("   Exporting liquidity_platform_comparison.json...")
     platform_data = export_platform_comparison(df)
     with open(WEBSITE_DATA_DIR / "liquidity_platform_comparison.json", 'w') as f:
-        json.dump(platform_data, f, indent=2)
+        json.dump(platform_data, f, indent=2, allow_nan=False)
 
     print("   Exporting liquidity_spread_vs_volume.json...")
     scatter_data = export_spread_vs_volume(df)
     with open(WEBSITE_DATA_DIR / "liquidity_spread_vs_volume.json", 'w') as f:
-        json.dump(scatter_data, f, indent=2)
+        json.dump(scatter_data, f, indent=2, allow_nan=False)
 
     print(f"\n   Done! Exported to {WEBSITE_DATA_DIR}")
 

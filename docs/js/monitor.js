@@ -318,30 +318,31 @@
             </div>`;
         }
 
-        const robustness = data.robustness;
-        const vwap = data.vwap_6h;
+        const robustness = data.robustness || {};
+        const vwap = data.vwap_details || data.vwap_6h || {};
 
-        const costToMove = robustness.cost_to_move_5c !== null
+        const costToMove = robustness.cost_to_move_5c != null
             ? formatVolume(robustness.cost_to_move_5c)
             : 'N/A';
 
-        const vwapValue = data.bellwether_price !== null
+        const vwapValue = data.bellwether_price != null
             ? `${Math.round(data.bellwether_price * 100)}%`
             : 'No trades';
 
-        const vwapLabel = data.vwap_label || '6h VWAP';
+        const vwapLabel = data.price_label || data.vwap_label || '6h VWAP';
 
         // Badge class based on reportability
-        const badgeClass = robustness.reportability === 'reportable' ? 'reportable' :
-                          robustness.reportability === 'caution' ? 'caution' : 'fragile';
-        const badgeLabel = robustness.reportability.charAt(0).toUpperCase() + robustness.reportability.slice(1);
+        const reportability = robustness.reportability || 'fragile';
+        const badgeClass = reportability === 'reportable' ? 'reportable' :
+                          reportability === 'caution' ? 'caution' : 'fragile';
+        const badgeLabel = reportability.charAt(0).toUpperCase() + reportability.slice(1);
 
         // Platform prices for combined data
         let platformPricesHtml = '';
         if (isCombined && data.platform_prices) {
-            const pmPrice = data.platform_prices.polymarket !== null
+            const pmPrice = data.platform_prices.polymarket != null
                 ? formatPrice(data.platform_prices.polymarket) : '—';
-            const kPrice = data.platform_prices.kalshi !== null
+            const kPrice = data.platform_prices.kalshi != null
                 ? formatPrice(data.platform_prices.kalshi) : '—';
 
             platformPricesHtml = `
@@ -369,11 +370,11 @@
                 <div class="modal-live-data-item">
                     <div class="modal-live-data-label">${vwapLabel}</div>
                     <div class="modal-live-data-value">${vwapValue}</div>
-                    <div class="modal-live-data-sub">${vwap.trade_count} trades</div>
+                    <div class="modal-live-data-sub">${vwap.trade_count ?? '—'} trades</div>
                 </div>
             </div>
             ${platformPricesHtml}
-            <div class="modal-live-data-timestamp">Updated ${new Date(data.fetched_at).toLocaleTimeString()}</div>
+            <div class="modal-live-data-timestamp">Updated ${data.fetched_at ? new Date(data.fetched_at).toLocaleTimeString() : 'Unknown'}</div>
         </div>`;
     }
 
@@ -394,7 +395,7 @@
 
     // Format currency
     function formatVolume(value) {
-        if (!value) return '—';
+        if (value === null || value === undefined) return '—';
         if (value >= 1e9) return '$' + (value / 1e9).toFixed(1) + 'B';
         if (value >= 1e6) return '$' + (value / 1e6).toFixed(1) + 'M';
         if (value >= 1e3) return '$' + (value / 1e3).toFixed(0) + 'K';
@@ -1131,14 +1132,23 @@
                 // Cross-platform: use combined endpoint
                 fetchCombinedLiveData(pmTokenId, kTicker).then(data => {
                     liveDataContainer.innerHTML = renderLiveDataSection(data, true);
+                }).catch(e => {
+                    console.warn('Live data render failed:', e);
+                    liveDataContainer.innerHTML = renderLiveDataSection(null, true);
                 });
             } else if (pmTokenId) {
                 fetchLiveData(pmTokenId, 'polymarket').then(data => {
                     liveDataContainer.innerHTML = renderLiveDataSection(data, false);
+                }).catch(e => {
+                    console.warn('Live data render failed:', e);
+                    liveDataContainer.innerHTML = renderLiveDataSection(null, false);
                 });
             } else if (kTicker) {
                 fetchLiveData(kTicker, 'kalshi').then(data => {
                     liveDataContainer.innerHTML = renderLiveDataSection(data, false);
+                }).catch(e => {
+                    console.warn('Live data render failed:', e);
+                    liveDataContainer.innerHTML = renderLiveDataSection(null, false);
                 });
             } else {
                 liveDataContainer.innerHTML = renderLiveDataSection(null);
@@ -1492,11 +1502,12 @@
             if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && currentModalKey) {
                 // Don't navigate if user is typing in a textarea/input
                 if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-                const idx = filteredMarkets.findIndex(m => m.key === currentModalKey);
+                const sorted = getSortedMarkets();
+                const idx = sorted.findIndex(m => m.key === currentModalKey);
                 if (idx === -1) return;
                 const nextIdx = e.key === 'ArrowLeft' ? idx - 1 : idx + 1;
-                if (nextIdx >= 0 && nextIdx < filteredMarkets.length) {
-                    openModal(filteredMarkets[nextIdx].key);
+                if (nextIdx >= 0 && nextIdx < sorted.length) {
+                    openModal(sorted[nextIdx].key);
                 }
             }
         });
@@ -2220,9 +2231,10 @@
 
                     // Draw cropped and scaled image
                     ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+                    URL.revokeObjectURL(img.src);
                     resolve(canvas.toDataURL('image/png'));
                 };
-                img.onerror = () => resolve(null);
+                img.onerror = () => { URL.revokeObjectURL(img.src); resolve(null); };
                 img.src = URL.createObjectURL(blob);
             });
         } catch (e) {
@@ -2354,6 +2366,8 @@
         e.stopPropagation();
         navigator.clipboard.writeText(btn.dataset.ticker).then(() => {
             showToast('Ticker copied!');
+        }).catch(() => {
+            showToast('Copy failed — try manually');
         });
     });
 

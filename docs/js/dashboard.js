@@ -196,14 +196,16 @@ async function loadInsights() {
         const bannerAccuracy = document.getElementById('banner-accuracy');
         if (stats.shared_elections) {
             const src = stats.shared_elections.combined || stats.shared_elections.polymarket;
-            const accStr = (src.accuracy * 100).toFixed(1) + '%';
-            if (insightAccuracy) insightAccuracy.textContent = accStr;
-            if (bannerAccuracy) bannerAccuracy.textContent = accStr;
+            if (src && src.accuracy != null) {
+                const accStr = (src.accuracy * 100).toFixed(1) + '%';
+                if (insightAccuracy) insightAccuracy.textContent = accStr;
+                if (bannerAccuracy) bannerAccuracy.textContent = accStr;
+            }
         }
 
         const insightCorrelation = document.getElementById('insight-correlation');
         const bannerCorrelation = document.getElementById('banner-correlation');
-        if (stats.head_to_head) {
+        if (stats.head_to_head && stats.head_to_head.correlation != null) {
             const corrStr = (stats.head_to_head.correlation * 100).toFixed(1) + '%';
             if (insightCorrelation) insightCorrelation.textContent = corrStr;
             if (bannerCorrelation) bannerCorrelation.textContent = corrStr;
@@ -215,7 +217,7 @@ async function loadInsights() {
             if (volIndex >= 0) {
                 const pmVol = platformStats.polymarket[volIndex];
                 const kalshiVol = platformStats.kalshi[volIndex];
-                const parseVol = (s) => parseFloat(s.replace(/[$,]/g, ''));
+                const parseVol = (s) => typeof s === 'string' ? parseFloat(s.replace(/[$,]/g, '')) : (Number(s) || 0);
                 const total = parseVol(pmVol) + parseVol(kalshiVol);
                 const billions = (total / 1e9).toFixed(1);
 
@@ -236,8 +238,8 @@ async function loadAggregateStatistics() {
         if (!el) return;
 
         // Find max values for bar scaling
-        const maxMarkets = Math.max(...data.total_markets);
-        const maxVolume = Math.max(...data.total_volume_m);
+        const maxMarkets = data.total_markets && data.total_markets.length > 0 ? Math.max(...data.total_markets) : 1;
+        const maxVolume = data.total_volume_m && data.total_volume_m.length > 0 ? Math.max(...data.total_volume_m) : 1;
 
         let html = `
             <table class="platform-stats-table">
@@ -309,7 +311,7 @@ async function loadElectionTypes() {
         if (!el) return;
 
         // Find max for bar scaling
-        const maxTotal = Math.max(...data.total);
+        const maxTotal = data.total && data.total.length > 0 ? Math.max(...data.total) : 1;
 
         let html = `
             <table class="platform-stats-table">
@@ -614,6 +616,7 @@ async function loadCalibration() {
 
         // Quantile bins scatter plot (like paper)
         // Each point is a bin of ~160 predictions, not individual predictions
+        if (!data.quantile_bins) { showError('chart-calibration'); return; }
         const points = {
             x: data.quantile_bins.predicted,
             y: data.quantile_bins.actual,
@@ -651,7 +654,7 @@ async function loadCalibration() {
             annotations: [{
                 x: 0.98, y: 0.02,
                 xref: 'paper', yref: 'paper',
-                text: `Total: ${data.total_predictions.toLocaleString()} predictions`,
+                text: `Total: ${(data.total_predictions || 0).toLocaleString()} predictions`,
                 showarrow: false,
                 font: { size: 11, color: COLORS.text }
             }]
@@ -669,6 +672,7 @@ async function loadCalibrationDistribution() {
         const data = await fetchJSON('calibration.json');
 
         // Combine both platforms for a cleaner view
+        if (!data.distribution || !data.distribution.x) { showError('chart-calibration-dist'); return; }
         const combined = data.distribution.x.map((x, i) =>
             (data.distribution.polymarket[i] || 0) + (data.distribution.kalshi[i] || 0)
         );
@@ -768,7 +772,7 @@ async function loadPlatformComparison() {
             annotations: [{
                 x: 0.98, y: 0.02,
                 xref: 'paper', yref: 'paper',
-                text: `n = ${data.labels.length} shared elections`,
+                text: `n = ${(data.labels || []).length} shared elections`,
                 showarrow: false,
                 font: { size: 11, color: COLORS.text }
             }]
@@ -1102,10 +1106,9 @@ function renderVolumeChart() {
     }
 
     // Find July 2023 index for initial view (users can zoom out to see earlier data)
-    const startMonthIndex = volumeData.months.indexOf('2023-07');
-    const initialRange = startMonthIndex >= 0
-        ? [volumeData.months[startMonthIndex], volumeData.months[volumeData.months.length - 1]]
-        : [volumeData.months[0], volumeData.months[volumeData.months.length - 1]];
+    let startMonthIndex = volumeData.months.indexOf('2023-07');
+    if (startMonthIndex === -1) startMonthIndex = 0;
+    const initialRange = [volumeData.months[startMonthIndex], volumeData.months[volumeData.months.length - 1]];
 
     const layout = {
         ...LAYOUT_DEFAULTS,
@@ -1243,6 +1246,7 @@ async function loadPartisanRegression() {
         if (!el) return;
 
         const models = data.models;
+        if (!models || !Array.isArray(models)) { showError('table-partisan-regression'); return; }
 
         // Collect all variable names across models
         const allVars = [];
@@ -1571,6 +1575,7 @@ async function loadCalibrationByCloseness() {
     try {
         const data = await fetchJSON('calibration_by_closeness.json');
         const buckets = data.buckets;
+        if (!buckets || !Array.isArray(buckets)) { showError('chart-closeness'); return; }
 
         const labels = buckets.map(b => b.label);
         const pmBrier = buckets.map(b => b.pm_brier);
@@ -1696,7 +1701,7 @@ function renderPredVolumeChart() {
         annotations: [{
             x: 0.98, y: 0.98,
             xref: 'paper', yref: 'paper',
-            text: `r = ${plat.correlation.toFixed(3)} (n=${plat.n.toLocaleString()})`,
+            text: `r = ${(plat.correlation ?? 0).toFixed(3)} (n=${(plat.n ?? 0).toLocaleString()})`,
             showarrow: false,
             font: { size: 12, color: COLORS.dark },
             bgcolor: 'rgba(255,255,255,0.8)',
@@ -1728,9 +1733,9 @@ function resizeChartsInContainer(container) {
     if (!container) return;
     setTimeout(() => {
         container.querySelectorAll('.chart, .chart-stats').forEach(chart => {
-            if (chart.id && document.getElementById(chart.id)._fullLayout) {
+            if (chart.id) { const el = document.getElementById(chart.id); if (el && el._fullLayout) {
                 Plotly.Plots.resize(chart.id);
-            }
+            } }
         });
     }, 100);
 }
@@ -1744,6 +1749,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         this.classList.add('active');
         const tabId = 'tab-' + this.dataset.tab;
         const tab = document.getElementById(tabId);
+        if (!tab) return;
         tab.classList.add('active');
 
         // Resize all Plotly charts in the newly visible tab
@@ -1763,6 +1769,7 @@ function switchSubtab(subtabName, btn) {
     // Add active to clicked button and corresponding content
     btn.classList.add('active');
     const subtab = document.getElementById('subtab-' + subtabName);
+    if (!subtab) return;
     subtab.classList.add('active');
 
     // Resize charts in the newly visible subtab
@@ -1930,13 +1937,13 @@ async function downloadChartPNG(chartId) {
         return;
     }
 
+    const shareContainer = chartCard ? chartCard.querySelector('.share-container') : null;
     try {
         let dataUrl;
 
         // Use html2canvas to capture the full card with title
         if (typeof html2canvas !== 'undefined' && chartCard) {
             // Temporarily hide the share button during capture
-            const shareContainer = chartCard.querySelector('.share-container');
             if (shareContainer) shareContainer.style.visibility = 'hidden';
 
             const canvas = await html2canvas(chartCard, {
@@ -1975,6 +1982,9 @@ async function downloadChartPNG(chartId) {
     } catch (e) {
         console.error('Export error:', e);
         showToast('Could not export chart');
+    } finally {
+        // Restore share button visibility even if html2canvas throws
+        if (shareContainer) shareContainer.style.visibility = '';
     }
 
     // Close dropdown
@@ -2100,13 +2110,11 @@ function initShareButtons() {
 // ============================================================================
 
 let liquidityCategoryData = null;
-let brierCategoryData = null;
 let currentLiquidityCategoryMetric = 'spread';
 
 async function loadLiquidityByCategory() {
     try {
         liquidityCategoryData = await fetchJSON('liquidity_by_category.json');
-        brierCategoryData = await fetchJSON('brier_by_category.json');
 
         renderLiquidityCategory('spread');
     } catch (e) {
@@ -2175,7 +2183,7 @@ function renderLiquidityCategory(metric) {
         annotations: [{
             x: 0.98, y: 0.02,
             xref: 'paper', yref: 'paper',
-            text: `n = ${data.total_markets.toLocaleString()} markets`,
+            text: `n = ${(data.total_markets || 0).toLocaleString()} markets`,
             showarrow: false,
             font: { size: 11, color: COLORS.text }
         }]
@@ -2246,6 +2254,7 @@ function renderLiquidityAccuracy() {
     }
 
     // Get valid data points (non-null brier scores)
+    if (!sourceData.brier || !Array.isArray(sourceData.brier)) return;
     const validIndices = sourceData.brier.map((b, i) => b !== null ? i : null).filter(i => i !== null);
     const counts = validIndices.map(i => sourceData.n[i]);
 
@@ -2262,7 +2271,7 @@ function renderLiquidityAccuracy() {
 
     // Determine y-axis range based on data
     const brierValues = validIndices.map(i => sourceData.brier[i]).filter(v => v !== null);
-    const maxBrier = Math.max(...brierValues);
+    const maxBrier = brierValues.length > 0 ? Math.max(...brierValues) : 0.25;
     const yMax = Math.min(Math.ceil(maxBrier * 10) / 10 + 0.05, 0.5);
 
     const metricLabel = selectedLiquidityMetric === 'spread' ? 'Tighter Spread' : 'Greater Depth';
@@ -2296,7 +2305,7 @@ function renderLiquidityAccuracy() {
             {
                 x: 0.02, y: 0.98,
                 xref: 'paper', yref: 'paper',
-                text: `r = ${metricData.correlation.toFixed(3)}`,
+                text: `r = ${(metricData.correlation ?? 0).toFixed(3)}`,
                 showarrow: false,
                 font: { size: 12, color: '#6b7280' },
                 bgcolor: 'rgba(255,255,255,0.8)',
@@ -2440,8 +2449,8 @@ function renderLiquidityScatter(platform) {
     };
 
     const trend = {
-        x: plat.trend.volume,
-        y: plat.trend.spread,
+        x: plat.trend ? plat.trend.volume : [],
+        y: plat.trend ? plat.trend.spread : [],
         mode: 'lines+markers',
         name: 'Median Trend',
         line: { color: COLORS.dark, width: 2.5 },
@@ -2451,13 +2460,13 @@ function renderLiquidityScatter(platform) {
     const layout = {
         ...LAYOUT_DEFAULTS,
         xaxis: { title: 'Volume (USD)', type: 'log', gridcolor: COLORS.line, zeroline: false },
-        yaxis: { title: 'Relative Spread (%)', gridcolor: COLORS.line, zeroline: false, range: [0, Math.min(50, Math.max(...plat.points.map(p => p.spread)) * 1.1)] },
+        yaxis: { title: 'Relative Spread (%)', gridcolor: COLORS.line, zeroline: false, range: [0, Math.min(50, plat.points.reduce((max, p) => Math.max(max, p.spread), 10) * 1.1)] },
         margin: { l: 60, r: 20, t: 30, b: 50 },
         showlegend: false,
         annotations: [{
             x: 0.98, y: 0.98,
             xref: 'paper', yref: 'paper',
-            text: `r = ${plat.correlation.toFixed(3)} (n=${plat.n.toLocaleString()})`,
+            text: `r = ${(plat.correlation ?? 0).toFixed(3)} (n=${(plat.n ?? 0).toLocaleString()})`,
             showarrow: false,
             font: { size: 12, color: COLORS.dark },
             bgcolor: 'rgba(255,255,255,0.8)',
@@ -2487,11 +2496,11 @@ function renderLiquidityTimeseries(metric) {
     const kX = [], kY = [];
 
     data.dates.forEach((date, i) => {
-        if (data.polymarket[metric][i] !== null) {
+        if (data.polymarket[metric] && data.polymarket[metric][i] !== null) {
             pmX.push(date);
             pmY.push(data.polymarket[metric][i]);
         }
-        if (data.kalshi[metric][i] !== null) {
+        if (data.kalshi[metric] && data.kalshi[metric][i] !== null) {
             kX.push(date);
             kY.push(data.kalshi[metric][i]);
         }
@@ -2556,13 +2565,13 @@ function switchLiquidityPlatformMetric(metric, btn) {
     const descEl = document.getElementById('liquidity-platform-desc');
 
     if (metric === 'spread') {
-        spreadChart.style.display = '';
-        depthChart.style.display = 'none';
+        if (spreadChart) spreadChart.style.display = '';
+        if (depthChart) depthChart.style.display = 'none';
         if (titleEl) titleEl.textContent = 'Spread Distribution by Platform';
         if (descEl) descEl.textContent = 'Distribution of relative spreads across platforms. Which platform offers tighter markets?';
     } else {
-        spreadChart.style.display = 'none';
-        depthChart.style.display = '';
+        if (spreadChart) spreadChart.style.display = 'none';
+        if (depthChart) depthChart.style.display = '';
         if (titleEl) titleEl.textContent = 'Depth Distribution by Platform';
         if (descEl) descEl.textContent = 'Distribution of order book depth across platforms (log scale).';
     }

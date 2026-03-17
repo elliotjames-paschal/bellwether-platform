@@ -42,17 +42,18 @@ if PANEL_A_FILE.exists():
     df['is_republican'] = (df['winning_party'] == 'Republican').astype(int)
     df['is_polymarket'] = (df['platform'] == 'Polymarket').astype(int)
 
-    # Prediction error = prediction - actual outcome
-    # Positive error means over-prediction (predicted higher than actual)
-    # TODO [CH-07]: Methodology review needed. Current approach measures distance-from-certainty,
-    # not partisan bias. Correct approach for partisan bias:
-    #   prediction_error = republican_prob - republican_won
-    #   is_republican should label the candidate being predicted, not the winner
-    # Full fix requires domain decision on the regression specification.
+    # Prediction error = republican probability - republican actual outcome
+    # Positive error means market was biased toward Republican
+    # Negative error means market was biased toward Democrat
     if 'winner_prediction' in df.columns and 'republican_won' in df.columns:
-        # For winner markets: prediction error based on whether market predicted the winner
-        df['actual'] = df['republican_won'] if 'republican_won' in df.columns else df['correct'].astype(int)
-        df['prediction_error'] = df['winner_prediction'] - 1.0  # Error in predicting actual winner
+        # Derive republican probability from winner_prediction:
+        # If Republican won: r_prob = winner_prediction (market was predicting R winner)
+        # If Democrat won: r_prob = 1 - winner_prediction (invert to get R probability)
+        df['r_prob'] = df.apply(
+            lambda row: row['winner_prediction'] if row['republican_won'] == 1
+            else 1 - row['winner_prediction'], axis=1
+        )
+        df['prediction_error'] = df['r_prob'] - df['republican_won']
 
     elif 'brier' in df.columns:
         # Use Brier-based error

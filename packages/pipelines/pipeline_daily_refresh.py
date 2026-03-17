@@ -109,8 +109,8 @@ def run_script(script_name, description, args=None, required=True, script_dir=No
         result = subprocess.run(
             cmd,
             capture_output=True,
-            text=True
-            # No timeout - let scripts run to completion
+            text=True,
+            timeout=1800
         )
 
         duration = time.time() - start_time
@@ -132,6 +132,12 @@ def run_script(script_name, description, args=None, required=True, script_dir=No
                         logger.error(f"  {line.strip()}")
             log_step_done(description, duration, success=False)
             return False
+
+    except subprocess.TimeoutExpired:
+        duration = time.time() - start_time
+        logger.error(f"{description} timed out after 30 minutes")
+        log_step_done(description, duration, success=False)
+        return False
 
     except Exception as e:
         duration = time.time() - start_time
@@ -378,8 +384,19 @@ def main():
         pm_proc = subprocess.Popen(pm_cmd, cwd=str(scripts_dir), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         kalshi_proc = subprocess.Popen(kalshi_cmd, cwd=str(scripts_dir), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-        pm_output, _ = pm_proc.communicate()
-        kalshi_output, _ = kalshi_proc.communicate()
+        try:
+            pm_output, _ = pm_proc.communicate(timeout=1800)
+        except subprocess.TimeoutExpired:
+            pm_proc.kill()
+            pm_output, _ = pm_proc.communicate()
+            logger.error("Polymarket price fetch timed out after 30 minutes")
+
+        try:
+            kalshi_output, _ = kalshi_proc.communicate(timeout=1800)
+        except subprocess.TimeoutExpired:
+            kalshi_proc.kill()
+            kalshi_output, _ = kalshi_proc.communicate()
+            logger.error("Kalshi price fetch timed out after 30 minutes")
 
         # Log output
         if pm_output:

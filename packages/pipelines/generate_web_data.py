@@ -23,14 +23,10 @@ try:
 except ImportError:
     AUDIT_AVAILABLE = False
 
-def format_category_name(cat):
-    """Format category name for display (remove number prefix, title case, no underscores)."""
-    # Remove number prefix like "1. " or "15. "
-    if '. ' in cat:
-        cat = cat.split('. ', 1)[-1]
-    # Replace underscores with spaces and title case
-    cat = cat.replace('_', ' ').title()
-    return cat
+from category_utils import (
+    CATEGORY_DISPLAY_NAMES, CATEGORY_COLORS, OLD_TO_NEW_CATEGORY,
+    format_category_name, old_to_new_category
+)
 
 # Paths
 import sys as _sys
@@ -48,6 +44,110 @@ WEB_DATA_DIR = str(WEBSITE_DIR / "data")
 
 # Ensure output directory exists
 os.makedirs(WEB_DATA_DIR, exist_ok=True)
+
+
+# ============================================================
+# TICKER DATA LOADERS
+# ============================================================
+
+_ticker_data_cache = None
+_market_map_cache = None
+
+
+def load_ticker_data():
+    """Load market_id -> ticker dict from postprocessed tickers.
+
+    Returns dict mapping market_id (str) -> ticker record with category, action, etc.
+    Returns empty dict if file doesn't exist (fallback to old system).
+    """
+    global _ticker_data_cache
+    if _ticker_data_cache is not None:
+        return _ticker_data_cache
+
+    tickers_file = os.path.join(str(DATA_DIR), "tickers_postprocessed.json")
+    if not os.path.exists(tickers_file):
+        log("WARNING: tickers_postprocessed.json not found, falling back to political_category")
+        _ticker_data_cache = {}
+        return _ticker_data_cache
+
+    with open(tickers_file) as f:
+        data = json.load(f)
+
+    mapping = {}
+    for t in data.get("tickers", []):
+        mid = str(t.get("market_id", ""))
+        if mid:
+            mapping[mid] = t
+
+    log(f"  Loaded ticker data for {len(mapping):,} markets")
+    _ticker_data_cache = mapping
+    return mapping
+
+
+def load_market_map():
+    """Load cross-platform market map.
+
+    Returns dict mapping ticker string -> market map entry.
+    """
+    global _market_map_cache
+    if _market_map_cache is not None:
+        return _market_map_cache
+
+    map_file = os.path.join(WEB_DATA_DIR, "market_map.json")
+    if not os.path.exists(map_file):
+        _market_map_cache = {}
+        return _market_map_cache
+
+    with open(map_file) as f:
+        data = json.load(f)
+
+    # Handle both formats: list of entries or dict with 'markets' key
+    if isinstance(data, dict) and 'markets' in data:
+        entries = data['markets']
+    elif isinstance(data, list):
+        entries = data
+    else:
+        _market_map_cache = data
+        return _market_map_cache
+
+    _market_map_cache = {entry.get("ticker", ""): entry for entry in entries}
+
+    return _market_map_cache
+
+
+def add_ticker_category_column(df, ticker_data=None):
+    """Add a 'category' column to a DataFrame using ticker-derived categories.
+
+    Falls back to old political_category if ticker data is unavailable.
+    """
+    if ticker_data is None:
+        ticker_data = load_ticker_data()
+
+    if ticker_data:
+        df = df.copy()
+        df['category'] = df['market_id'].astype(str).map(
+            lambda mid: ticker_data.get(mid, {}).get('category', '')
+        )
+        # Fallback: if ticker has no category, use old political_category
+        if 'political_category' in df.columns:
+            mask = df['category'] == ''
+            df.loc[mask, 'category'] = df.loc[mask, 'political_category'].map(
+                lambda x: OLD_TO_NEW_CATEGORY.get(str(x), 'MISC')
+            )
+        df.loc[df['category'] == '', 'category'] = 'MISC'
+    else:
+        # No ticker data — use old system
+        if 'political_category' in df.columns:
+            df = df.copy()
+            df['category'] = df['political_category'].map(
+                lambda x: OLD_TO_NEW_CATEGORY.get(str(x), 'MISC')
+            )
+        else:
+            df = df.copy()
+            df['category'] = 'MISC'
+
+    return df
+
 
 # --- Globe election coordinate lookup ---
 # Maps (country, location) -> (lat, lng) extracted from existing globe data.
@@ -506,7 +606,21 @@ def get_latest_file(pattern):
     return max(files, key=os.path.getmtime)
 
 def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+    try:
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+    except UnicodeEncodeError:
+        safe_msg = msg.encode('ascii', 'replace').decode('ascii')
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] {safe_msg}")
+
+def safe_round(val, decimals=4):
+    """Round a value, returning 0 if NaN/Inf/None."""
+    if val is None:
+        return 0
+    try:
+        f = float(val)
+        return round(f, decimals) if np.isfinite(f) else 0
+    except (ValueError, TypeError):
+        return 0
 
 def generate_summary_stats():
     """Generate summary statistics for the dashboard header."""
@@ -542,8 +656,9 @@ def generate_summary_stats():
     combined_1d = pd.concat([pm_1d, kalshi_1d])
     combined_brier = combined_1d['brier_score'].mean() if len(combined_1d) > 0 else None
 
-    # Electoral markets
-    electoral = df[df['political_category'].str.contains('ELECTORAL', na=False)]
+    # Electoral markets (use ticker category if available)
+    df = add_ticker_category_column(df)
+    electoral = df[df['category'] == 'ELEC']
 
     # Count unique elections (group by country, location, office, year, is_primary)
     election_cols = ['country', 'location', 'office', 'election_year', 'is_primary']
@@ -614,7 +729,7 @@ def generate_summary_stats():
     }
 
     with open(f"{WEB_DATA_DIR}/summary.json", 'w') as f:
-        json.dump(summary, f, indent=2)
+        json.dump(summary, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Summary stats saved")
     return summary
@@ -644,27 +759,57 @@ def generate_brier_by_category():
     kalshi_1d['ticker'] = kalshi_1d['ticker'].astype(str)
     master_df['market_id'] = master_df['market_id'].astype(str)
 
-    # Merge with master to get political_category
-    pm_1d = pm_1d.merge(
-        master_df[['market_id', 'political_category']].drop_duplicates(),
-        on='market_id',
-        how='left'
+    # Add ticker-derived categories
+    ticker_data = load_ticker_data()
+    pm_1d['category'] = pm_1d['market_id'].map(
+        lambda mid: ticker_data.get(str(mid), {}).get('category', '')
     )
-    # Kalshi uses ticker as market_id
-    kalshi_1d = kalshi_1d.merge(
-        master_df[['market_id', 'political_category']].drop_duplicates(),
-        left_on='ticker',
-        right_on='market_id',
-        how='left'
+    kalshi_1d['category'] = kalshi_1d['ticker'].map(
+        lambda mid: ticker_data.get(str(mid), {}).get('category', '')
     )
 
+    # Fallback to old political_category for markets without ticker data
+    if not ticker_data:
+        pm_1d = pm_1d.merge(
+            master_df[['market_id', 'political_category']].drop_duplicates(),
+            on='market_id', how='left'
+        )
+        pm_1d['category'] = pm_1d['political_category'].map(
+            lambda x: OLD_TO_NEW_CATEGORY.get(str(x), 'MISC')
+        )
+        kalshi_1d = kalshi_1d.merge(
+            master_df[['market_id', 'political_category']].drop_duplicates(),
+            left_on='ticker', right_on='market_id', how='left'
+        )
+        kalshi_1d['category'] = kalshi_1d['political_category'].map(
+            lambda x: OLD_TO_NEW_CATEGORY.get(str(x), 'MISC')
+        )
+    else:
+        # Fill missing with old category via master CSV
+        pm_missing = pm_1d['category'] == ''
+        k_missing = kalshi_1d['category'] == ''
+        if pm_missing.any() or k_missing.any():
+            master_df_cats = add_ticker_category_column(master_df, ticker_data)
+            cat_lookup = dict(zip(master_df_cats['market_id'].astype(str), master_df_cats['category']))
+            pm_1d.loc[pm_missing, 'category'] = pm_1d.loc[pm_missing, 'market_id'].map(
+                lambda mid: cat_lookup.get(str(mid), 'MISC')
+            )
+            kalshi_1d.loc[k_missing, 'category'] = kalshi_1d.loc[k_missing, 'ticker'].map(
+                lambda mid: cat_lookup.get(str(mid), 'MISC')
+            )
+
+    n_missing_pm = (pm_1d['category'] == '').sum() + (pm_1d['category'] == 'MISC').sum()
+    n_missing_k = (kalshi_1d['category'] == '').sum() + (kalshi_1d['category'] == 'MISC').sum()
+    if n_missing_pm > 0 or n_missing_k > 0:
+        log(f"  Note: {n_missing_pm} PM and {n_missing_k} Kalshi predictions categorized as MISC")
+
     # Group by category
-    pm_by_cat = pm_1d.groupby('political_category').agg({
+    pm_by_cat = pm_1d.groupby('category').agg({
         'brier_score': 'mean',
         'market_id': 'count'
     }).rename(columns={'market_id': 'count'})
 
-    kalshi_by_cat = kalshi_1d.groupby('political_category').agg({
+    kalshi_by_cat = kalshi_1d.groupby('category').agg({
         'brier_score': 'mean',
         'ticker': 'count'
     }).rename(columns={'ticker': 'count'})
@@ -697,7 +842,7 @@ def generate_brier_by_category():
         )
 
     with open(f"{WEB_DATA_DIR}/brier_by_category.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Brier by category saved ({len(categories)} categories)")
 
@@ -754,7 +899,7 @@ def generate_brier_by_election_type():
         )
 
     with open(f"{WEB_DATA_DIR}/brier_by_election_type.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Brier by election type saved ({len(types)} types)")
 
@@ -778,10 +923,14 @@ def generate_calibration_data():
     # Combine for overall calibration
     combined = pd.concat([pm_1d, kalshi_1d], ignore_index=True)
 
+    if len(combined) < 20:
+        log("  Not enough data for calibration")
+        return
+
     # Use quantile bins (equal sample sizes) like the paper
     # Number of bins based on data size (aim for ~160 samples per bin like paper)
     num_bins = len(combined) // 160
-    num_bins = max(20, min(num_bins, 100))  # Between 20-100 bins
+    num_bins = max(20, min(num_bins, len(combined)))  # Between 20 and data size
 
     combined_sorted = combined.sort_values('prediction_price').reset_index(drop=True)
     samples_per_bin = len(combined_sorted) // num_bins
@@ -820,7 +969,7 @@ def generate_calibration_data():
     }
 
     with open(f"{WEB_DATA_DIR}/calibration.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Calibration data saved ({num_bins} quantile bins, {len(combined)} total predictions)")
 
@@ -848,7 +997,7 @@ def generate_platform_comparison():
             data['labels'].append(f"{row['location']} '{str(int(row['election_year']))[2:]}")
 
         with open(f"{WEB_DATA_DIR}/platform_comparison.json", 'w') as f:
-            json.dump(data, f, indent=2)
+            json.dump(data, f, indent=2, allow_nan=False)
 
         log(f"  ✓ Platform comparison saved ({len(data['elections'])} elections)")
     else:
@@ -871,21 +1020,21 @@ def generate_brier_by_race_margin():
     data = {
         'margins': df['Margin Bucket'].tolist(),
         'polymarket': {
-            'brier': [round(x, 4) for x in df['PM Brier'].tolist()],
-            'count': [int(x) for x in df['PM N'].tolist()]
+            'brier': [safe_round(x, 4) for x in df['PM Brier'].tolist()],
+            'count': [int(x) if pd.notna(x) else 0 for x in df['PM N'].tolist()]
         },
         'kalshi': {
-            'brier': [round(x, 4) for x in df['Kalshi Brier'].tolist()],
-            'count': [int(x) for x in df['Kalshi N'].tolist()]
+            'brier': [safe_round(x, 4) for x in df['Kalshi Brier'].tolist()],
+            'count': [int(x) if pd.notna(x) else 0 for x in df['Kalshi N'].tolist()]
         },
         'combined': {
-            'brier': [round(x, 4) for x in df['Combined Brier'].tolist()],
-            'count': [int(x) for x in df['Total N'].tolist()]
+            'brier': [safe_round(x, 4) for x in df['Combined Brier'].tolist()],
+            'count': [int(x) if pd.notna(x) else 0 for x in df['Total N'].tolist()]
         }
     }
 
     with open(f"{WEB_DATA_DIR}/brier_by_margin.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Brier by margin saved ({len(data['margins'])} buckets)")
 
@@ -925,7 +1074,7 @@ def generate_brier_convergence():
             if col in row.index and pd.notna(row[col]):
                 day_num = int(col.replace('d', ''))
                 days.append(day_num)
-                scores.append(round(float(row[col]), 4))
+                scores.append(safe_round(row[col], 4))
 
         data['cohorts'][cohort] = {
             'n': n,
@@ -934,7 +1083,7 @@ def generate_brier_convergence():
         }
 
     with open(f"{WEB_DATA_DIR}/brier_convergence.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Brier convergence saved ({len(data['cohorts'])} cohorts)")
 
@@ -956,7 +1105,7 @@ def generate_platform_stats():
     }
 
     with open(f"{WEB_DATA_DIR}/platform_stats.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Platform stats saved ({len(data['metrics'])} metrics)")
 
@@ -970,8 +1119,9 @@ def generate_volume_timeseries():
     """
     log("Generating volume time series...")
 
-    # Load master data
+    # Load master data and add ticker categories
     df_master = pd.read_csv(f"{DATA_DIR}/combined_political_markets_with_electoral_details_UPDATED.csv", low_memory=False)
+    df_master = add_ticker_category_column(df_master)
 
     # ========== POLYMARKET ==========
     df_pm = df_master[df_master['platform'] == 'Polymarket'].copy()
@@ -990,7 +1140,7 @@ def generate_volume_timeseries():
     df_pm = df_pm[df_pm['trading_close_time'].notna()].copy()
 
     # IMPORTANT: Deduplicate by market_id to avoid double-counting (Yes/No rows)
-    df_pm_markets = df_pm.drop_duplicates(subset=['market_id'], keep='first')[['market_id', 'political_category', 'volume_usd', 'trading_close_time']].copy()
+    df_pm_markets = df_pm.drop_duplicates(subset=['market_id'], keep='first')[['market_id', 'category', 'volume_usd', 'trading_close_time']].copy()
     df_pm_markets = df_pm_markets.rename(columns={'volume_usd': 'volume', 'trading_close_time': 'date'})
     df_pm_markets['source'] = 'Polymarket'
 
@@ -1011,7 +1161,7 @@ def generate_volume_timeseries():
     df_kalshi[close_col] = pd.to_datetime(df_kalshi[close_col], format='mixed', errors='coerce', utc=True)
     df_kalshi = df_kalshi[df_kalshi[close_col].notna()].copy()
 
-    df_kalshi_markets = df_kalshi[['market_id', 'political_category', 'volume_usd', close_col]].copy()
+    df_kalshi_markets = df_kalshi[['market_id', 'category', 'volume_usd', close_col]].copy()
     df_kalshi_markets = df_kalshi_markets.rename(columns={'volume_usd': 'volume', close_col: 'date'})
     df_kalshi_markets['source'] = 'Kalshi'
 
@@ -1019,8 +1169,8 @@ def generate_volume_timeseries():
 
     # ========== COMBINE ==========
     df_combined = pd.concat([
-        df_pm_markets[['market_id', 'political_category', 'volume', 'date', 'source']],
-        df_kalshi_markets[['market_id', 'political_category', 'volume', 'date', 'source']]
+        df_pm_markets[['market_id', 'category', 'volume', 'date', 'source']],
+        df_kalshi_markets[['market_id', 'category', 'volume', 'date', 'source']]
     ], ignore_index=True)
 
     # Filter out missing data
@@ -1043,14 +1193,14 @@ def generate_volume_timeseries():
 
     # ========== AGGREGATE ==========
     # Get ALL categories sorted by total volume
-    all_categories = df_combined.groupby('political_category')['volume'].sum().sort_values(ascending=False).index.tolist()
+    all_categories = df_combined.groupby('category')['volume'].sum().sort_values(ascending=False).index.tolist()
 
     # Group by category and month
-    volume_by_cat_month = df_combined.groupby(['political_category', 'year_month'])['volume'].sum().reset_index()
+    volume_by_cat_month = df_combined.groupby(['category', 'year_month'])['volume'].sum().reset_index()
     volume_by_cat_month['date'] = volume_by_cat_month['year_month'].dt.to_timestamp()
 
     # Pivot to wide format
-    pivot = volume_by_cat_month.pivot(index='date', columns='political_category', values='volume').fillna(0)
+    pivot = volume_by_cat_month.pivot(index='date', columns='category', values='volume').fillna(0)
     pivot = pivot.sort_index()
 
     # Build output data - use YYYY-MM for historical, today's date for current month
@@ -1078,7 +1228,7 @@ def generate_volume_timeseries():
                 data['defaultCategories'].append(clean_name)
 
     with open(f"{WEB_DATA_DIR}/volume_timeseries.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Volume time series saved ({len(data['months'])} months, {len(data['categories'])} categories)")
 
@@ -1086,15 +1236,21 @@ def generate_market_distribution():
     """Generate market distribution by category."""
     log("Generating market distribution...")
 
-    dist_file = f"{DATA_DIR}/table_1_aggregate.csv"
-    if not os.path.exists(dist_file):
-        log("  ⚠ No distribution file found")
-        return
+    # Generate distribution directly from master CSV + ticker categories
+    df = pd.read_csv(f"{DATA_DIR}/combined_political_markets_with_electoral_details_UPDATED.csv", low_memory=False)
+    df = add_ticker_category_column(df)
 
-    df = pd.read_csv(dist_file)
+    # Group by category and platform
+    dist = df.groupby(['category', 'platform']).size().unstack(fill_value=0).reset_index()
+    dist.columns = ['category', *[c for c in dist.columns if c != 'category']]
 
-    # Sort by total descending
-    df = df.sort_values('Total', ascending=False)
+    # Ensure both platform columns exist
+    for col in ['Polymarket', 'Kalshi']:
+        if col not in dist.columns:
+            dist[col] = 0
+
+    dist['Total'] = dist['Polymarket'] + dist['Kalshi']
+    dist = dist.sort_values('Total', ascending=False)
 
     data = {
         'categories': [],
@@ -1103,17 +1259,15 @@ def generate_market_distribution():
         'total': []
     }
 
-    for _, row in df.iterrows():
-        # Format category name for display
-        cat = row['political_category']
-        clean_name = format_category_name(cat)
+    for _, row in dist.iterrows():
+        clean_name = format_category_name(row['category'])
         data['categories'].append(clean_name)
         data['polymarket'].append(int(row['Polymarket']))
         data['kalshi'].append(int(row['Kalshi']))
         data['total'].append(int(row['Total']))
 
     with open(f"{WEB_DATA_DIR}/market_distribution.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Market distribution saved ({len(data['categories'])} categories)")
 
@@ -1129,44 +1283,51 @@ def generate_election_winner_stats():
 
     if os.path.exists(panel_a):
         df_a = pd.read_csv(panel_a)
-        data['all_elections'] = {
-            'polymarket': {
-                'n': int(df_a[df_a['Platform'] == 'Polymarket']['N_Elections'].values[0]),
-                'brier': round(float(df_a[df_a['Platform'] == 'Polymarket']['Mean_Brier'].values[0]), 4),
-                'accuracy': round(float(df_a[df_a['Platform'] == 'Polymarket']['Accuracy'].values[0]), 4)
-            },
-            'kalshi': {
-                'n': int(df_a[df_a['Platform'] == 'Kalshi']['N_Elections'].values[0]),
-                'brier': round(float(df_a[df_a['Platform'] == 'Kalshi']['Mean_Brier'].values[0]), 4),
-                'accuracy': round(float(df_a[df_a['Platform'] == 'Kalshi']['Accuracy'].values[0]), 4)
+        data['all_elections'] = {}
+        pm_a = df_a[df_a['Platform'] == 'Polymarket']
+        k_a = df_a[df_a['Platform'] == 'Kalshi']
+        if len(pm_a) > 0:
+            data['all_elections']['polymarket'] = {
+                'n': int(pm_a['N_Elections'].values[0]),
+                'brier': safe_round(pm_a['Mean_Brier'].values[0], 4),
+                'accuracy': safe_round(pm_a['Accuracy'].values[0], 4)
             }
-        }
+        if len(k_a) > 0:
+            data['all_elections']['kalshi'] = {
+                'n': int(k_a['N_Elections'].values[0]),
+                'brier': safe_round(k_a['Mean_Brier'].values[0], 4),
+                'accuracy': safe_round(k_a['Accuracy'].values[0], 4)
+            }
 
     if os.path.exists(panel_b):
         df_b = pd.read_csv(panel_b)
-        data['shared_elections'] = {
-            'polymarket': {
-                'n': int(df_b[df_b['Platform'] == 'Polymarket']['N_Elections'].values[0]),
-                'brier': round(float(df_b[df_b['Platform'] == 'Polymarket']['Mean_Brier'].values[0]), 4),
-                'accuracy': round(float(df_b[df_b['Platform'] == 'Polymarket']['Accuracy'].values[0]), 4)
-            },
-            'kalshi': {
-                'n': int(df_b[df_b['Platform'] == 'Kalshi']['N_Elections'].values[0]),
-                'brier': round(float(df_b[df_b['Platform'] == 'Kalshi']['Mean_Brier'].values[0]), 4),
-                'accuracy': round(float(df_b[df_b['Platform'] == 'Kalshi']['Accuracy'].values[0]), 4)
+        data['shared_elections'] = {}
+        pm_b = df_b[df_b['Platform'] == 'Polymarket']
+        k_b = df_b[df_b['Platform'] == 'Kalshi']
+        if len(pm_b) > 0:
+            data['shared_elections']['polymarket'] = {
+                'n': int(pm_b['N_Elections'].values[0]),
+                'brier': safe_round(pm_b['Mean_Brier'].values[0], 4),
+                'accuracy': safe_round(pm_b['Accuracy'].values[0], 4)
             }
-        }
+        if len(k_b) > 0:
+            data['shared_elections']['kalshi'] = {
+                'n': int(k_b['N_Elections'].values[0]),
+                'brier': safe_round(k_b['Mean_Brier'].values[0], 4),
+                'accuracy': safe_round(k_b['Accuracy'].values[0], 4)
+            }
 
     if os.path.exists(comparison):
         df_c = pd.read_csv(comparison)
-        data['head_to_head'] = {
-            'n_shared': int(df_c['n_shared'].values[0]),
-            'correlation': round(float(df_c['correlation'].values[0]), 4),
-            'pm_wins': int(df_c['pm_wins'].values[0]),
-            'kalshi_wins': int(df_c['kalshi_wins'].values[0]),
-            'ties': int(df_c['ties'].values[0]),
-            'p_value': round(float(df_c['p_value'].values[0]), 4)
-        }
+        if len(df_c) > 0:
+            data['head_to_head'] = {
+                'n_shared': int(df_c['n_shared'].values[0]),
+                'correlation': safe_round(df_c['correlation'].values[0], 4),
+                'pm_wins': int(df_c['pm_wins'].values[0]),
+                'kalshi_wins': int(df_c['kalshi_wins'].values[0]),
+                'ties': int(df_c['ties'].values[0]),
+                'p_value': safe_round(df_c['p_value'].values[0], 4)
+            }
 
     # Compute consensus (combined) accuracy for shared elections
     # Average both platforms' winner_prediction per election, then check correctness
@@ -1178,8 +1339,12 @@ def generate_election_winner_stats():
         for _, grp in df_det.groupby(election_cols):
             platforms = set(grp['platform'].unique())
             if 'Polymarket' in platforms and 'Kalshi' in platforms:
-                pm = grp[grp['platform'] == 'Polymarket'].iloc[0]
-                k = grp[grp['platform'] == 'Kalshi'].iloc[0]
+                pm_rows = grp[grp['platform'] == 'Polymarket']
+                k_rows = grp[grp['platform'] == 'Kalshi']
+                if len(pm_rows) == 0 or len(k_rows) == 0:
+                    continue
+                pm = pm_rows.iloc[0]
+                k = k_rows.iloc[0]
                 avg_pred = (pm['winner_prediction'] + k['winner_prediction']) / 2
                 shared_rows.append({
                     'consensus_pred': avg_pred,
@@ -1190,12 +1355,12 @@ def generate_election_winner_stats():
             sdf = pd.DataFrame(shared_rows)
             data['shared_elections']['combined'] = {
                 'n': len(sdf),
-                'brier': round(float(sdf['brier'].mean()), 4),
-                'accuracy': round(float(sdf['correct'].mean()), 4),
+                'brier': safe_round(sdf['brier'].mean(), 4),
+                'accuracy': safe_round(sdf['correct'].mean(), 4),
             }
 
     with open(f"{WEB_DATA_DIR}/election_winner_stats.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Election winner stats saved")
 
@@ -1206,17 +1371,25 @@ def generate_aggregate_statistics():
     # Load master data
     df = pd.read_csv(f"{DATA_DIR}/combined_political_markets_with_electoral_details_UPDATED.csv", low_memory=False)
 
+    # Add ticker-derived categories
+    df = add_ticker_category_column(df)
+
     # Ensure volume_usd is numeric
     df['volume_usd'] = pd.to_numeric(df['volume_usd'], errors='coerce').fillna(0)
 
     # Group by category
-    stats = df.groupby('political_category').agg({
+    # Use all markets for count/mean/sum, but only markets with volume > 0 for median
+    stats = df.groupby('category').agg({
         'market_id': 'count',
-        'volume_usd': ['mean', 'median', 'sum']
+        'volume_usd': ['mean', 'sum']
     }).reset_index()
+    stats.columns = ['category', 'total_markets', 'avg_volume', 'total_volume']
 
-    # Flatten column names
-    stats.columns = ['category', 'total_markets', 'avg_volume', 'median_volume', 'total_volume']
+    # Calculate median excluding zero-volume markets (zero = no trading data, not meaningful for median)
+    median_stats = df[df['volume_usd'] > 0].groupby('category')['volume_usd'].median().reset_index()
+    median_stats.columns = ['category', 'median_volume']
+    stats = stats.merge(median_stats, on='category', how='left')
+    stats['median_volume'] = stats['median_volume'].fillna(0)
 
     # Sort by total markets descending
     stats = stats.sort_values('total_markets', ascending=False)
@@ -1239,7 +1412,7 @@ def generate_aggregate_statistics():
         data['total_volume_m'].append(round(row['total_volume'] / 1_000_000, 1))  # Convert to $M
 
     with open(f"{WEB_DATA_DIR}/aggregate_statistics.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Aggregate statistics saved ({len(data['categories'])} categories)")
 
@@ -1265,7 +1438,7 @@ def generate_election_types():
     }
 
     with open(f"{WEB_DATA_DIR}/election_types.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Election types saved ({len(data['election_types'])} types)")
 
@@ -1343,7 +1516,7 @@ def generate_partisan_bias_calibration():
         }
 
     with open(f"{WEB_DATA_DIR}/partisan_bias_calibration.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Partisan bias calibration saved")
 
@@ -1414,7 +1587,7 @@ def generate_partisan_bias_regression():
     data = {'models': models}
 
     with open(f"{WEB_DATA_DIR}/partisan_bias_regression.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Partisan bias regression saved ({len(models)} models)")
 
@@ -1424,11 +1597,11 @@ def _extract_ols_vars(model, names):
     for i, name in enumerate(names):
         variables.append({
             'name': name,
-            'coef': round(float(model.params.iloc[i]), 4),
-            'se': round(float(model.bse.iloc[i]), 4),
-            'p': round(float(model.pvalues.iloc[i]), 4),
-            'ci_low': round(float(model.conf_int().iloc[i, 0]), 4),
-            'ci_high': round(float(model.conf_int().iloc[i, 1]), 4)
+            'coef': safe_round(model.params.iloc[i], 4),
+            'se': safe_round(model.bse.iloc[i], 4),
+            'p': safe_round(model.pvalues.iloc[i], 4),
+            'ci_low': safe_round(model.conf_int().iloc[i, 0], 4),
+            'ci_high': safe_round(model.conf_int().iloc[i, 1], 4)
         })
     return variables
 
@@ -1554,7 +1727,7 @@ def generate_trader_partisanship_distribution():
     }
 
     with open(f"{WEB_DATA_DIR}/trader_partisanship_distribution.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  Trader partisanship distribution saved (R bettors: {len(rep_bettors)}, D bettors: {len(dem_bettors)})")
 
@@ -1598,14 +1771,30 @@ def generate_trader_accuracy_distribution():
         subset = df[(df['num_trades'] >= min_trades) & (df['num_trades'] <= max_trades)]
         if len(subset) > 1:
             values = subset['pct_volume_correct'].values
-            kde = gaussian_kde(values, bw_method='scott')
-            y_kde = kde(x_kde)
-            kde_data[label] = {
-                'x': x_kde.tolist(),
-                'y': y_kde.tolist(),
-                'mean': round(float(np.mean(values)), 2),
-                'n': len(subset)
-            }
+            if np.std(values) > 0.01:
+                try:
+                    kde = gaussian_kde(values, bw_method='scott')
+                    y_kde = kde(x_kde)
+                    kde_data[label] = {
+                        'x': x_kde.tolist(),
+                        'y': y_kde.tolist(),
+                        'mean': safe_round(np.mean(values), 2),
+                        'n': len(subset)
+                    }
+                except Exception:
+                    kde_data[label] = {
+                        'x': x_kde.tolist(),
+                        'y': [0] * len(x_kde),
+                        'mean': safe_round(np.mean(values), 2),
+                        'n': len(subset)
+                    }
+            else:
+                kde_data[label] = {
+                    'x': x_kde.tolist(),
+                    'y': [0] * len(x_kde),
+                    'mean': safe_round(np.mean(values), 2),
+                    'n': len(subset)
+                }
 
     # Overall stats
     all_values = df['pct_volume_correct'].values
@@ -1622,7 +1811,7 @@ def generate_trader_accuracy_distribution():
     }
 
     with open(f"{WEB_DATA_DIR}/trader_accuracy_distribution.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  Trader accuracy distribution saved (n={len(df)} traders, {len(kde_data)} buckets)")
 
@@ -1682,12 +1871,12 @@ def generate_trader_partisanship_actual_vs_perfect():
                 result['actual'] = {
                     'x': x_kde.tolist(),
                     'y': kde(x_kde).tolist(),
-                    'mean': round(float(np.mean(actual_values)), 2)
+                    'mean': safe_round(np.mean(actual_values), 2)
                 }
-            except:
-                result['actual'] = {'x': x_kde.tolist(), 'y': [0]*len(x_kde), 'mean': round(float(np.mean(actual_values)), 2)}
+            except Exception:
+                result['actual'] = {'x': x_kde.tolist(), 'y': [0]*len(x_kde), 'mean': safe_round(np.mean(actual_values), 2)}
         else:
-            result['actual'] = {'x': x_kde.tolist(), 'y': [0]*len(x_kde), 'mean': round(float(np.mean(actual_values)), 2)}
+            result['actual'] = {'x': x_kde.tolist(), 'y': [0]*len(x_kde), 'mean': safe_round(np.mean(actual_values), 2)}
 
         # Counterfactual KDE
         if np.std(cf_values) > 0.01:
@@ -1696,12 +1885,12 @@ def generate_trader_partisanship_actual_vs_perfect():
                 result['counterfactual'] = {
                     'x': x_kde.tolist(),
                     'y': kde(x_kde).tolist(),
-                    'mean': round(float(np.mean(cf_values)), 2)
+                    'mean': safe_round(np.mean(cf_values), 2)
                 }
-            except:
-                result['counterfactual'] = {'x': x_kde.tolist(), 'y': [0]*len(x_kde), 'mean': round(float(np.mean(cf_values)), 2)}
+            except Exception:
+                result['counterfactual'] = {'x': x_kde.tolist(), 'y': [0]*len(x_kde), 'mean': safe_round(np.mean(cf_values), 2)}
         else:
-            result['counterfactual'] = {'x': x_kde.tolist(), 'y': [0]*len(x_kde), 'mean': round(float(np.mean(cf_values)), 2)}
+            result['counterfactual'] = {'x': x_kde.tolist(), 'y': [0]*len(x_kde), 'mean': safe_round(np.mean(cf_values), 2)}
 
         result['n'] = len(bettors_df)
         result['shift'] = round(result['actual']['mean'] - result['counterfactual']['mean'], 2)
@@ -1720,7 +1909,7 @@ def generate_trader_partisanship_actual_vs_perfect():
     }
 
     with open(f"{WEB_DATA_DIR}/trader_partisanship_actual_vs_perfect.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  Trader partisanship actual vs perfect saved (R: n={len(rep_bettors)}, D: n={len(dem_bettors)})")
 
@@ -1766,8 +1955,8 @@ def generate_calibration_by_closeness():
         k_b = b[b['platform'].str.lower() == 'kalshi']
         buckets.append({
             'label': label,
-            'pm_brier': round(float(pm_b['brier'].mean()), 4) if len(pm_b) > 0 else None,
-            'k_brier': round(float(k_b['brier'].mean()), 4) if len(k_b) > 0 else None,
+            'pm_brier': safe_round(pm_b['brier'].mean(), 4) if len(pm_b) > 0 else None,
+            'k_brier': safe_round(k_b['brier'].mean(), 4) if len(k_b) > 0 else None,
             'pm_n': int(len(pm_b)),
             'k_n': int(len(k_b))
         })
@@ -1775,7 +1964,7 @@ def generate_calibration_by_closeness():
     data = {'buckets': buckets}
 
     with open(f"{WEB_DATA_DIR}/calibration_by_closeness.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Calibration by closeness saved ({len(buckets)} buckets)")
 
@@ -1844,8 +2033,10 @@ def generate_prediction_vs_volume():
         ]
 
         # Correlation
-        if len(subset_df) > 2:
+        if len(subset_df) >= 2:
             corr, _ = scipy_stats.pearsonr(subset_df['prediction_price'], subset_df['volume_usd'])
+            if np.isnan(corr):
+                corr = 0.0
         else:
             corr = 0.0
 
@@ -1887,7 +2078,7 @@ def generate_prediction_vs_volume():
         log(f"  {plat_label}: Yes={len(yes_df)}, No={len(no_df)}")
 
     with open(f"{WEB_DATA_DIR}/prediction_vs_volume.json", 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Prediction vs volume saved")
 
@@ -2078,7 +2269,7 @@ def generate_globe_elections():
 
     output = {'live': live_entries, 'completed': completed_entries}
     with open(f"{WEB_DATA_DIR}/globe_elections.json", 'w') as f:
-        json.dump(output, f, indent=2)
+        json.dump(output, f, indent=2, allow_nan=False)
 
     total = len(live_entries) + len(completed_entries)
     log(f"  ✓ Globe elections saved ({len(live_entries)} live, {len(completed_entries)} completed, {total} total)")
@@ -2113,7 +2304,8 @@ def generate_globe_markets():
 
     # Filter to markets with location data
     with_location = [m for m in markets if m.get('lat') is not None and m.get('lng') is not None]
-    log(f"  Markets with location: {len(with_location):,} ({100*len(with_location)/len(markets):.1f}%)")
+    pct = 100 * len(with_location) / len(markets) if len(markets) > 0 else 0
+    log(f"  Markets with location: {len(with_location):,} ({pct:.1f}%)")
 
     def infer_region_from_coords(lat, lng):
         """Infer region from latitude/longitude when region data is missing."""
@@ -2142,31 +2334,24 @@ def generate_globe_markets():
             return 'asia'
         return 'unknown'
 
-    # Category colors for globe display
-    CATEGORY_COLORS = {
-        '1. ELECTORAL': '#3b82f6',          # Blue
-        '2. MONETARY_POLICY': '#10b981',    # Green
-        '3. LEGISLATIVE': '#8b5cf6',        # Purple
-        '4. APPOINTMENTS': '#f59e0b',       # Amber
-        '5. REGULATORY': '#ef4444',         # Red
-        '6. INTERNATIONAL': '#06b6d4',      # Cyan
-        '7. JUDICIAL': '#ec4899',           # Pink
-        '8. MILITARY_SECURITY': '#64748b',  # Slate
-        '9. CRISIS_EMERGENCY': '#dc2626',   # Red-600
-        '10. GOVERNMENT_OPERATIONS': '#0ea5e9', # Sky
-        '11. PARTY_POLITICS': '#a855f7',    # Violet
-        '12. STATE_LOCAL': '#84cc16',       # Lime
-        '13. TIMING_EVENTS': '#fbbf24',     # Yellow
-        '14. POLLING_APPROVAL': '#14b8a6',  # Teal
-        '15. POLITICAL_SPEECH': '#f97316',  # Orange
-    }
+    # Use shared category colors (handles new ticker-based codes)
+    # Also build a reverse map for old-format categories from active_markets.json
+    old_to_new_color = {}
+    for old_cat, new_cat in OLD_TO_NEW_CATEGORY.items():
+        if new_cat in CATEGORY_COLORS:
+            old_to_new_color[old_cat] = CATEGORY_COLORS[new_cat]
 
     # Aggregate by (lat, lng, category)
     point_groups = defaultdict(list)
     for m in with_location:
         lat = round(m['lat'], 2)
         lng = round(m['lng'], 2)
-        category = m.get('category', '15. OTHER')
+        raw_category = m.get('category', 'MISC')
+        # Normalize old-format categories to new codes
+        category = OLD_TO_NEW_CATEGORY.get(raw_category, raw_category)
+        if category not in CATEGORY_COLORS:
+            category = 'MISC'
+        m['_category'] = category  # store normalized for later use
         point_groups[(lat, lng, category)].append(m)
 
     log(f"  Unique location-category points: {len(point_groups):,}")
@@ -2191,7 +2376,7 @@ def generate_globe_markets():
         # Fallback to inferring region from coordinates if missing
         if not region or region == 'unknown':
             region = infer_region_from_coords(lat, lng)
-        category_display = top.get('category_display', 'Other')
+        category_display = CATEGORY_DISPLAY_NAMES.get(category, top.get('category_display', 'Other'))
 
         # Build label
         if market_count == 1:
@@ -2212,7 +2397,7 @@ def generate_globe_markets():
             'label': label,
             'category': category,
             'category_display': category_display,
-            'color': CATEGORY_COLORS.get(category, '#6b7280'),
+            'color': CATEGORY_COLORS.get(category, old_to_new_color.get(category, '#6b7280')),
             'country': country,
             'location': location,
             'region': region,
@@ -2250,13 +2435,13 @@ def generate_globe_markets():
         'generated_at': datetime.now().isoformat(),
         'total_points': len(market_entries),
         'total_markets': len(with_location),
-        'category_colors': CATEGORY_COLORS,
+        'category_colors': CATEGORY_COLORS,  # Uses new ticker-based codes
         'category_stats': dict(category_stats),
         'markets': market_entries,
     }
 
     with open(f"{WEB_DATA_DIR}/globe_markets.json", 'w') as f:
-        json.dump(output, f, indent=2)
+        json.dump(output, f, indent=2, allow_nan=False)
 
     log(f"  ✓ Globe markets saved ({len(market_entries):,} points from {len(with_location):,} markets)")
 

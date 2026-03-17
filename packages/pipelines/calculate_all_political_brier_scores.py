@@ -18,6 +18,7 @@ import sys, os
 # Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import BASE_DIR, DATA_DIR, get_market_anchor_time
+from category_utils import OLD_TO_NEW_CATEGORY
 
 # Time horizons to analyze (days before event/reference date)
 TIME_HORIZONS = [60, 30, 20, 14, 12, 10, 8, 7, 6, 5, 4, 3, 2, 1, 0]
@@ -31,6 +32,10 @@ print("=" * 80)
 # ============================================================================
 
 print("\n1. Loading election dates lookup...")
+
+if not (DATA_DIR / "election_dates_lookup.csv").exists():
+    print(f"ERROR: election_dates_lookup.csv not found in {DATA_DIR}")
+    sys.exit(1)
 
 election_dates_df = pd.read_csv(DATA_DIR / "election_dates_lookup.csv")
 print(f"   ✓ {len(election_dates_df):,} election date records")
@@ -81,7 +86,12 @@ def get_election_date(market_row):
 print("\n2. Loading market metadata from master file...")
 
 # Load master file (market-level, combined Polymarket + Kalshi)
-master_df = pd.read_csv(DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv", low_memory=False)
+master_path = DATA_DIR / "combined_political_markets_with_electoral_details_UPDATED.csv"
+if not master_path.exists():
+    print(f"ERROR: Master file not found: {master_path}")
+    sys.exit(1)
+
+master_df = pd.read_csv(master_path, low_memory=False)
 print(f"   ✓ {len(master_df):,} total market records")
 
 # Separate by platform
@@ -284,6 +294,33 @@ def count_price_points(price_history):
 
 
 # ============================================================================
+# 4b. Load ticker data for category lookup
+# ============================================================================
+
+ticker_cats = {}
+tickers_file = os.path.join(DATA_DIR, "tickers_postprocessed.json")
+if os.path.exists(tickers_file):
+    with open(tickers_file) as f:
+        tickers_data = json.load(f)
+    for t in tickers_data.get("tickers", []):
+        mid = str(t.get("market_id", ""))
+        if mid and t.get("category"):
+            ticker_cats[mid] = t["category"]
+    print(f"  Loaded ticker categories for {len(ticker_cats):,} markets")
+else:
+    print("  WARNING: tickers_postprocessed.json not found, using political_category fallback")
+
+
+def get_market_category(market):
+    """Get new-format category for a market, with fallback to old political_category."""
+    mid = str(market.get('market_id', ''))
+    if mid in ticker_cats:
+        return ticker_cats[mid]
+    old_cat = str(market.get('political_category', ''))
+    return OLD_TO_NEW_CATEGORY.get(old_cat, 'MISC')
+
+
+# ============================================================================
 # 5. Process Polymarket Markets
 # ============================================================================
 
@@ -296,9 +333,9 @@ pm_election_date_missing = 0
 for _, market in pm_markets.iterrows():
     market_id = market['market_id']
 
-    # Check if this is an election market using political_category
-    category = str(market.get('political_category', ''))
-    is_election = category.startswith('1.') or 'ELECTORAL' in category.upper()
+    # Check if this is an election market using ticker-derived category
+    category = get_market_category(market)
+    is_election = (category == 'ELEC')
 
     # Determine winning outcome (Yes or No)
     winning_outcome = market.get('winning_outcome', '')
@@ -348,7 +385,7 @@ for _, market in pm_markets.iterrows():
                 'market_id': market_id,
                 'token_id': token_id_yes,
                 'title': market.get('question', ''),
-                'category': market.get('political_category', ''),
+                'category': category,
                 'election_type': market.get('election_type', 'NA'),
                 'party_affiliation': market.get('party_affiliation', ''),
                 'outcome_name': 'Yes',
@@ -385,7 +422,7 @@ for _, market in pm_markets.iterrows():
                 'market_id': market_id,
                 'token_id': token_id_no,
                 'title': market.get('question', ''),
-                'category': market.get('political_category', ''),
+                'category': category,
                 'election_type': market.get('election_type', 'NA'),
                 'party_affiliation': market.get('party_affiliation', ''),
                 'outcome_name': 'No',
@@ -402,9 +439,12 @@ for _, market in pm_markets.iterrows():
             })
 
 pm_df = pd.DataFrame(pm_results)
-print(f"   ✓ Generated {len(pm_df):,} prediction records across all time horizons")
-print(f"   ✓ Covering {pm_df['market_id'].nunique():,} unique markets")
-print(f"   ✓ Election date lookup: {pm_election_date_found} found, {pm_election_date_missing} missing")
+if len(pm_df) > 0:
+    print(f"   ✓ Generated {len(pm_df):,} prediction records across all time horizons")
+    print(f"   ✓ Covering {pm_df['market_id'].nunique():,} unique markets")
+    print(f"   ✓ Election date lookup: {pm_election_date_found} found, {pm_election_date_missing} missing")
+else:
+    print(f"   ⚠ WARNING: No Polymarket prediction records generated")
 
 # ============================================================================
 # 6. Process Kalshi Markets
@@ -419,9 +459,9 @@ kalshi_election_date_missing = 0
 for _, market in kalshi_markets_df.iterrows():
     ticker = market['market_id']  # In master file, market_id is the ticker
 
-    # Check if this is an election market using political_category
-    category = str(market.get('political_category', ''))
-    is_election = category.startswith('1.') or 'ELECTORAL' in category.upper()
+    # Check if this is an election market using ticker-derived category
+    category = get_market_category(market)
+    is_election = (category == 'ELEC')
 
     # Skip if no price data
     if ticker not in kalshi_prices:
@@ -498,10 +538,14 @@ if len(kalshi_df) > 0:
 print("\n6. Preparing final dataframes...")
 
 # Polymarket
-pm_df['reference_datetime'] = pd.to_datetime(pm_df['reference_date'], format='ISO8601')
-pm_df_filtered = pm_df.copy()
-print(f"   ✓ Polymarket: {len(pm_df_filtered):,} prediction records")
-print(f"   ✓ {pm_df_filtered['market_id'].nunique():,} unique markets")
+if len(pm_df) > 0:
+    pm_df['reference_datetime'] = pd.to_datetime(pm_df['reference_date'], format='ISO8601')
+    pm_df_filtered = pm_df.copy()
+    print(f"   ✓ Polymarket: {len(pm_df_filtered):,} prediction records")
+    print(f"   ✓ {pm_df_filtered['market_id'].nunique():,} unique markets")
+else:
+    pm_df_filtered = pd.DataFrame()
+    print(f"   ⚠ Polymarket: No records")
 
 # Kalshi
 if len(kalshi_df) > 0:
@@ -563,13 +607,16 @@ cohort_7d = pd.concat([
     kalshi_df_filtered[kalshi_df_filtered['days_before_event'] == 7]
 ])
 
-category_stats = cohort_7d.groupby('category').agg({
-    'brier_score': ['count', 'mean'],
-    'prediction_error': lambda x: x.abs().mean()
-}).round(4)
-category_stats.columns = ['n_predictions', 'mean_brier', 'mean_abs_error']
-category_stats = category_stats.sort_values('n_predictions', ascending=False)
-print(category_stats.to_string())
+if len(cohort_7d) > 0:
+    category_stats = cohort_7d.groupby('category').agg({
+        'brier_score': ['count', 'mean'],
+        'prediction_error': lambda x: x.abs().mean()
+    }).round(4)
+    category_stats.columns = ['n_predictions', 'mean_brier', 'mean_abs_error']
+    category_stats = category_stats.sort_values('n_predictions', ascending=False)
+    print(category_stats.to_string())
+else:
+    print("  No data available for 7-day cohort breakdown.")
 
 print("\n" + "=" * 80)
 print("DONE")
