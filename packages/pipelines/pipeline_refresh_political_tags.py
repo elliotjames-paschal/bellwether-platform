@@ -25,6 +25,7 @@ Options:
 """
 
 import json
+import re
 import time
 import sys
 import threading
@@ -42,9 +43,16 @@ POLYMARKET_API_BASE = "https://gamma-api.polymarket.com"
 POLITICAL_TAGS_FILE = DATA_DIR / "polymarket_political_tags.json"
 REJECTED_TAGS_FILE = DATA_DIR / "polymarket_rejected_tags.json"
 
-GPT_MODEL = "gpt-4o"
+DEFAULT_GPT_MODEL = "gpt-4o-mini"
 GPT_TEMPERATURE = 0
 BATCH_SIZE = 500
+
+# Allow --model override: python pipeline_refresh_political_tags.py --model gpt-4o
+GPT_MODEL = DEFAULT_GPT_MODEL
+if "--model" in sys.argv:
+    idx = sys.argv.index("--model")
+    if idx + 1 < len(sys.argv):
+        GPT_MODEL = sys.argv[idx + 1]
 
 RATE_LIMIT = 0.1  # seconds between API page fetches
 MAX_RETRIES = 3
@@ -179,6 +187,48 @@ Where N is the tag number and YES means political, NO means not political.
 
 Tags to classify:
 """
+
+
+# Rule-based pre-filter: skip obvious non-political tags before GPT
+NON_POLITICAL_TAG_PATTERNS = re.compile(
+    r'\b(NFL|NBA|NHL|MLB|MLS|UFC|WWE|F1|NASCAR|PGA|ATP|WTA|esports?|e-sports?|'
+    r'Super Bowl|World Series|Stanley Cup|NBA Finals|Champions League|'
+    r'Premier League|La Liga|Serie A|Bundesliga|Ligue 1|'
+    r'Bitcoin|BTC|Ethereum|ETH|Solana|SOL|Dogecoin|DOGE|crypto|DeFi|NFT|'
+    r'Grammy|Oscar|Emmy|BAFTA|Golden Globe|Tony Award|'
+    r'box office|Billboard|Coachella|Eurovision|reality TV|'
+    r'Big Brother|Love Island|Bachelor|Survivor|'
+    r'Pokemon|trading card|'
+    r'MrBeast|YouTube|TikTok|influencer|subscriber|'
+    r'fantasy sports|fantasy football|fantasy basketball)\b',
+    re.IGNORECASE
+)
+POLITICAL_TAG_PATTERNS = re.compile(
+    r'\b(election|president|congress|senate|parliament|governor|mayor|'
+    r'legislation|regulation|tariff|sanction|treaty|vote|party|democrat|republican|'
+    r'government|military|defense|court|judicial|supreme court|FBI|CIA|DOJ|SEC|FDA|EPA|Fed|'
+    r'geopolitics|diplomacy|NATO|UN|EU|foreign policy|immigration|border|'
+    r'Trump|Biden|Obama|Clinton|Putin|Zelensky|Macron|Starmer|Modi|Trudeau|Scholz|Xi)\b',
+    re.IGNORECASE
+)
+
+
+def pre_filter_tags(new_tags: list) -> tuple:
+    """Pre-filter obvious non-political tags to skip GPT calls.
+    Returns (needs_gpt, auto_rejected)."""
+    needs_gpt = []
+    auto_rejected = []
+    for tag in new_tags:
+        label = tag.get('label', '') or ''
+        slug = tag.get('slug', '') or ''
+        combined = f"{label} {slug}"
+        if POLITICAL_TAG_PATTERNS.search(combined):
+            needs_gpt.append(tag)  # Definitely needs classification
+        elif NON_POLITICAL_TAG_PATTERNS.search(combined):
+            auto_rejected.append(tag)
+        else:
+            needs_gpt.append(tag)  # Ambiguous — send to GPT
+    return needs_gpt, auto_rejected
 
 
 def classify_tags_batch(client, tags: list) -> list[dict]:
@@ -343,9 +393,17 @@ def main():
             log(f"  ... and {len(new_tags) - 20} more")
         return
 
-    # Step 4: Classify new tags via GPT-4o
-    log("Classifying new tags with GPT-4o...")
-    new_political, new_rejected = classify_new_tags(new_tags)
+    # Step 4a: Pre-filter obvious non-political tags
+    needs_gpt, auto_rejected = pre_filter_tags(new_tags)
+    log(f"Pre-filter: {len(auto_rejected)} auto-rejected, {len(needs_gpt)} need GPT classification")
+
+    # Step 4b: Classify remaining tags via GPT
+    log(f"Classifying {len(needs_gpt)} tags with {GPT_MODEL}...")
+    if needs_gpt:
+        new_political, new_rejected = classify_new_tags(needs_gpt)
+    else:
+        new_political, new_rejected = [], []
+    new_rejected.extend(auto_rejected)
 
     log(f"Classification results: {len(new_political)} political, {len(new_rejected)} rejected")
 

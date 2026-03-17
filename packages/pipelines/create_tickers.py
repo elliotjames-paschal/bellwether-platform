@@ -1116,6 +1116,186 @@ def save_tickers(tickers: List[Dict[str, Any]], output_file: Path, model: str):
     print(f"  Output: {output_file}")
 
 
+
+# ============================================================
+# OPENAI BATCH API MODE (50% cost reduction)
+# ============================================================
+
+BATCH_JSONL_FILE = DATA_DIR / "batch_ticker_requests.jsonl"
+BATCH_STATE_FILE = DATA_DIR / "batch_ticker_state.json"
+
+
+def prepare_batch_jsonl(markets: List[Dict[str, Any]], model: str, batch_size: int) -> int:
+    """Prepare JSONL file for OpenAI Batch API. Returns number of requests."""
+    prepared = [pre_extract_fields(m) for m in markets]
+    valid = [m for m in prepared if m["question"] and m["rules"]]
+    batches = [valid[i:i + batch_size] for i in range(0, len(valid), batch_size)]
+
+    with open(BATCH_JSONL_FILE, "w") as f:
+        for i, batch in enumerate(batches):
+            request = {
+                "custom_id": f"batch-{i}",
+                "method": "POST",
+                "url": "/v1/chat/completions",
+                "body": {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": TICKER_PROMPT},
+                        {"role": "user", "content": create_batch_prompt(batch)}
+                    ]
+                }
+            }
+            f.write(json.dumps(request) + "\n")
+
+    # Save batch metadata for download phase
+    batch_meta = {
+        "model": model,
+        "batch_size": batch_size,
+        "total_markets": len(valid),
+        "total_requests": len(batches),
+        "created_at": datetime.now().isoformat(),
+        "markets": valid  # Save for parsing responses later
+    }
+    with open(BATCH_STATE_FILE, "w") as f:
+        json.dump(batch_meta, f)
+
+    print(f"Prepared {len(batches)} requests for {len(valid)} markets -> {BATCH_JSONL_FILE}")
+    return len(batches)
+
+
+def handle_batch_api(args):
+    """Handle --batch-api submit/check/download."""
+    from openai import OpenAI
+    client = OpenAI()
+
+    if args.batch_api == "submit":
+        markets = load_markets(args.input)
+        if args.limit:
+            markets = markets[:args.limit]
+
+        if not args.full_refresh:
+            markets, existing = filter_to_untickered(markets, args.output)
+            print(f"Filtered to {len(markets)} untickered markets")
+
+        if not markets:
+            print("No markets to process.")
+            return
+
+        prepare_batch_jsonl(markets, args.model, args.batch_size)
+
+        # Upload file
+        with open(BATCH_JSONL_FILE, "rb") as f:
+            uploaded = client.files.create(file=f, purpose="batch")
+        print(f"Uploaded file: {uploaded.id}")
+
+        # Create batch
+        batch = client.batches.create(
+            input_file_id=uploaded.id,
+            endpoint="/v1/chat/completions",
+            completion_window="24h"
+        )
+        print(f"Batch created: {batch.id}")
+        print(f"Status: {batch.status}")
+        print(f"\nTo check: python create_tickers.py --batch-api check --batch-id {batch.id}")
+
+        # Save batch ID to state
+        with open(BATCH_STATE_FILE) as f:
+            state = json.load(f)
+        state["batch_id"] = batch.id
+        state["file_id"] = uploaded.id
+        with open(BATCH_STATE_FILE, "w") as f:
+            json.dump(state, f)
+
+    elif args.batch_api == "check":
+        batch_id = args.batch_id
+        if not batch_id and BATCH_STATE_FILE.exists():
+            with open(BATCH_STATE_FILE) as f:
+                state = json.load(f)
+            batch_id = state.get("batch_id")
+        if not batch_id:
+            print("No batch ID. Use --batch-id or submit a batch first.")
+            return
+
+        batch = client.batches.retrieve(batch_id)
+        print(f"Batch {batch_id}:")
+        print(f"  Status: {batch.status}")
+        print(f"  Total requests: {batch.request_counts.total}")
+        print(f"  Completed: {batch.request_counts.completed}")
+        print(f"  Failed: {batch.request_counts.failed}")
+        if batch.status == "completed":
+            print(f"\nReady! Run: python create_tickers.py --batch-api download --batch-id {batch_id}")
+
+    elif args.batch_api == "download":
+        batch_id = args.batch_id
+        if not batch_id and BATCH_STATE_FILE.exists():
+            with open(BATCH_STATE_FILE) as f:
+                state = json.load(f)
+            batch_id = state.get("batch_id")
+        if not batch_id:
+            print("No batch ID.")
+            return
+
+        batch = client.batches.retrieve(batch_id)
+        if batch.status != "completed":
+            print(f"Batch not ready. Status: {batch.status}")
+            return
+
+        # Download results
+        result_file = client.files.content(batch.output_file_id)
+        lines = result_file.text.strip().split("\n")
+        print(f"Downloaded {len(lines)} results")
+
+        # Load state for market data
+        with open(BATCH_STATE_FILE) as f:
+            state = json.load(f)
+        batch_size = state["batch_size"]
+        all_markets = state["markets"]
+
+        # Parse results
+        all_results = []
+        for line in lines:
+            resp = json.loads(line)
+            custom_id = resp["custom_id"]
+            batch_idx = int(custom_id.split("-")[1])
+
+            # Get the markets for this batch
+            start = batch_idx * batch_size
+            end = min(start + batch_size, len(all_markets))
+            batch_markets = all_markets[start:end]
+
+            if resp["response"]["status_code"] == 200:
+                text = resp["response"]["body"]["choices"][0]["message"]["content"]
+                try:
+                    parsed = parse_response(text, batch_markets)
+                    for t in parsed:
+                        postprocess_ticker(t)
+                        t["ticker"] = assemble_ticker(t)
+                    all_results.extend(parsed)
+                except Exception as e:
+                    print(f"  Parse error batch {batch_idx}: {e}")
+                    for m in batch_markets:
+                        all_results.append({"market_id": m["market_id"], "error": str(e)})
+            else:
+                print(f"  API error batch {batch_idx}: {resp['response']['status_code']}")
+                for m in batch_markets:
+                    all_results.append({"market_id": m["market_id"], "error": "API error"})
+
+        # Merge with existing tickers
+        existing_tickers = []
+        if args.output.exists():
+            with open(args.output) as f:
+                existing_tickers = json.load(f).get("tickers", [])
+        existing_by_id = {t["market_id"]: t for t in existing_tickers if "market_id" in t}
+
+        for t in all_results:
+            mid = t.get("market_id")
+            if mid:
+                existing_by_id[mid] = t
+
+        save_tickers(list(existing_by_id.values()), args.output, state["model"])
+        print(f"Saved {len(existing_by_id)} tickers (including {len(all_results)} new from batch)")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Create tickers from markets")
     parser.add_argument(
@@ -1145,7 +1325,7 @@ def main():
     parser.add_argument(
         "--batch-size", "-b",
         type=int,
-        default=25,
+        default=50,
         help="Markets per batch"
     )
     parser.add_argument(
@@ -1165,8 +1345,25 @@ def main():
         default=500,
         help="Max errored markets to retry per run (default 500)"
     )
+    parser.add_argument(
+        "--batch-api",
+        choices=["submit", "check", "download"],
+        default=None,
+        help="Use OpenAI Batch API (50%% cost). submit=create batch, check=poll status, download=fetch results"
+    )
+    parser.add_argument(
+        "--batch-id",
+        type=str,
+        default=None,
+        help="Batch ID for --batch-api check/download"
+    )
 
     args = parser.parse_args()
+
+    # Handle Batch API modes
+    if args.batch_api:
+        handle_batch_api(args)
+        return
 
     markets = load_markets(args.input)
     if args.limit:

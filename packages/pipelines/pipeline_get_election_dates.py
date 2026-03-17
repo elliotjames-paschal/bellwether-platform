@@ -33,6 +33,7 @@ Output:
 
 import pandas as pd
 import json
+import sys
 import time
 import os
 from datetime import datetime
@@ -52,8 +53,15 @@ CHECKPOINT_FILE = DATA_DIR / "pipeline_election_dates_checkpoint.json"
 
 # OpenAI Configuration
 BATCH_SIZE = 50  # Increased from 10 for cost efficiency
-MODEL = "gpt-4o"
+DEFAULT_MODEL = "gpt-4o-mini"
 TEMPERATURE = 0
+
+# Allow --model override: python pipeline_get_election_dates.py --model gpt-4o
+MODEL = DEFAULT_MODEL
+if "--model" in sys.argv:
+    idx = sys.argv.index("--model")
+    if idx + 1 < len(sys.argv):
+        MODEL = sys.argv[idx + 1]
 
 
 def log(msg):

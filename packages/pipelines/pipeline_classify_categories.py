@@ -31,6 +31,7 @@ Output:
 import pandas as pd
 import json
 import re
+import sys
 import time
 import os
 from datetime import datetime
@@ -48,8 +49,15 @@ CHECKPOINT_FILE = DATA_DIR / "pipeline_classify_categories_checkpoint.json"
 
 # OpenAI Configuration
 BATCH_SIZE = 50
-MODEL = "gpt-4o"
+DEFAULT_MODEL = "gpt-4o-mini"
 TEMPERATURE = 0
+
+# Allow --model override: python pipeline_classify_categories.py --model gpt-4o
+MODEL = DEFAULT_MODEL
+if "--model" in sys.argv:
+    idx = sys.argv.index("--model")
+    if idx + 1 < len(sys.argv):
+        MODEL = sys.argv[idx + 1]
 
 # Political categories (16 types - includes NOT_POLITICAL for filtering)
 POLITICAL_CATEGORIES = [
@@ -867,17 +875,24 @@ def main():
         df['political_category'] = pd.Series([None] * len(df), dtype=object)
     log(f"  Total new markets: {len(df):,}")
 
-    # Split into already classified (ELECTORAL) and needs classification
-    already_electoral = df[df['political_category'] == '1. ELECTORAL'].copy()
-    needs_classification = df[df['political_category'].isna()].copy()
+    # Split into already classified and needs classification
+    force_reclassify = "--force-reclassify" in sys.argv
+    if force_reclassify:
+        already_classified = df[df['political_category'] == '1. ELECTORAL'].copy()
+        needs_classification = df[df['political_category'] != '1. ELECTORAL'].copy()
+        needs_classification.loc[:, 'political_category'] = None
+        log(f"  --force-reclassify: keeping {len(already_classified):,} ELECTORAL, reclassifying {len(needs_classification):,}")
+    else:
+        already_classified = df[df['political_category'].notna()].copy()
+        needs_classification = df[df['political_category'].isna()].copy()
+        log(f"  Already classified (skipped): {len(already_classified):,}")
 
-    log(f"  Already ELECTORAL (auto-labeled): {len(already_electoral):,}")
     log(f"  Needs GPT classification: {len(needs_classification):,}")
 
     if len(needs_classification) == 0:
         log("No markets need classification!")
         df.to_csv(OUTPUT_FILE, index=False)
-        return len(already_electoral)
+        return len(already_classified)
 
     # PRE-FILTER: Remove obvious non-political markets before GPT
     needs_classification, pre_filtered = pre_filter_non_political(needs_classification, show_progress=True)

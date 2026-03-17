@@ -258,7 +258,7 @@ OUTPUT_FILE = DATA_DIR / "new_markets_electoral_details.csv"
 CHECKPOINT_FILE = DATA_DIR / "pipeline_classify_electoral_checkpoint.json"
 
 # OpenAI Configuration
-BATCH_SIZE = 20
+BATCH_SIZE = 50
 MODEL = "gpt-4o"
 TEMPERATURE = 0
 
