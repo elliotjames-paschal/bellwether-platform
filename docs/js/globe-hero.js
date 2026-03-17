@@ -1061,7 +1061,7 @@ function initHeroGlobe(containerId, options) {
             allMarkets = allMarkets.filter(function(m) {
                 var cat = (m.category || '').toUpperCase();
                 var catDisplay = (m.category_display || '').toLowerCase();
-                return cat === 'ELECTORAL' || catDisplay.includes('electoral');
+                return cat === 'ELEC' || cat === 'ELECTORAL' || catDisplay.includes('electoral');
             });
 
             liveElections = allMarkets;
@@ -1075,12 +1075,12 @@ function initHeroGlobe(containerId, options) {
             liveElections = liveElections.filter(function(m) {
                 var cat = (m.category || '').toUpperCase();
                 var catDisplay = (m.category_display || '').toLowerCase();
-                return cat === 'ELECTORAL' || catDisplay.includes('electoral');
+                return cat === 'ELEC' || cat === 'ELECTORAL' || catDisplay.includes('electoral');
             });
             completedElections = completedElections.filter(function(m) {
                 var cat = (m.category || '').toUpperCase();
                 var catDisplay = (m.category_display || '').toLowerCase();
-                return cat === 'ELECTORAL' || catDisplay.includes('electoral');
+                return cat === 'ELEC' || cat === 'ELECTORAL' || catDisplay.includes('electoral');
             });
 
             allMarkets = liveElections.concat(completedElections);

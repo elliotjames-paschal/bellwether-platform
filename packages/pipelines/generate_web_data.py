@@ -759,44 +759,16 @@ def generate_brier_by_category():
     kalshi_1d['ticker'] = kalshi_1d['ticker'].astype(str)
     master_df['market_id'] = master_df['market_id'].astype(str)
 
-    # Add ticker-derived categories
-    ticker_data = load_ticker_data()
+    # Add ticker-derived categories using unified category column
+    master_df_cats = add_ticker_category_column(master_df)
+    cat_lookup = dict(zip(master_df_cats['market_id'].astype(str), master_df_cats['category']))
+
     pm_1d['category'] = pm_1d['market_id'].map(
-        lambda mid: ticker_data.get(str(mid), {}).get('category', '')
+        lambda mid: cat_lookup.get(str(mid), 'MISC')
     )
     kalshi_1d['category'] = kalshi_1d['ticker'].map(
-        lambda mid: ticker_data.get(str(mid), {}).get('category', '')
+        lambda mid: cat_lookup.get(str(mid), 'MISC')
     )
-
-    # Fallback to old political_category for markets without ticker data
-    if not ticker_data:
-        pm_1d = pm_1d.merge(
-            master_df[['market_id', 'political_category']].drop_duplicates(),
-            on='market_id', how='left'
-        )
-        pm_1d['category'] = pm_1d['political_category'].map(
-            lambda x: OLD_TO_NEW_CATEGORY.get(str(x), 'MISC')
-        )
-        kalshi_1d = kalshi_1d.merge(
-            master_df[['market_id', 'political_category']].drop_duplicates(),
-            left_on='ticker', right_on='market_id', how='left'
-        )
-        kalshi_1d['category'] = kalshi_1d['political_category'].map(
-            lambda x: OLD_TO_NEW_CATEGORY.get(str(x), 'MISC')
-        )
-    else:
-        # Fill missing with old category via master CSV
-        pm_missing = pm_1d['category'] == ''
-        k_missing = kalshi_1d['category'] == ''
-        if pm_missing.any() or k_missing.any():
-            master_df_cats = add_ticker_category_column(master_df, ticker_data)
-            cat_lookup = dict(zip(master_df_cats['market_id'].astype(str), master_df_cats['category']))
-            pm_1d.loc[pm_missing, 'category'] = pm_1d.loc[pm_missing, 'market_id'].map(
-                lambda mid: cat_lookup.get(str(mid), 'MISC')
-            )
-            kalshi_1d.loc[k_missing, 'category'] = kalshi_1d.loc[k_missing, 'ticker'].map(
-                lambda mid: cat_lookup.get(str(mid), 'MISC')
-            )
 
     n_missing_pm = (pm_1d['category'] == '').sum() + (pm_1d['category'] == 'MISC').sum()
     n_missing_k = (kalshi_1d['category'] == '').sum() + (kalshi_1d['category'] == 'MISC').sum()

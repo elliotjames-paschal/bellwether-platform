@@ -25,29 +25,11 @@ from pathlib import Path
 # Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import BASE_DIR, DATA_DIR
+from category_utils import format_category_name
 
 INPUT_FILE = DATA_DIR / "liquidity_metrics_by_market.csv"
 FIGURES_DIR = BASE_DIR / "figures"
 SUMMARY_OUTPUT = DATA_DIR / "liquidity_summary_by_category.csv"
-
-# Category display names (shortened)
-CATEGORY_NAMES = {
-    '1. ELECTORAL': 'Electoral',
-    '2. MONETARY_POLICY': 'Monetary',
-    '3. LEGISLATIVE': 'Legislative',
-    '4. APPOINTMENTS': 'Appointments',
-    '5. REGULATORY': 'Regulatory',
-    '6. INTERNATIONAL': 'International',
-    '7. JUDICIAL': 'Judicial',
-    '8. MILITARY_SECURITY': 'Military',
-    '9. CRISIS_EMERGENCY': 'Crisis',
-    '10. GOVERNMENT_OPERATIONS': 'Gov Ops',
-    '11. PARTY_POLITICS': 'Party',
-    '12. STATE_LOCAL': 'State/Local',
-    '13. TIMING_EVENTS': 'Timing',
-    '14. POLLING_APPROVAL': 'Polling',
-    '15. POLITICAL_SPEECH': 'Speech'
-}
 
 
 def log(msg):
@@ -55,8 +37,8 @@ def log(msg):
 
 
 def clean_category(cat):
-    """Get short category name."""
-    return CATEGORY_NAMES.get(cat, cat.split('. ')[-1] if '. ' in str(cat) else str(cat))
+    """Get display name for a category code."""
+    return format_category_name(cat)
 
 
 def plot_spread_by_category(df, output_path):

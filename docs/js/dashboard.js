@@ -43,19 +43,20 @@ const CONFIG = { responsive: true, displayModeBar: false };
 const CATEGORY_DEFINITIONS = {
     'Electoral': 'Elections at all levels (federal, state, local, international) — who wins, vote shares, candidate performance, election outcomes',
     'Monetary Policy': 'Fed decisions, interest rates, inflation, central bank',
+    'Economic Data': 'GDP, jobs reports, CPI, economic indicators',
     'Legislative': 'Congressional actions, bills, votes, legislation',
     'Appointments': 'Government nominations, confirmations, cabinet picks',
     'Regulatory': 'Agency decisions (SEC, FDA, EPA), regulatory approvals',
     'International': 'Foreign policy, sanctions, trade, diplomacy, treaties',
     'Judicial': 'Court decisions, legal rulings, Supreme Court cases',
-    'Military Security': 'Military actions, defense, conflicts, cybersecurity',
-    'Crisis Emergency': 'Disaster response, emergencies, pandemic response',
+    'Military & Security': 'Military actions, defense, conflicts, cybersecurity',
     'Government Operations': 'Budget, shutdowns, debt ceiling, contracts',
-    'Party Politics': 'Internal party decisions, leadership, scandals (not elections)',
-    'State Local': 'State/local non-election matters only (laws, ordinances, policies)',
-    'Timing Events': 'Political timing, announcement scheduling',
-    'Polling Approval': 'Opinion polls, approval ratings, public opinion',
-    'Political Speech': 'What politicians will say, speech content'
+    'Leadership Changes': 'Internal party decisions, leadership changes, resignations',
+    'Candidacy': 'Candidacy announcements, who will run for office',
+    'Polling & Approval': 'Opinion polls, approval ratings, public opinion',
+    'Political Speech': 'What politicians will say, speech content',
+    'Crisis & Emergency': 'Disaster response, emergencies, pandemic response',
+    'Other': 'Markets that don\'t fit neatly into other categories'
 };
 
 function tooltipWrap(text, definitions) {
@@ -927,21 +928,22 @@ const MAX_VOLUME_CATEGORIES = 8;
 
 // Category colors for volume chart
 const VOLUME_CATEGORY_COLORS = {
-    'Electoral': '#5B8DEE',           // Polymarket blue
-    'Monetary Policy': '#E85D75',     // Muted red
-    'Party Politics': '#2CB67D',      // Kalshi green
-    'Military Security': '#F6A96C',   // Muted orange
-    'International': '#9B72CB',       // Muted purple
-    'Appointments': '#4ECDC4',        // Muted turquoise
-    'Political Speech': '#E89F5B',    // Muted gold
-    'Regulatory': '#36B3A8',          // Muted teal
-    'Government Operations': '#7C8BA1', // Gray blue
-    'Judicial': '#D4A373',            // Tan
-    'Legislative': '#90BE6D',         // Light green
-    'Crisis Emergency': '#F94144',    // Red
-    'Timing Events': '#277DA1',       // Steel blue
-    'Polling Approval': '#F8961E',    // Orange
-    'State Local': '#43AA8B'          // Teal
+    'Electoral': '#3b82f6',
+    'Monetary Policy': '#10b981',
+    'Economic Data': '#22c55e',
+    'Legislative': '#8b5cf6',
+    'Appointments': '#f59e0b',
+    'Regulatory': '#ef4444',
+    'International': '#06b6d4',
+    'Judicial': '#ec4899',
+    'Military & Security': '#64748b',
+    'Government Operations': '#0ea5e9',
+    'Leadership Changes': '#a855f7',
+    'Candidacy': '#84cc16',
+    'Polling & Approval': '#14b8a6',
+    'Political Speech': '#f97316',
+    'Crisis & Emergency': '#dc2626',
+    'Other': '#6b7280'
 };
 
 async function loadVolumeTimeseries() {
@@ -2248,7 +2250,10 @@ function renderLiquidityAccuracy() {
             displayName = 'All Markets';
             totalMarkets = sourceData.total_markets;
         } else {
-            displayName = selectedLiquidityCategory.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+            // Look up display name from the dropdown option text
+            const selectEl = document.getElementById('liquidity-category-select');
+            const selectedOption = selectEl ? selectEl.options[selectEl.selectedIndex] : null;
+            displayName = selectedOption ? selectedOption.text : selectedLiquidityCategory;
             totalMarkets = sourceData.total_markets;
         }
     }

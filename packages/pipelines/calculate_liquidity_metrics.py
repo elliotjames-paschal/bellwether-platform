@@ -23,6 +23,7 @@ from pathlib import Path
 # Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import BASE_DIR, DATA_DIR
+from category_utils import old_to_new_category
 
 PM_INPUT_FILE = DATA_DIR / "orderbook_history_polymarket.json"
 KALSHI_INPUT_FILE = DATA_DIR / "orderbook_history_kalshi.json"
@@ -65,7 +66,7 @@ def calculate_market_metrics(market_data):
     result = {
         'market_id': market_data.get('market_id', ''),
         'question': market_data.get('question', ''),
-        'category': market_data.get('category', ''),
+        'category': old_to_new_category(market_data.get('category', '')) if market_data.get('category', '') else 'MISC',
         'volume_usd': market_data.get('volume_usd', 0),
         'trading_close_time': market_data.get('trading_close_time', ''),
         'n_snapshots': len(metrics_list),

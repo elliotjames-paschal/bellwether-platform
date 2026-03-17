@@ -24,33 +24,15 @@ from pathlib import Path
 # Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import BASE_DIR, DATA_DIR
+from category_utils import format_category_name
 
 INPUT_FILE = DATA_DIR / "liquidity_metrics_by_market.csv"
 WEBSITE_DATA_DIR = BASE_DIR / "website" / "data"
 
-# Category short names
-CATEGORY_SHORT = {
-    '1. ELECTORAL': 'Electoral',
-    '2. MONETARY_POLICY': 'Monetary Policy',
-    '3. LEGISLATIVE': 'Legislative',
-    '4. APPOINTMENTS': 'Appointments',
-    '5. REGULATORY': 'Regulatory',
-    '6. INTERNATIONAL': 'International',
-    '7. JUDICIAL': 'Judicial',
-    '8. MILITARY_SECURITY': 'Military Security',
-    '9. CRISIS_EMERGENCY': 'Crisis Emergency',
-    '10. GOVERNMENT_OPERATIONS': 'Government Operations',
-    '11. PARTY_POLITICS': 'Party Politics',
-    '12. STATE_LOCAL': 'State Local',
-    '13. TIMING_EVENTS': 'Timing Events',
-    '14. POLLING_APPROVAL': 'Polling Approval',
-    '15. POLITICAL_SPEECH': 'Political Speech'
-}
-
 
 def clean_category(cat):
-    """Get short category name."""
-    return CATEGORY_SHORT.get(cat, cat.split('. ')[-1] if '. ' in str(cat) else str(cat))
+    """Get display name for a category code."""
+    return format_category_name(cat)
 
 
 def export_liquidity_by_category(df):

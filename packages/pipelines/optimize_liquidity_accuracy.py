@@ -11,6 +11,8 @@ This script:
 """
 
 import json
+import os
+import sys
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -18,8 +20,10 @@ from scipy import stats
 from scipy.optimize import minimize
 
 # Paths
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = Path(__file__).parent.parent / "data"
 WEBSITE_DATA_DIR = Path(__file__).parent.parent / "website" / "data"
+from category_utils import format_category_name, old_to_new_category
 
 def load_data():
     """Load and merge liquidity + accuracy data."""
@@ -63,8 +67,8 @@ def load_data():
     )
     print(f"Merged: {len(merged)} markets with both liquidity and accuracy")
 
-    # Clean category names
-    merged['category_clean'] = merged['category'].str.replace(r'^\d+\.\s*', '', regex=True)
+    # Normalize categories to new codes
+    merged['category_clean'] = merged['category'].map(old_to_new_category)
 
     return merged
 
