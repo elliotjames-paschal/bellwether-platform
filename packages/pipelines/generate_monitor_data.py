@@ -78,6 +78,7 @@ MATCH_EXCLUSIONS_FILE = DATA_DIR / "match_exclusions.json"
 PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
 KALSHI_PRICES_FILE = DATA_DIR / "kalshi_all_political_prices_CORRECTED_v3.json"
 KALSHI_DAILY_PRICES_DIR = DATA_DIR / "kalshi_daily_prices"
+MATCH_EXCLUSIONS_FILE = DATA_DIR / "match_exclusions.json"
 SLUG_MAPPING_FILE = DATA_DIR / "pm_event_slug_mapping.json"
 OUTPUT_FILE = WEBSITE_DIR / "data" / "active_markets.json"
 
@@ -1442,6 +1443,72 @@ def generate_monitor_data(skip_prices=False):
                 ticker_groups[ticker_str]['k_markets'].append(row)
         else:
             no_ticker_markets.append(row)
+
+    # ---- Apply match exclusions to split mismatched pairs ----
+    exclusions = set()
+    if MATCH_EXCLUSIONS_FILE.exists():
+        try:
+            with open(MATCH_EXCLUSIONS_FILE) as f:
+                exc_data = json.load(f)
+            for exc in exc_data.get("exclusions", []):
+                pair = frozenset([str(exc["market_id_a"]), str(exc["market_id_b"])])
+                exclusions.add(pair)
+        except (json.JSONDecodeError, OSError, KeyError):
+            pass
+
+    if exclusions:
+        log(f"  Loaded {len(exclusions)} match exclusions")
+        new_ticker_groups = {}
+        split_count = 0
+        for ticker_str, group in ticker_groups.items():
+            all_markets = group['pm_markets'] + group['k_markets']
+            if len(all_markets) <= 1:
+                new_ticker_groups[ticker_str] = group
+                continue
+
+            # Check if any exclusion applies to this group
+            market_ids = [str(m.get('market_id', '')).split('.')[0] for m in all_markets]
+            has_exclusion = False
+            for i in range(len(market_ids)):
+                for j in range(i + 1, len(market_ids)):
+                    if frozenset([market_ids[i], market_ids[j]]) in exclusions:
+                        has_exclusion = True
+                        break
+                if has_exclusion:
+                    break
+
+            if not has_exclusion:
+                new_ticker_groups[ticker_str] = group
+                continue
+
+            # Greedy split: assign each market to first compatible subgroup
+            subgroups = []  # list of lists of (market_id, market_row) tuples
+            for mid, market in zip(market_ids, all_markets):
+                placed = False
+                for sg in subgroups:
+                    conflict = any(frozenset([mid, existing_mid]) in exclusions for existing_mid, _ in sg)
+                    if not conflict:
+                        sg.append((mid, market))
+                        placed = True
+                        break
+                if not placed:
+                    subgroups.append([(mid, market)])
+
+            for idx, sg in enumerate(subgroups):
+                key = ticker_str if idx == 0 else f"{ticker_str}__excl{idx}"
+                new_group = {'pm_markets': [], 'k_markets': []}
+                for _, market in sg:
+                    platform = market.get('platform')
+                    if platform == 'Polymarket':
+                        new_group['pm_markets'].append(market)
+                    elif platform == 'Kalshi':
+                        new_group['k_markets'].append(market)
+                new_ticker_groups[key] = new_group
+            split_count += 1
+
+        if split_count:
+            log(f"  Split {split_count} ticker groups due to exclusions")
+        ticker_groups = new_ticker_groups
 
     log(f"  Unique tickers with active markets: {len(ticker_groups):,}")
     log(f"  Markets without tickers: {len(no_ticker_markets):,}")
