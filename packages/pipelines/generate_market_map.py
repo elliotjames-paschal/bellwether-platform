@@ -214,10 +214,16 @@ def generate_market_map():
     if exclusions:
         print(f"  Loaded {len(exclusions)} match exclusions")
 
-    # Group tickers by ticker string
+    # Group tickers by ticker string (skip UNKNOWN tickers - they cause false matches)
     by_ticker = defaultdict(list)
+    skipped_unknown = 0
     for t in tickers_data['tickers']:
+        if 'UNKNOWN' in t['ticker']:
+            skipped_unknown += 1
+            continue
         by_ticker[t['ticker']].append(t)
+    if skipped_unknown:
+        print(f"  Skipped {skipped_unknown} markets with UNKNOWN tickers (prevents false matches)")
 
     # Split groups that contain excluded pairs
     expanded_groups = []
