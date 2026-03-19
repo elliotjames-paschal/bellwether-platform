@@ -492,7 +492,14 @@ def generate_civic_data():
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(output, f, indent=2)
 
+    # Also write to docs/data/ for GitHub Pages deployment
+    docs_path = Path(__file__).parent.parent.parent / 'docs' / 'data' / 'civic_elections.json'
+    docs_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(docs_path, 'w', encoding='utf-8') as f:
+        json.dump(output, f, indent=2)
+
     print(f"\n✓ Generated {output_path}")
+    print(f"  Also copied to {docs_path}")
     print(f"  {len(processed_elections)} elections with data")
 
     return output
