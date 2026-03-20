@@ -1,6 +1,7 @@
 {
   "election_types": [
     "Gubernatorial",
+    "Gubernatorial Primary",
     "Mayoral",
     "Parliamentary",
     "Regional Election",
@@ -10,37 +11,41 @@
   "polymarket": {
     "brier": [
       0.16,
-      null,
-      0.0383,
-      0.0668,
-      0.0012,
-      0.0
+      0.0007,
+      0.073,
+      0.0382,
+      0.0301,
+      0.7548,
+      0.0192
     ],
     "count": [
       1,
-      0,
+      7,
       19,
-      9,
+      19,
+      21,
       2,
-      2
+      12
     ]
   },
   "kalshi": {
     "brier": [
       null,
+      null,
       0.81,
       null,
       null,
       null,
-      0.0002
+      0.0001
     ],
     "count": [
+      0,
       0,
       1,
       0,
       0,
       0,
-      5
+      12
     ]
   }
 }
