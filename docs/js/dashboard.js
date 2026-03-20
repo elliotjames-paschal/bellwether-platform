@@ -513,42 +513,6 @@ async function loadBrierByElectionType() {
     }
 }
 
-async function loadBrierByMargin() {
-    try {
-        const data = await fetchJSON('brier_by_margin.json');
-
-        const pm = {
-            x: data.margins,
-            y: data.polymarket.brier,
-            name: 'Polymarket',
-            type: 'bar',
-            marker: { color: COLORS_SOFT.pm }
-        };
-
-        const kalshi = {
-            x: data.margins,
-            y: data.kalshi.brier,
-            name: 'Kalshi',
-            type: 'bar',
-            marker: { color: COLORS_SOFT.kalshi }
-        };
-
-        const layout = {
-            ...LAYOUT_DEFAULTS,
-            barmode: 'group',
-            bargap: 0.3,
-            xaxis: { title: 'Election Margin (Vote Difference)', gridcolor: COLORS.line },
-            yaxis: { title: 'Brier Score', gridcolor: COLORS.line, zeroline: false },
-            margin: { l: 60, r: 20, t: 30, b: 60 }
-        };
-
-        Plotly.newPlot('chart-margin', [pm, kalshi], layout, CONFIG);
-    } catch (e) {
-        console.warn('Could not load margin chart:', e);
-        showError('chart-margin');
-    }
-}
-
 async function loadBrierConvergence() {
     try {
         const data = await fetchJSON('brier_convergence.json');

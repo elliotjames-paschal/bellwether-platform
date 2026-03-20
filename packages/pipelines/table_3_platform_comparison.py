@@ -84,9 +84,12 @@ metrics.append({
     'Kalshi': len(kalshi) - len(kalshi_electoral)
 })
 
-# 5. Date range
+# 5. Date range (filter out obviously bad dates like 2070)
+reasonable_cutoff = pd.Timestamp('2030-01-01', tz='UTC')
 pm_dates = pm['trading_close_time'].dropna()
 kalshi_dates = kalshi['trading_close_time'].dropna()
+pm_dates = pm_dates[pm_dates < reasonable_cutoff]
+kalshi_dates = kalshi_dates[kalshi_dates < reasonable_cutoff]
 
 pm_earliest = pm_dates.min().strftime('%Y-%m-%d') if len(pm_dates) > 0 else 'N/A'
 pm_latest = pm_dates.max().strftime('%Y-%m-%d') if len(pm_dates) > 0 else 'N/A'

@@ -645,15 +645,29 @@ def generate_summary_stats():
     pm_count = len(df[df['platform'] == 'Polymarket'])
     kalshi_count = len(df[df['platform'] == 'Kalshi'])
 
-    # Brier scores (1 day before)
-    pm_1d = pm_pred[pm_pred['days_before_event'] == 1]
-    kalshi_1d = kalshi_pred[kalshi_pred['days_before_event'] == 1]
+    # Brier scores (1 day before), filtered to shared categories for fair comparison
+    pm_1d = pm_pred[pm_pred['days_before_event'] == 1].copy()
+    kalshi_1d = kalshi_pred[kalshi_pred['days_before_event'] == 1].copy()
 
-    pm_brier = pm_1d['brier_score'].mean() if len(pm_1d) > 0 else None
-    kalshi_brier = kalshi_1d['brier_score'].mean() if len(kalshi_1d) > 0 else None
+    # Map categories onto predictions for fair comparison
+    df_cats = add_ticker_category_column(df.copy())
+    cat_lookup = dict(zip(df_cats['market_id'].astype(str), df_cats['category']))
+    pm_1d['category'] = pm_1d['market_id'].astype(str).map(lambda mid: cat_lookup.get(str(mid), 'MISC'))
+    kalshi_1d['category'] = kalshi_1d['ticker'].astype(str).map(lambda mid: cat_lookup.get(str(mid), 'MISC'))
 
-    # Combined Brier score (weighted by number of markets)
-    combined_1d = pd.concat([pm_1d, kalshi_1d])
+    # Only compare categories where both platforms have predictions
+    pm_cats = set(pm_1d['category'].unique())
+    kalshi_cats = set(kalshi_1d['category'].unique())
+    shared_cats = pm_cats & kalshi_cats
+
+    pm_shared = pm_1d[pm_1d['category'].isin(shared_cats)]
+    kalshi_shared = kalshi_1d[kalshi_1d['category'].isin(shared_cats)]
+
+    pm_brier = pm_shared['brier_score'].mean() if len(pm_shared) > 0 else None
+    kalshi_brier = kalshi_shared['brier_score'].mean() if len(kalshi_shared) > 0 else None
+
+    # Combined Brier score
+    combined_1d = pd.concat([pm_shared, kalshi_shared])
     combined_brier = combined_1d['brier_score'].mean() if len(combined_1d) > 0 else None
 
     # Electoral markets (use ticker category if available)
@@ -721,6 +735,9 @@ def generate_summary_stats():
         'polymarket_brier': round(pm_brier, 4) if pm_brier else None,
         'kalshi_brier': round(kalshi_brier, 4) if kalshi_brier else None,
         'combined_brier': round(combined_brier, 4) if combined_brier else None,
+        'brier_shared_categories': len(shared_cats),
+        'brier_pm_n': len(pm_shared),
+        'brier_kalshi_n': len(kalshi_shared),
         'electoral_markets': len(electoral),
         'unique_elections': len(unique_elections),
         'overlapping_elections': overlapping_elections,
@@ -795,23 +812,24 @@ def generate_brier_by_category():
         'kalshi': {'brier': [], 'count': []}
     }
 
+    MIN_N = 5  # Suppress Brier scores from tiny samples
+
     for cat in categories:
         # Format category name for display
         clean_cat = format_category_name(cat)
 
+        pm_n = int(pm_by_cat.loc[cat, 'count']) if cat in pm_by_cat.index else 0
+        k_n = int(kalshi_by_cat.loc[cat, 'count']) if cat in kalshi_by_cat.index else 0
+
         data['categories'].append(clean_cat)
         data['polymarket']['brier'].append(
-            round(pm_by_cat.loc[cat, 'brier_score'], 4) if cat in pm_by_cat.index else None
+            round(pm_by_cat.loc[cat, 'brier_score'], 4) if cat in pm_by_cat.index and pm_n >= MIN_N else None
         )
-        data['polymarket']['count'].append(
-            int(pm_by_cat.loc[cat, 'count']) if cat in pm_by_cat.index else 0
-        )
+        data['polymarket']['count'].append(pm_n)
         data['kalshi']['brier'].append(
-            round(kalshi_by_cat.loc[cat, 'brier_score'], 4) if cat in kalshi_by_cat.index else None
+            round(kalshi_by_cat.loc[cat, 'brier_score'], 4) if cat in kalshi_by_cat.index and k_n >= MIN_N else None
         )
-        data['kalshi']['count'].append(
-            int(kalshi_by_cat.loc[cat, 'count']) if cat in kalshi_by_cat.index else 0
-        )
+        data['kalshi']['count'].append(k_n)
 
     with open(f"{WEB_DATA_DIR}/brier_by_category.json", 'w') as f:
         json.dump(data, f, indent=2, allow_nan=False)
@@ -855,20 +873,21 @@ def generate_brier_by_election_type():
         'kalshi': {'brier': [], 'count': []}
     }
 
+    MIN_N = 5  # Suppress Brier scores from tiny samples
+
     for et in types:
+        pm_n = int(pm_by_type.loc[et, 'count']) if et in pm_by_type.index else 0
+        k_n = int(kalshi_by_type.loc[et, 'count']) if et in kalshi_by_type.index else 0
+
         data['election_types'].append(et)
         data['polymarket']['brier'].append(
-            round(pm_by_type.loc[et, 'brier_score'], 4) if et in pm_by_type.index else None
+            round(pm_by_type.loc[et, 'brier_score'], 4) if et in pm_by_type.index and pm_n >= MIN_N else None
         )
-        data['polymarket']['count'].append(
-            int(pm_by_type.loc[et, 'count']) if et in pm_by_type.index else 0
-        )
+        data['polymarket']['count'].append(pm_n)
         data['kalshi']['brier'].append(
-            round(kalshi_by_type.loc[et, 'brier_score'], 4) if et in kalshi_by_type.index else None
+            round(kalshi_by_type.loc[et, 'brier_score'], 4) if et in kalshi_by_type.index and k_n >= MIN_N else None
         )
-        data['kalshi']['count'].append(
-            int(kalshi_by_type.loc[et, 'count']) if et in kalshi_by_type.index else 0
-        )
+        data['kalshi']['count'].append(k_n)
 
     with open(f"{WEB_DATA_DIR}/brier_by_election_type.json", 'w') as f:
         json.dump(data, f, indent=2, allow_nan=False)
@@ -975,41 +994,6 @@ def generate_platform_comparison():
     else:
         log(f"  ⚠ No shared elections file found")
 
-def generate_brier_by_race_margin():
-    """Generate Brier scores by race margin (closeness)."""
-    log("Generating Brier by race margin...")
-
-    margin_file = f"{DATA_DIR}/calibration_by_race_margin.csv"
-    if not os.path.exists(margin_file):
-        log("  ⚠ No race margin file found")
-        return
-
-    df = pd.read_csv(margin_file)
-
-    # Filter out 'Overall' row
-    df = df[df['Margin Bucket'] != 'Overall']
-
-    data = {
-        'margins': df['Margin Bucket'].tolist(),
-        'polymarket': {
-            'brier': [safe_round(x, 4) for x in df['PM Brier'].tolist()],
-            'count': [int(x) if pd.notna(x) else 0 for x in df['PM N'].tolist()]
-        },
-        'kalshi': {
-            'brier': [safe_round(x, 4) for x in df['Kalshi Brier'].tolist()],
-            'count': [int(x) if pd.notna(x) else 0 for x in df['Kalshi N'].tolist()]
-        },
-        'combined': {
-            'brier': [safe_round(x, 4) for x in df['Combined Brier'].tolist()],
-            'count': [int(x) if pd.notna(x) else 0 for x in df['Total N'].tolist()]
-        }
-    }
-
-    with open(f"{WEB_DATA_DIR}/brier_by_margin.json", 'w') as f:
-        json.dump(data, f, indent=2, allow_nan=False)
-
-    log(f"  ✓ Brier by margin saved ({len(data['margins'])} buckets)")
-
 def generate_brier_convergence():
     """Generate Brier score convergence over time to election - all 4 cohorts."""
     log("Generating Brier convergence...")
@@ -1065,15 +1049,44 @@ def generate_platform_stats():
 
     stats_file = f"{DATA_DIR}/table_3_platform_comparison.csv"
     if not os.path.exists(stats_file):
-        log("  ⚠ No platform stats file found")
-        return
+        log("  ⚠ No platform stats file found, regenerating...")
+        # Generate from master data directly
+        try:
+            import table_3_platform_comparison
+        except Exception as e:
+            log(f"  ⚠ Could not regenerate platform stats: {e}")
+            return
+        if not os.path.exists(stats_file):
+            log("  ⚠ Platform stats still not found after regeneration")
+            return
 
     df = pd.read_csv(stats_file)
 
+    # Fix obviously bad dates (e.g. 2070-01-01 placeholders)
+    for col in ['Polymarket', 'Kalshi']:
+        for idx, row in df.iterrows():
+            if row['Metric'] in ('Earliest Market Close', 'Latest Market Close'):
+                try:
+                    dt = pd.to_datetime(row[col])
+                    if dt.year > 2030:
+                        # Recalculate from master data with date filter
+                        master = pd.read_csv(f"{DATA_DIR}/combined_political_markets_with_electoral_details_UPDATED.csv", low_memory=False)
+                        platform = 'Polymarket' if col == 'Polymarket' else 'Kalshi'
+                        plat_df = master[master['platform'] == platform]
+                        dates = pd.to_datetime(plat_df['trading_close_time'], format='mixed', utc=True, errors='coerce').dropna()
+                        dates = dates[dates < pd.Timestamp('2030-01-01', tz='UTC')]
+                        if row['Metric'] == 'Latest Market Close':
+                            df.at[idx, col] = dates.max().strftime('%Y-%m-%d') if len(dates) > 0 else 'N/A'
+                        else:
+                            df.at[idx, col] = dates.min().strftime('%Y-%m-%d') if len(dates) > 0 else 'N/A'
+                        log(f"  Fixed {col} {row['Metric']}: was {row[col]}, now {df.at[idx, col]}")
+                except Exception:
+                    pass
+
     data = {
         'metrics': df['Metric'].tolist(),
-        'polymarket': df['Polymarket'].tolist(),
-        'kalshi': df['Kalshi'].tolist()
+        'polymarket': [str(v) for v in df['Polymarket'].tolist()],
+        'kalshi': [str(v) for v in df['Kalshi'].tolist()]
     }
 
     with open(f"{WEB_DATA_DIR}/platform_stats.json", 'w') as f:
@@ -2532,7 +2545,6 @@ def main():
     generate_brier_by_election_type()
     generate_calibration_data()
     generate_platform_comparison()
-    generate_brier_by_race_margin()
     generate_brier_convergence()
     generate_platform_stats()
     generate_volume_timeseries()
