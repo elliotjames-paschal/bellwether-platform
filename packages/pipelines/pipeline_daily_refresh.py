@@ -110,7 +110,7 @@ def run_script(script_name, description, args=None, required=True, script_dir=No
             cmd,
             capture_output=True,
             text=True,
-            timeout=1800
+            timeout=2700  # 45 minutes (some steps like Kalshi classification need >30m on full refresh)
         )
 
         duration = time.time() - start_time

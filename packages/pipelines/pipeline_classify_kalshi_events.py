@@ -235,6 +235,20 @@ def main():
 
     lock = threading.Lock()
 
+    # Build set of series tickers already fully classified (skip on incremental runs)
+    existing_series_tickers = {
+        entry.get("series_ticker") for entry in existing.values()
+        if entry.get("is_political") and entry.get("series_ticker")
+    }
+
+    # On incremental runs, only fetch series we haven't seen before
+    if existing and not full_refresh:
+        new_series = [s for s in political_series if s.get("ticker") not in existing_series_tickers]
+        skipped = len(political_series) - len(new_series)
+        if skipped > 0:
+            log(f"  Skipping {skipped:,} already-classified series, fetching {len(new_series):,} new")
+        political_series = new_series
+
     def fetch_series_events(series):
         series_ticker = series.get("ticker", "")
         if not series_ticker:
