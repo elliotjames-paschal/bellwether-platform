@@ -148,13 +148,9 @@ def process_market(token_id, existing_prices, is_closed, close_time, now_ts, ful
 
     if not full_refresh:
         if is_closed:
-            if close_time:
-                close_ts = int(close_time.timestamp())
-                if last_price_ts and last_price_ts >= close_ts - DAILY_BUFFER:
-                    return token_id, "skip_complete", None
-            else:
-                if last_price_ts and last_price_ts >= now_ts - DAILY_BUFFER:
-                    return token_id, "skip_uptodate", None
+            # Closed markets won't get new prices — skip if we have any data
+            if last_price_ts:
+                return token_id, "skip_complete", None
         else:
             if last_price_ts and last_price_ts >= now_ts - DAILY_BUFFER:
                 return token_id, "skip_uptodate", None
