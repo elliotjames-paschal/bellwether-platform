@@ -56,6 +56,12 @@ def plot_spread_by_category(df, output_path):
     data_raw = [(cat, vals) for cat, vals in data_raw if len(vals) > 0]
     categories = [cat for cat, _ in data_raw]
     data = [vals for _, vals in data_raw]
+
+    if not data:
+        log("   Skipping spread_by_category: no categories with valid spread data")
+        plt.close()
+        return
+
     labels = [f"{clean_category(cat)}\n(n={int(cat_stats.loc[cat, 'count'])})" for cat in categories]
 
     # Create box plot
@@ -102,6 +108,12 @@ def plot_depth_by_category(df, output_path):
     data_raw = [(cat, vals) for cat, vals in data_raw if len(vals) > 0]
     categories = [cat for cat, _ in data_raw]
     data = [vals for _, vals in data_raw]
+
+    if not data:
+        log("   Skipping depth_by_category: no categories with valid depth data")
+        plt.close()
+        return
+
     labels = [f"{clean_category(cat)}\n(n={int(cat_stats.loc[cat, 'count'])})" for cat in categories]
 
     # Create box plot (log scale for depth)
