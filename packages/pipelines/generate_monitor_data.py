@@ -43,7 +43,7 @@ class RateLimiter:
                 time.sleep(self.min_interval - elapsed)
             self.last_call = time.time()
 
-rate_limiter = RateLimiter(40)  # 40 req/sec to avoid rate limiting
+rate_limiter = RateLimiter(10)  # 10 req/sec to avoid rate limiting
 
 sys.path.insert(0, str(Path(__file__).parent))
 from config import DATA_DIR, WEBSITE_DIR
@@ -998,33 +998,46 @@ def fetch_pm_images_from_dome(condition_ids):
     return images
 
 
-def _fetch_single_price(platform, identifier):
+def _fetch_single_price(platform, identifier, max_retries=3):
     """Fetch a single price from native APIs (for parallel execution)."""
-    rate_limiter.wait()  # Respect rate limit
-    try:
-        if platform == 'pm':
-            # Polymarket CLOB API
-            url = f"{PM_CLOB_API}/price?token_id={identifier}&side=buy"
-            response = requests.get(url, timeout=10)
+    for attempt in range(max_retries):
+        rate_limiter.wait()  # Respect rate limit
+        try:
+            if platform == 'pm':
+                url = f"{PM_CLOB_API}/price?token_id={identifier}&side=buy"
+                response = requests.get(url, timeout=10)
+            else:
+                url = f"{KALSHI_API_BASE}/markets/{identifier}"
+                response = requests.get(url, timeout=10)
+
             if response.status_code == 200:
                 data = response.json()
-                price = data.get('price')
-                if price is not None:
-                    return (platform, identifier, float(price), None)
-        else:
-            # Kalshi native API
-            url = f"{KALSHI_API_BASE}/markets/{identifier}"
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                market = data.get('market', data)
-                price = market.get('last_price')
-                if price is not None:
-                    # Kalshi returns cents (0-100), convert to decimal
-                    return (platform, identifier, float(price) / 100, None)
-        return (platform, identifier, None, f"status_{response.status_code}")
-    except Exception as e:
-        return (platform, identifier, None, str(e)[:50])
+                if platform == 'pm':
+                    price = data.get('price')
+                    if price is not None:
+                        return (platform, identifier, float(price), None)
+                else:
+                    market = data.get('market', data)
+                    price = market.get('last_price')
+                    if price is not None:
+                        return (platform, identifier, float(price) / 100, None)
+                return (platform, identifier, None, f"no_price")
+            elif response.status_code == 429 and attempt < max_retries - 1:
+                time.sleep(10 * (2 ** attempt))
+                continue
+            elif response.status_code == 404:
+                return (platform, identifier, None, f"status_404")
+            else:
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                return (platform, identifier, None, f"status_{response.status_code}")
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+                continue
+            return (platform, identifier, None, str(e)[:50])
+    return (platform, identifier, None, "max_retries")
 
 
 def fetch_live_prices(pm_token_ids, kalshi_tickers, max_workers=20):
