@@ -1255,6 +1255,11 @@ def build_pm_url(row, slug_mapping):
         if condition_id and condition_id in slug_mapping:
             return f"https://polymarket.com/event/{slug_mapping[condition_id]}"
 
+    # Fallback: use market_id (slug) — Polymarket serves these at /market/<slug>
+    market_slug = row.get('pm_market_slug') or row.get('market_id')
+    if market_slug and pd.notna(market_slug):
+        return f"https://polymarket.com/market/{market_slug}"
+
     return None
 
 
