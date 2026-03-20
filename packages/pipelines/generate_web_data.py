@@ -1044,55 +1044,97 @@ def generate_brier_convergence():
     log(f"  ✓ Brier convergence saved ({len(data['cohorts'])} cohorts)")
 
 def generate_platform_stats():
-    """Generate platform comparison statistics table."""
+    """Generate platform comparison statistics table.
+
+    Computes directly from master CSV so stats are always fresh,
+    regardless of whether table_3_platform_comparison.py has run.
+    """
     log("Generating platform stats...")
 
-    stats_file = f"{DATA_DIR}/table_3_platform_comparison.csv"
-    if not os.path.exists(stats_file):
-        log("  ⚠ No platform stats file found, regenerating...")
-        # Generate from master data directly
-        try:
-            import table_3_platform_comparison
-        except Exception as e:
-            log(f"  ⚠ Could not regenerate platform stats: {e}")
-            return
-        if not os.path.exists(stats_file):
-            log("  ⚠ Platform stats still not found after regeneration")
-            return
+    master_file = f"{DATA_DIR}/combined_political_markets_with_electoral_details_UPDATED.csv"
+    if not os.path.exists(master_file):
+        log("  ⚠ Master CSV not found, cannot generate platform stats")
+        return
 
-    df = pd.read_csv(stats_file)
+    master = pd.read_csv(master_file, low_memory=False)
+    master['trading_close_time'] = pd.to_datetime(
+        master['trading_close_time'], format='mixed', utc=True, errors='coerce'
+    )
 
-    # Fix obviously bad dates (e.g. 2070-01-01 placeholders)
-    for col in ['Polymarket', 'Kalshi']:
-        for idx, row in df.iterrows():
-            if row['Metric'] in ('Earliest Market Close', 'Latest Market Close'):
-                try:
-                    dt = pd.to_datetime(row[col])
-                    if dt.year > 2030:
-                        # Recalculate from master data with date filter
-                        master = pd.read_csv(f"{DATA_DIR}/combined_political_markets_with_electoral_details_UPDATED.csv", low_memory=False)
-                        platform = 'Polymarket' if col == 'Polymarket' else 'Kalshi'
-                        plat_df = master[master['platform'] == platform]
-                        dates = pd.to_datetime(plat_df['trading_close_time'], format='mixed', utc=True, errors='coerce').dropna()
-                        dates = dates[dates < pd.Timestamp('2030-01-01', tz='UTC')]
-                        if row['Metric'] == 'Latest Market Close':
-                            df.at[idx, col] = dates.max().strftime('%Y-%m-%d') if len(dates) > 0 else 'N/A'
-                        else:
-                            df.at[idx, col] = dates.min().strftime('%Y-%m-%d') if len(dates) > 0 else 'N/A'
-                        log(f"  Fixed {col} {row['Metric']}: was {row[col]}, now {df.at[idx, col]}")
-                except Exception:
-                    pass
+    reasonable_cutoff = pd.Timestamp('2030-01-01', tz='UTC')
+    metrics = []
+    polymarket_vals = []
+    kalshi_vals = []
+
+    for platform, vals in [('Polymarket', polymarket_vals), ('Kalshi', kalshi_vals)]:
+        plat = master[master['platform'] == platform]
+
+        # Total political markets
+        total = len(plat)
+
+        # Resolved markets (is_closed=True OR has winning_outcome)
+        resolved = plat[
+            (plat['is_closed'] == True) |
+            (plat['winning_outcome'].notna())
+        ]
+
+        # Electoral markets
+        electoral = plat[
+            (plat['political_category'].str.startswith('1.', na=False)) |
+            (plat['political_category'].str.contains('ELECTORAL', case=False, na=False))
+        ]
+
+        # Date range (filter out placeholder dates > 2030)
+        dates = plat['trading_close_time'].dropna()
+        dates = dates[dates < reasonable_cutoff]
+        earliest = dates.min().strftime('%Y-%m-%d') if len(dates) > 0 else 'N/A'
+        latest = dates.max().strftime('%Y-%m-%d') if len(dates) > 0 else 'N/A'
+
+        # Election types and categories
+        election_types = electoral['election_type'].dropna().nunique()
+        categories = plat['political_category'].dropna().nunique()
+
+        # Volume
+        volume_col = 'volume_usd' if 'volume_usd' in plat.columns else 'volume'
+        total_volume = plat[volume_col].sum() if volume_col in plat.columns else 0
+        avg_volume = plat[volume_col].mean() if volume_col in plat.columns else 0
+
+        vals.extend([
+            f"{total:,}",
+            f"{len(resolved):,}",
+            f"{len(electoral):,}",
+            f"{total - len(electoral):,}",
+            earliest,
+            latest,
+            str(election_types),
+            str(categories),
+            f"${total_volume:,.0f}",
+            f"${avg_volume:,.0f}",
+        ])
+
+    metrics = [
+        'Total Political Markets',
+        'Resolved Markets',
+        'Electoral Markets',
+        'Non-Electoral Markets',
+        'Earliest Market Close',
+        'Latest Market Close',
+        'Unique Election Types',
+        'Unique Political Categories',
+        'Total Volume (USD)',
+        'Avg Volume per Market',
+    ]
 
     data = {
-        'metrics': df['Metric'].tolist(),
-        'polymarket': [str(v) for v in df['Polymarket'].tolist()],
-        'kalshi': [str(v) for v in df['Kalshi'].tolist()]
+        'metrics': metrics,
+        'polymarket': polymarket_vals,
+        'kalshi': kalshi_vals,
     }
 
     with open(f"{WEB_DATA_DIR}/platform_stats.json", 'w') as f:
         json.dump(data, f, indent=2, allow_nan=False)
 
-    log(f"  ✓ Platform stats saved ({len(data['metrics'])} metrics)")
+    log(f"  ✓ Platform stats saved ({len(metrics)} metrics, computed from master CSV)")
 
 def generate_volume_timeseries():
     """Generate volume time series by category (for line chart).
