@@ -51,12 +51,15 @@ def plot_spread_by_category(df, output_path):
 
     categories = cat_stats.index.tolist()
 
-    # Prepare data for box plots
-    data = [df[df['category'] == cat]['rel_spread_mean'].dropna().values for cat in categories]
+    # Prepare data for box plots, filtering out categories with no valid data
+    data_raw = [(cat, df[df['category'] == cat]['rel_spread_mean'].dropna().values) for cat in categories]
+    data_raw = [(cat, vals) for cat, vals in data_raw if len(vals) > 0]
+    categories = [cat for cat, _ in data_raw]
+    data = [vals for _, vals in data_raw]
     labels = [f"{clean_category(cat)}\n(n={int(cat_stats.loc[cat, 'count'])})" for cat in categories]
 
     # Create box plot
-    bp = ax.boxplot(data, labels=labels, patch_artist=True)
+    bp = ax.boxplot(data, tick_labels=labels, patch_artist=True)
 
     # Color by platform mix
     for i, cat in enumerate(categories):
@@ -94,12 +97,15 @@ def plot_depth_by_category(df, output_path):
 
     categories = cat_stats.index.tolist()
 
-    # Prepare data
-    data = [df[df['category'] == cat]['depth_mean'].dropna().values for cat in categories]
+    # Prepare data, filtering out categories with no valid data
+    data_raw = [(cat, df[df['category'] == cat]['depth_mean'].dropna().values) for cat in categories]
+    data_raw = [(cat, vals) for cat, vals in data_raw if len(vals) > 0]
+    categories = [cat for cat, _ in data_raw]
+    data = [vals for _, vals in data_raw]
     labels = [f"{clean_category(cat)}\n(n={int(cat_stats.loc[cat, 'count'])})" for cat in categories]
 
     # Create box plot (log scale for depth)
-    bp = ax.boxplot(data, labels=labels, patch_artist=True)
+    bp = ax.boxplot(data, tick_labels=labels, patch_artist=True)
 
     # Color boxes
     colors = plt.cm.Greens(np.linspace(0.3, 0.9, len(categories)))

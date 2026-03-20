@@ -263,6 +263,18 @@ if len(shared_keys) == 0:
     print("   Skipping Panel B, stats, and scatterplot.")
     # Still save Panel A
     panel_a.to_csv(f"{PAPER_DATA_DIR}/election_winner_panel_a.csv", index=False)
+    # Save detailed Panel A (needed by downstream scripts)
+    detail_cols = ['platform', 'country', 'office', 'location', 'election_year', 'is_primary',
+                   'market_id', 'question', 'volume_usd', 'winner_prediction', 'brier', 'correct',
+                   'winning_party', 'winning_candidate', 'republican_won',
+                   'democrat_vote_share', 'republican_vote_share']
+    pm_detail_cols = [c for c in detail_cols if c in pm_with_pred.columns]
+    kalshi_detail_cols = [c for c in detail_cols if c in kalshi_with_pred.columns]
+    pm_details = pm_with_pred[pm_detail_cols].sort_values(['election_year', 'office', 'location']).reset_index(drop=True)
+    kalshi_details = kalshi_with_pred[kalshi_detail_cols].sort_values(['election_year', 'office', 'location']).reset_index(drop=True)
+    panel_a_all = pd.concat([pm_details, kalshi_details], ignore_index=True)
+    panel_a_all.to_csv(f"{PAPER_DATA_DIR}/election_winner_panel_a_detailed.csv", index=False)
+    print(f"   Saved Panel A detailed: {len(panel_a_all)} markets")
     print("\n" + "=" * 80)
     print("DONE (Panel A only)")
     print("=" * 80)

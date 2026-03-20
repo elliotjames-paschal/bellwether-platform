@@ -99,7 +99,7 @@ def main():
         return
 
     # Extract month for aggregation
-    df_valid['month'] = df_valid['trading_close_time'].dt.to_period('M')
+    df_valid['month'] = df_valid['trading_close_time'].dt.tz_localize(None).dt.to_period('M')
 
     # Determine which categories to display
     if args.categories:
