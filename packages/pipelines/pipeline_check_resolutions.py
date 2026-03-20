@@ -54,6 +54,17 @@ MAX_REQ_PER_SEC = 40    # Global rate limit per platform
 MAX_RETRIES = 3
 
 
+def _kalshi_price_cents(market: dict):
+    """Extract Kalshi price in cents (0-100) from API response."""
+    dollars = market.get("last_price_dollars")
+    if dollars is not None:
+        try:
+            return round(float(dollars) * 100)
+        except (ValueError, TypeError):
+            pass
+    return market.get("last_price")
+
+
 def log(msg):
     """Print timestamped log message."""
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
@@ -114,7 +125,7 @@ def fetch_kalshi_market(ticker, rate_limiter=None):
                         "volume_24h": m.get("volume_24h"),
                         "open_interest": m.get("open_interest"),
                         "liquidity": m.get("liquidity"),
-                        "last_price": m.get("last_price"),
+                        "last_price": _kalshi_price_cents(m),
                         "yes_bid": m.get("yes_bid"),
                         "yes_ask": m.get("yes_ask"),
                         "no_bid": m.get("no_bid"),

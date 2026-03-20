@@ -1018,6 +1018,10 @@ def _fetch_single_price(platform, identifier, max_retries=3):
                         return (platform, identifier, float(price), None)
                 else:
                     market = data.get('market', data)
+                    # Kalshi migrated from last_price (cents int) to last_price_dollars (string)
+                    price_dollars = market.get('last_price_dollars')
+                    if price_dollars is not None:
+                        return (platform, identifier, float(price_dollars), None)
                     price = market.get('last_price')
                     if price is not None:
                         return (platform, identifier, float(price) / 100, None)

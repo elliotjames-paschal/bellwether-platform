@@ -524,6 +524,20 @@ ELECTORAL_TAGS = {
 }
 
 
+def _kalshi_price_cents(market: dict):
+    """Extract Kalshi price in cents (0-100) from API response.
+
+    Kalshi migrated from last_price (int cents) to last_price_dollars (string).
+    """
+    dollars = market.get("last_price_dollars")
+    if dollars is not None:
+        try:
+            return round(float(dollars) * 100)
+        except (ValueError, TypeError):
+            pass
+    return market.get("last_price")
+
+
 def process_kalshi_market_native(market: dict) -> dict:
     """Convert native Kalshi API market to pipeline CSV format."""
     status = market.get("status", "")
@@ -544,7 +558,7 @@ def process_kalshi_market_native(market: dict) -> dict:
         "trading_close_time": market.get("close_time"),
         "is_closed": status in ("closed", "finalized", "settled"),
         "k_status": status,
-        "k_last_price": market.get("last_price"),
+        "k_last_price": _kalshi_price_cents(market),
         "winning_outcome": winning_outcome,
         "political_category": None,  # Set by pipeline_classify_categories.py
     }
