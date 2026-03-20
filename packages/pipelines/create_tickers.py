@@ -337,6 +337,7 @@ def create_batch_prompt(markets: List[Dict[str, str]]) -> str:
 
     for i, m in enumerate(markets):
         lines.append(f"## Market {i}")
+        lines.append(f"**market_id:** {m['market_id']}")
         lines.append(f"**question:** {m['question']}")
         lines.append(f"**rules:** {m['rules']}")
         lines.append(f"**timeframe (pre-filled):** {m['timeframe']}")
@@ -345,7 +346,7 @@ def create_batch_prompt(markets: List[Dict[str, str]]) -> str:
 
     lines.append(
         f'Return JSON: {{"tickers": ['
-        f'{{"agent": "...", "action": "...", "target": "...", "mechanism": "..."}}, '
+        f'{{"market_id": "...", "agent": "...", "action": "...", "target": "...", "mechanism": "..."}}, '
         f'... {len(markets)} objects]}}'
     )
     return "\n".join(lines)
@@ -363,17 +364,62 @@ def parse_response(text: str, markets: List[Dict[str, str]]) -> List[Dict[str, A
     else:
         results = [parsed]
 
-    # Merge with pre-extracted fields
-    for i, result in enumerate(results):
-        if i < len(markets):
-            result["market_id"] = markets[i]["market_id"]
-            result["platform"] = markets[i]["platform"]
-            result["original_question"] = markets[i]["question"]
-            result["timeframe"] = markets[i]["timeframe"]
-            result["threshold"] = markets[i]["threshold"]
-            result["round_suffix"] = markets[i]["round_suffix"]
+    # Build expected market_id lookup
+    expected_by_id = {m["market_id"]: m for m in markets}
+    expected_order = [m["market_id"] for m in markets]
 
-    return results
+    # Try to match by echoed market_id first, fall back to positional
+    matched_results = []
+    unmatched_results = []
+    matched_ids = set()
+
+    for i, result in enumerate(results):
+        echoed_id = result.get("market_id", "")
+        if echoed_id and echoed_id in expected_by_id and echoed_id not in matched_ids:
+            # Echoed market_id matches an expected one
+            m = expected_by_id[echoed_id]
+            result["market_id"] = m["market_id"]
+            result["platform"] = m["platform"]
+            result["original_question"] = m["question"]
+            result["timeframe"] = m["timeframe"]
+            result["threshold"] = m["threshold"]
+            result["round_suffix"] = m["round_suffix"]
+            matched_results.append(result)
+            matched_ids.add(echoed_id)
+        else:
+            unmatched_results.append((i, result))
+
+    # For results without valid echoed market_id, fall back to positional matching
+    for pos_idx, result in unmatched_results:
+        if pos_idx < len(expected_order):
+            fallback_id = expected_order[pos_idx]
+            if fallback_id not in matched_ids:
+                m = expected_by_id[fallback_id]
+                result["market_id"] = m["market_id"]
+                result["platform"] = m["platform"]
+                result["original_question"] = m["question"]
+                result["timeframe"] = m["timeframe"]
+                result["threshold"] = m["threshold"]
+                result["round_suffix"] = m["round_suffix"]
+                result["_positional_fallback"] = True
+                matched_results.append(result)
+                matched_ids.add(fallback_id)
+
+    # Any markets not covered get error entries
+    for mid in expected_order:
+        if mid not in matched_ids:
+            m = expected_by_id[mid]
+            matched_results.append({
+                "market_id": m["market_id"],
+                "platform": m["platform"],
+                "original_question": m["question"],
+                "timeframe": m["timeframe"],
+                "threshold": m["threshold"],
+                "round_suffix": m["round_suffix"],
+                "error": "market_id_not_returned"
+            })
+
+    return matched_results
 
 
 MAX_RETRIES = 5
@@ -966,6 +1012,135 @@ def validate_state_consistency(ticker_entry: dict) -> bool:
 
 
 # ============================================================
+# SANITY CHECK
+# ============================================================
+
+# US state names for target validation
+_STATE_NAMES = {
+    "AL": "alabama", "AK": "alaska", "AZ": "arizona", "AR": "arkansas",
+    "CA": "california", "CO": "colorado", "CT": "connecticut", "DE": "delaware",
+    "FL": "florida", "GA": "georgia", "HI": "hawaii", "ID": "idaho",
+    "IL": "illinois", "IN": "indiana", "IA": "iowa", "KS": "kansas",
+    "KY": "kentucky", "LA": "louisiana", "ME": "maine", "MD": "maryland",
+    "MA": "massachusetts", "MI": "michigan", "MN": "minnesota",
+    "MS": "mississippi", "MO": "missouri", "MT": "montana", "NE": "nebraska",
+    "NV": "nevada", "NH": "new hampshire", "NJ": "new jersey",
+    "NM": "new mexico", "NY": "new york", "NC": "north carolina",
+    "ND": "north dakota", "OH": "ohio", "OK": "oklahoma", "OR": "oregon",
+    "PA": "pennsylvania", "RI": "rhode island", "SC": "south carolina",
+    "SD": "south dakota", "TN": "tennessee", "TX": "texas", "UT": "utah",
+    "VT": "vermont", "VA": "virginia", "WA": "washington",
+    "WV": "west virginia", "WI": "wisconsin", "WY": "wyoming",
+}
+
+# Action keywords that should appear in the question
+_ACTION_KEYWORDS = {
+    "VISIT": ["visit", "enter", "travel to", "forces in"],
+    "VOTE": ["vote", "justice", "justices", "ballot", "referendum", "election",
+             "dissent", "filibuster", "nuclear option", "chosen", "advance",
+             "impeach", "article 5", "primary", "nominee", "held"],
+    "PARDON": ["pardon"],
+    "VETO": ["veto"],
+    "ARREST": ["arrest", "indict", "charged", "mugshot", "perp", "guilty"],
+    "RESIGN": ["resign", "step down"],
+    "IMPEACH": ["impeach"],
+    "EXTRADITE": ["extradite", "extradition"],
+    "DEPORT": ["deport"],
+    "ASSASSINATE": ["assassinat"],
+    "DEPLOY": ["deploy", "send", "national guard", "forces in"],
+}
+
+# Target keywords that should appear in the question
+_TARGET_KEYWORDS = {
+    "NATIONAL_GUARD": ["national guard"],
+    "SLAUGHTER": ["slaughter", "manslaughter"],
+    "PALESTINE": ["palestin"],
+    "UKRAINE": ["ukrain"],
+    "TAIWAN": ["taiwan"],
+    "GREENLAND": ["greenland"],
+    "PANAMA": ["panama"],
+}
+
+# Skip sanity check for these generic actions (too many false positives)
+_SKIP_SANITY_ACTIONS = {"WIN", "CONTROL", "RUN", "HIT", "CLOSE", "REACH", "EXCEED", "REPORT"}
+
+# Country/intl keywords that use US state-like codes (IL=Israel, CA=Canada, etc.)
+# When these appear in the question, skip the state-name-in-question check
+_COUNTRY_KEYWORDS = [
+    "israel", "canada", "india", "argentina", "colombia", "indonesia",
+    "germany", "german", "morocco", "palestine", "palestinian", "moldova",
+    "australia", "spain", "japan", "iran", "brazil", "voter id", "voterid",
+    "tariff", "trade deal", "netanyahu", "poilievre", "conservative",
+    "chancellor", "coalition",
+]
+
+
+def sanity_check_ticker(ticker_entry: dict) -> bool:
+    """Validate that ticker fields are semantically consistent with the question.
+
+    Returns True if the ticker passes (or can't be checked). Returns False and
+    sets error field if the ticker is clearly wrong.
+    """
+    if "error" in ticker_entry:
+        return True  # Already errored
+
+    question = ticker_entry.get("original_question", "").lower()
+    action = ticker_entry.get("action", "")
+    target = ticker_entry.get("target", "")
+
+    if not question:
+        return True
+
+    # Note: agent check (enhanced_sanity_check) is intentionally NOT run here
+    # because Kalshi uses generic questions like "Who will win the X?" where the
+    # candidate name is only in the market_id, not the question text. The agent
+    # check produces ~800 false positives. Use fix_misaligned_tickers.py for that.
+
+    # 1. Action keyword check
+    if action in _ACTION_KEYWORDS and action not in _SKIP_SANITY_ACTIONS:
+        keywords = _ACTION_KEYWORDS[action]
+        if not any(kw in question for kw in keywords):
+            ticker_entry["error"] = f"sanity_check_failed: action {action} not in question"
+            ticker_entry.pop("ticker", None)
+            return False
+
+    # 3. Target keyword check for specific distinctive targets
+    # Split target on underscores to get individual components
+    target_parts = set(target.upper().split("_"))
+    for target_key, keywords in _TARGET_KEYWORDS.items():
+        # Match only if target_key is a complete component (not a substring)
+        if target_key in target_parts:
+            if not any(kw in question for kw in keywords):
+                ticker_entry["error"] = f"sanity_check_failed: target {target_key} not in question"
+                ticker_entry.pop("ticker", None)
+                return False
+
+    # 4. State code in target vs question (for non-election targets like VISIT)
+    if action not in _SKIP_SANITY_ACTIONS:
+        # Skip if question contains country/intl keywords (IL=Israel, CA=Canada, etc.)
+        # or if agent name appears in question (e.g., "Fetterman out?" implies PA)
+        agent = ticker_entry.get("agent", "").lower().replace("_", " ")
+        agent_in_question = any(part in question for part in agent.split() if len(part) >= 4)
+        is_international = any(kw in question for kw in _COUNTRY_KEYWORDS)
+        if not is_international and not agent_in_question:
+            # Extract state code from target suffix (e.g., AK from VISIT-AK, or GOV_AK)
+            state_match = re.search(r'[-_]([A-Z]{2})$', target)
+            if state_match:
+                state_code = state_match.group(1)
+                if state_code in _STATE_NAMES:
+                    state_name = _STATE_NAMES[state_code]
+                    # Check if state name or code appears in question
+                    if state_name not in question and state_code.lower() not in question.split():
+                        ticker_entry["error"] = (
+                            f"sanity_check_failed: state {state_code} ({state_name}) not in question"
+                        )
+                        ticker_entry.pop("ticker", None)
+                        return False
+
+    return True
+
+
+# ============================================================
 # MAIN PIPELINE
 # ============================================================
 
@@ -1072,6 +1247,8 @@ async def run_pipeline_async(
     print("Post-processing and assembling tickers...")
     regex_rescued = 0
     state_rejected = 0
+    sanity_rejected = 0
+    positional_fallbacks = sum(1 for t in all_results if t.get("_positional_fallback"))
     for t in all_results:
         if "error" in t:
             # Attempt regex fallback for errored (rate-limited) tickers
@@ -1085,11 +1262,18 @@ async def run_pipeline_async(
             # Validate state consistency on GPT-classified tickers
             if not validate_state_consistency(t):
                 state_rejected += 1
+            # Sanity check: verify ticker fields match the question
+            elif not sanity_check_ticker(t):
+                sanity_rejected += 1
 
     if regex_rescued:
         print(f"  Regex fallback rescued {regex_rescued} errored tickers")
     if state_rejected:
         print(f"  State validation rejected {state_rejected} GPT-classified tickers")
+    if sanity_rejected:
+        print(f"  Sanity check rejected {sanity_rejected} GPT-classified tickers")
+    if positional_fallbacks:
+        print(f"  Positional fallbacks (market_id not echoed): {positional_fallbacks}")
 
     return all_results
 
@@ -1268,8 +1452,11 @@ def handle_batch_api(args):
                 try:
                     parsed = parse_response(text, batch_markets)
                     for t in parsed:
-                        postprocess_ticker(t)
-                        t["ticker"] = assemble_ticker(t)
+                        if "error" not in t:
+                            postprocess_ticker(t)
+                            t["ticker"] = assemble_ticker(t)
+                            validate_state_consistency(t)
+                            sanity_check_ticker(t)
                     all_results.extend(parsed)
                 except Exception as e:
                     print(f"  Parse error batch {batch_idx}: {e}")
