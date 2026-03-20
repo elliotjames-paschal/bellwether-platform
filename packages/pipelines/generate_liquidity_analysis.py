@@ -140,6 +140,7 @@ def plot_depth_by_category(df, output_path):
 
 def plot_platform_comparison(df, output_path):
     """Compare spreads and depth between platforms."""
+    import warnings
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
     # Left: Spread comparison
@@ -147,15 +148,23 @@ def plot_platform_comparison(df, output_path):
     pm_spreads = df[df['platform'] == 'Polymarket']['rel_spread_mean'].dropna()
     k_spreads = df[df['platform'] == 'Kalshi']['rel_spread_mean'].dropna()
 
-    ax1.hist(pm_spreads, bins=50, alpha=0.6, label=f'Polymarket (n={len(pm_spreads):,})', color='#2563eb', density=True)
-    ax1.hist(k_spreads, bins=50, alpha=0.6, label=f'Kalshi (n={len(k_spreads):,})', color='#dc2626', density=True)
-    ax1.axvline(pm_spreads.median(), color='#2563eb', linestyle='--', linewidth=2, label=f'PM median: {pm_spreads.median():.2f}%')
-    ax1.axvline(k_spreads.median(), color='#dc2626', linestyle='--', linewidth=2, label=f'K median: {k_spreads.median():.2f}%')
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        if len(pm_spreads) > 1:
+            ax1.hist(pm_spreads, bins=50, alpha=0.6, label=f'Polymarket (n={len(pm_spreads):,})', color='#2563eb', density=True)
+        if len(k_spreads) > 1:
+            ax1.hist(k_spreads, bins=50, alpha=0.6, label=f'Kalshi (n={len(k_spreads):,})', color='#dc2626', density=True)
+    if len(pm_spreads) > 0:
+        ax1.axvline(pm_spreads.median(), color='#2563eb', linestyle='--', linewidth=2, label=f'PM median: {pm_spreads.median():.2f}%')
+    if len(k_spreads) > 0:
+        ax1.axvline(k_spreads.median(), color='#dc2626', linestyle='--', linewidth=2, label=f'K median: {k_spreads.median():.2f}%')
     ax1.set_xlabel('Relative Spread (%)', fontsize=12)
     ax1.set_ylabel('Density', fontsize=12)
     ax1.set_title('Spread Distribution by Platform', fontsize=13, fontweight='bold')
     ax1.legend(fontsize=9)
-    ax1.set_xlim(0, min(50, max(pm_spreads.quantile(0.95), k_spreads.quantile(0.95)) * 1.2))
+    q95_vals = [s.quantile(0.95) for s in [pm_spreads, k_spreads] if len(s) > 0]
+    if q95_vals:
+        ax1.set_xlim(0, min(50, max(q95_vals) * 1.2))
 
     # Right: Depth comparison
     ax2 = axes[1]
@@ -166,10 +175,16 @@ def plot_platform_comparison(df, output_path):
     pm_depth_log = np.log10(pm_depth[pm_depth > 0])
     k_depth_log = np.log10(k_depth[k_depth > 0])
 
-    ax2.hist(pm_depth_log, bins=50, alpha=0.6, label=f'Polymarket (n={len(pm_depth):,})', color='#2563eb', density=True)
-    ax2.hist(k_depth_log, bins=50, alpha=0.6, label=f'Kalshi (n={len(k_depth):,})', color='#dc2626', density=True)
-    ax2.axvline(pm_depth_log.median(), color='#2563eb', linestyle='--', linewidth=2, label=f'PM median: {10**pm_depth_log.median():,.0f}')
-    ax2.axvline(k_depth_log.median(), color='#dc2626', linestyle='--', linewidth=2, label=f'K median: {10**k_depth_log.median():,.0f}')
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        if len(pm_depth_log) > 1:
+            ax2.hist(pm_depth_log, bins=50, alpha=0.6, label=f'Polymarket (n={len(pm_depth):,})', color='#2563eb', density=True)
+        if len(k_depth_log) > 1:
+            ax2.hist(k_depth_log, bins=50, alpha=0.6, label=f'Kalshi (n={len(k_depth):,})', color='#dc2626', density=True)
+    if len(pm_depth_log) > 0:
+        ax2.axvline(pm_depth_log.median(), color='#2563eb', linestyle='--', linewidth=2, label=f'PM median: {10**pm_depth_log.median():,.0f}')
+    if len(k_depth_log) > 0:
+        ax2.axvline(k_depth_log.median(), color='#dc2626', linestyle='--', linewidth=2, label=f'K median: {10**k_depth_log.median():,.0f}')
     ax2.set_xlabel('Depth (log10 contracts)', fontsize=12)
     ax2.set_ylabel('Density', fontsize=12)
     ax2.set_title('Depth Distribution by Platform', fontsize=13, fontweight='bold')
@@ -185,10 +200,14 @@ def plot_platform_comparison(df, output_path):
 
 def plot_spread_vs_volume(df, output_path):
     """Scatter plot of spread vs volume."""
-    fig, ax = plt.subplots(figsize=(10, 8))
-
     # Filter to valid data
     valid = df[(df['rel_spread_mean'].notna()) & (df['volume_usd'] > 0)].copy()
+
+    if valid.empty:
+        log("   Skipping spread_vs_volume: no valid data")
+        return
+
+    fig, ax = plt.subplots(figsize=(10, 8))
 
     # Color by platform
     pm = valid[valid['platform'] == 'Polymarket']
