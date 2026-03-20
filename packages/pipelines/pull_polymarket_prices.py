@@ -49,7 +49,7 @@ _counters = {"updated": 0, "errors": 0, "empty": 0}
 
 
 def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
 class RateLimiter:
