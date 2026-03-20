@@ -1049,8 +1049,16 @@ def fetch_live_prices(pm_token_ids, kalshi_tickers, max_workers=20):
     pm_prices = {}
     kalshi_prices = {}
 
-    # Build combined task list
-    tasks = [('pm', tid) for tid in pm_token_ids] + [('kalshi', ticker) for ticker in kalshi_tickers]
+    # Build combined task list — interleave PM and Kalshi so both platforms
+    # get processed concurrently (avoids PM starving Kalshi in the thread pool)
+    pm_list = [('pm', tid) for tid in pm_token_ids]
+    k_list = [('kalshi', ticker) for ticker in kalshi_tickers]
+    tasks = []
+    for i in range(max(len(pm_list), len(k_list))):
+        if i < len(pm_list):
+            tasks.append(pm_list[i])
+        if i < len(k_list):
+            tasks.append(k_list[i])
     total_tasks = len(tasks)
 
     log(f"  Fetching live prices for {len(pm_token_ids)} PM + {len(kalshi_tickers)} Kalshi = {total_tasks} markets ({max_workers} workers)...")
