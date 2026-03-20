@@ -369,19 +369,23 @@ def apply_different_event(labels: list, tickers_by_id: dict, batch_id: str = Non
             results.append(("skip", label["label_id"], "single market"))
             continue
 
-        # Check if markets actually share a ticker
+        # Check if markets share a ticker (BWR ticker or market_keys from label)
         tickers_found = [tickers_by_id.get(mid, {}).get("ticker") for mid in market_ids]
         unique = set(t for t in tickers_found if t)
 
-        if len(unique) > 1:
-            # Already different tickers — no action needed
+        # Also check the label's market_keys — markets may have different
+        # platform-native IDs but share the same BWR key (the grouping key).
+        label_keys = label.get("market_keys", [])
+
+        if len(unique) > 1 and len(set(label_keys)) > 1:
+            # Truly different tickers AND different BWR keys — no action needed
             label["status"] = "applied"
             label["applied_at"] = now_iso()
             label["applied_action"] = "already_different"
             results.append(("already", label["label_id"], "already different tickers"))
-        elif len(unique) == 1:
-            shared_ticker = list(unique)[0]
-            # Same ticker — create pairwise exclusion entries
+        elif len(unique) >= 1 or label_keys:
+            # Markets share a ticker OR share a BWR key — create exclusions
+            shared_ticker = list(unique)[0] if unique else (label_keys[0] if label_keys else "unknown")
             for i in range(len(market_ids)):
                 for j in range(i + 1, len(market_ids)):
                     exc_id = compute_exclusion_id(market_ids[i], market_ids[j])
