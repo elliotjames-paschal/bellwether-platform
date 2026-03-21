@@ -31,7 +31,7 @@ except ImportError:
         return json.load(f)
 
 SUMMARY_FILE = DATA_DIR / "orderbook_summary.json"
-OUTPUT_FILE = BASE_DIR / "website" / "data" / "liquidity_timeseries.json"
+OUTPUT_FILE = BASE_DIR / "docs" / "data" / "liquidity_timeseries.json"
 
 
 def main():

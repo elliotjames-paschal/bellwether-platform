@@ -27,7 +27,7 @@ from config import BASE_DIR, DATA_DIR
 from category_utils import format_category_name
 
 INPUT_FILE = DATA_DIR / "liquidity_metrics_by_market.csv"
-WEBSITE_DATA_DIR = BASE_DIR / "website" / "data"
+WEBSITE_DATA_DIR = BASE_DIR / "docs" / "data"
 
 
 def clean_category(cat):
