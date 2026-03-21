@@ -1180,7 +1180,10 @@
     // =========================================================================
 
     function applyFilters() {
-        filteredMarkets = allMarkets.filter(m => {
+        // Start from election-filtered set if active, otherwise all markets
+        const baseMarkets = activeElectionFilter ? getElectionFilteredMarkets(activeElectionFilter) : allMarkets;
+
+        filteredMarkets = baseMarkets.filter(m => {
             // Category filter
             if (filters.category !== 'all') {
                 const cat = m.category_display || 'Other';
@@ -1763,69 +1766,77 @@
         'WI': 'wisconsin', 'WY': 'wyoming', 'DC': 'district of columbia'
     };
 
-    function applyElectionFilter(election) {
-        if (!election || !election.matchedMarkets || election.matchedMarkets.length === 0) {
-            // No matched markets - filter by state/year/type instead
-            const stateAbbrev = election.state;
-            const stateName = stateAbbrev ? STATE_NAMES[stateAbbrev] : null;
-            const year = election.electionDay ? election.electionDay.substring(0, 4) : null;
-            const electionName = (election.name || '').toLowerCase();
-            const isPrimary = electionName.includes('primary');
-            const isDemocratic = electionName.includes('democratic');
-            const isRepublican = electionName.includes('republican');
+    function getElectionFilteredMarkets(election) {
+        if (!election) return allMarkets;
 
-            filteredMarkets = allMarkets.filter(m => {
-                // Only Electoral markets (US or general)
-                const cat = (m.category_display || '').toLowerCase();
-                if (!cat.includes('electoral')) return false;
-
-                // Build searchable text from all relevant fields
-                const searchable = [
-                    m.label || '',
-                    m.pm_question || '',
-                    m.k_question || '',
-                    m.location || '',
-                    m.country || '',
-                    m.party || '',
-                    m.type || ''
-                ].join(' ').toLowerCase();
-
-                // Match state if available (check both abbreviation and full name)
-                if (stateAbbrev) {
-                    const stateMatch = searchable.includes(stateAbbrev.toLowerCase()) ||
-                                      (stateName && searchable.includes(stateName));
-                    if (!stateMatch) return false;
-                }
-
-                // Match year if available
-                if (year) {
-                    if (!searchable.includes(year)) return false;
-                }
-
-                // Match election type (primary vs general)
-                if (isPrimary) {
-                    if (!searchable.includes('primary')) return false;
-                }
-
-                // Match party if specified
-                if (isDemocratic) {
-                    if (!searchable.includes('democrat')) return false;
-                }
-                if (isRepublican) {
-                    if (!searchable.includes('republican')) return false;
-                }
-
-                return true;
-            });
-        } else {
+        if (election.matchedMarkets && election.matchedMarkets.length > 0) {
             // Filter to matched market keys
             const matchedKeys = new Set(election.matchedMarkets);
-            filteredMarkets = allMarkets.filter(m => matchedKeys.has(m.key));
+            return allMarkets.filter(m => matchedKeys.has(m.key));
         }
+
+        // No matched markets - filter by state/year/type instead
+        const stateAbbrev = election.state;
+        const stateName = stateAbbrev ? STATE_NAMES[stateAbbrev] : null;
+        const year = election.electionDay ? election.electionDay.substring(0, 4) : null;
+        const electionName = (election.name || '').toLowerCase();
+        const isPrimary = electionName.includes('primary');
+        const isDemocratic = electionName.includes('democratic');
+        const isRepublican = electionName.includes('republican');
+
+        return allMarkets.filter(m => {
+            // Only Electoral markets (US or general)
+            const cat = (m.category_display || '').toLowerCase();
+            if (!cat.includes('electoral')) return false;
+
+            // Build searchable text from all relevant fields
+            const searchable = [
+                m.label || '',
+                m.pm_question || '',
+                m.k_question || '',
+                m.location || '',
+                m.country || '',
+                m.party || '',
+                m.type || ''
+            ].join(' ').toLowerCase();
+
+            // Match state if available (prefer full name, use word-boundary for abbreviation)
+            if (stateAbbrev) {
+                const abbrevLower = stateAbbrev.toLowerCase();
+                const abbrevRegex = new RegExp(`\\b${abbrevLower}\\b`);
+                const stateMatch = (stateName && searchable.includes(stateName)) ||
+                                  abbrevRegex.test(searchable);
+                if (!stateMatch) return false;
+            }
+
+            // Match year if available
+            if (year) {
+                if (!searchable.includes(year)) return false;
+            }
+
+            // Match election type (primary vs general)
+            if (isPrimary) {
+                if (!searchable.includes('primary')) return false;
+            }
+
+            // Match party if specified
+            if (isDemocratic) {
+                if (!searchable.includes('democrat')) return false;
+            }
+            if (isRepublican) {
+                if (!searchable.includes('republican')) return false;
+            }
+
+            return true;
+        });
+    }
+
+    function applyElectionFilter(election) {
+        // Use applyFilters which now respects activeElectionFilter
+        applyFilters();
 
         displayCount = CARDS_PER_PAGE;
         updateMarketCount();
-        updateTabCounts();
         renderCards();
     }
 
