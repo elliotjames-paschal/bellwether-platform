@@ -238,6 +238,9 @@ class DataValidator:
             elections['republican_vote_share'].round(4).astype(str)
         )
 
+        # Exclude uncontested races (1.0|0.0 and 0.0|1.0) — these are legitimate
+        elections = elections[~elections['share_pair'].isin(['1.0|0.0', '0.0|1.0'])]
+
         # Find duplicates
         share_counts = elections['share_pair'].value_counts()
         duplicates = share_counts[share_counts >= 3]  # 3+ elections with same shares

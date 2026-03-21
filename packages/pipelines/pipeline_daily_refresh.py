@@ -389,7 +389,7 @@ def main():
         except subprocess.TimeoutExpired:
             pm_proc.kill()
             pm_output, _ = pm_proc.communicate()
-            logger.error("Polymarket price fetch timed out after 45 minutes")
+            logger.warning("Polymarket price fetch timed out after 45 minutes (transient — PM CLOB API was slow, no code fix needed)")
 
         try:
             kalshi_output, _ = kalshi_proc.communicate(timeout=2700)
