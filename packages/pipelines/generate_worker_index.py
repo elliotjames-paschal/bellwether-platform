@@ -260,8 +260,9 @@ def upload_to_kv(data_json: str):
             f.write(data_json)
             tmp_path = f.name
         try:
-            # Pass CLOUDFLARE_API_TOKEN from env or .env file
+            # Pass CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID from env or .env file
             env = os.environ.copy()
+            env["CLOUDFLARE_ACCOUNT_ID"] = KV_ACCOUNT_ID
             if not env.get("CLOUDFLARE_API_TOKEN"):
                 env_file = Path(__file__).resolve().parent.parent.parent / ".env"
                 if env_file.exists():
@@ -272,7 +273,6 @@ def upload_to_kv(data_json: str):
                 [
                     "npx", "wrangler", "kv", "key", "put",
                     "--namespace-id", KV_NAMESPACE_ID,
-                    "--account-id", KV_ACCOUNT_ID,
                     "--remote",
                     "market_map:latest",
                     "--path", tmp_path,
