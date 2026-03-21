@@ -448,14 +448,7 @@ def main():
         results["election_eve_prices"] = success
         step_results["election_eve_prices"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
-        # Fetch orderbook snapshots for liquidity analysis
-        success = run_script(
-            "fetch_orderbooks.py",
-            "Fetch orderbook snapshots (native APIs)",
-            required=False
-        )
-        results["fetch_orderbooks"] = success
-        step_results["fetch_orderbooks"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+        # Orderbook snapshots moved to Phase 5 (depends on active_markets.json)
     else:
         logger.info(f"Skipping Phase 3 (starting from Phase {start_phase})")
 
@@ -495,8 +488,7 @@ def main():
             ("table_3_platform_comparison.py", "Platform comparison"),
             ("volume_timeseries_by_category.py", "Volume timeseries"),
             ("prediction_vs_volume.py", "Prediction vs volume plots"),
-            ("calculate_liquidity_metrics.py", "Calculate liquidity metrics"),
-            ("generate_liquidity_analysis.py", "Generate liquidity analysis"),
+            # Liquidity scripts moved to Phase 5 (depend on active_markets.json)
             ("fetch_panel_a_trades.py", "Fetch Panel A trades (Data API)"),
             ("aggregate_trader_partisanship.py", "Aggregate trader partisanship"),
         ]
@@ -693,7 +685,32 @@ def main():
         results["web_data"] = success
         step_results["generate_web_data"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
-        # Step 5b: Extract contract rules for Market Monitor
+        # Step 5b: Orderbook snapshots + liquidity (depends on active_markets.json from web data)
+        success = run_script(
+            "fetch_orderbooks.py",
+            "Fetch orderbook snapshots (active markets)",
+            required=False
+        )
+        results["fetch_orderbooks"] = success
+        step_results["fetch_orderbooks"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        success = run_script(
+            "calculate_liquidity_metrics.py",
+            "Calculate liquidity metrics",
+            required=False
+        )
+        results["liquidity_metrics"] = success
+        step_results["calculate_liquidity_metrics"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        success = run_script(
+            "generate_liquidity_analysis.py",
+            "Generate liquidity analysis",
+            required=False
+        )
+        results["liquidity_analysis"] = success
+        step_results["generate_liquidity_analysis"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # Step 5c: Extract contract rules for Market Monitor
         success = run_script(
             "generate_market_rules.py",
             "Extract contract rules for monitor",
