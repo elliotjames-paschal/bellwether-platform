@@ -259,6 +259,14 @@ def upload_to_kv(data_json: str):
             f.write(data_json)
             tmp_path = f.name
         try:
+            # Pass CLOUDFLARE_API_TOKEN from env or .env file
+            env = os.environ.copy()
+            if not env.get("CLOUDFLARE_API_TOKEN"):
+                env_file = Path(__file__).resolve().parent.parent.parent / ".env"
+                if env_file.exists():
+                    for line in env_file.read_text().splitlines():
+                        if line.startswith("CLOUDFLARE_API_TOKEN="):
+                            env["CLOUDFLARE_API_TOKEN"] = line.split("=", 1)[1].strip()
             result = subprocess.run(
                 [
                     "npx", "wrangler", "kv", "key", "put",
@@ -270,6 +278,7 @@ def upload_to_kv(data_json: str):
                 capture_output=True,
                 text=True,
                 timeout=60,
+                env=env,
             )
         finally:
             os.unlink(tmp_path)
