@@ -148,7 +148,7 @@ def fetch_kalshi_orderbook(ticker):
 
             if response.status_code == 200:
                 data = response.json()
-                if data.get('orderbook'):
+                if data.get('orderbook') or data.get('orderbook_fp'):
                     return data
                 return {}
             elif response.status_code == 429:
@@ -173,14 +173,26 @@ def extract_metrics_from_snapshot(snapshot, platform='polymarket'):
     timestamp = int(datetime.now().timestamp() * 1000)  # Current time in ms
 
     if platform == 'kalshi':
-        orderbook = snapshot.get('orderbook', {})
-        yes_bids = orderbook.get('yes', [])
-        no_bids = orderbook.get('no', [])
+        # Support both old format (orderbook.yes/no with cents)
+        # and new format (orderbook_fp.yes_dollars/no_dollars with dollar strings)
+        orderbook_fp = snapshot.get('orderbook_fp', {})
+        orderbook_old = snapshot.get('orderbook', {})
+
+        if orderbook_fp:
+            # New format: ["price_dollars_str", "size_dollars_str"]
+            yes_raw = orderbook_fp.get('yes_dollars', []) or orderbook_fp.get('yes', [])
+            no_raw = orderbook_fp.get('no_dollars', []) or orderbook_fp.get('no', [])
+            yes_bids = [(float(y[0]), float(y[1])) for y in yes_raw]
+            no_bids = [(float(n[0]), float(n[1])) for n in no_raw]
+        else:
+            # Old format: [price_cents, quantity]
+            yes_bids = [(y[0] / 100.0, y[1]) for y in orderbook_old.get('yes', [])]
+            no_bids = [(n[0] / 100.0, n[1]) for n in orderbook_old.get('no', [])]
 
         if yes_bids:
-            best_bid = max(y[0] for y in yes_bids) / 100.0
+            best_bid = max(y[0] for y in yes_bids)
             bid_depth = sum(y[1] for y in yes_bids)
-            best_bid_size = next((y[1] for y in yes_bids if y[0] == max(y[0] for y in yes_bids)), 0)
+            best_bid_size = next((y[1] for y in yes_bids if y[0] == best_bid), 0)
         else:
             best_bid = None
             bid_depth = 0
@@ -188,7 +200,7 @@ def extract_metrics_from_snapshot(snapshot, platform='polymarket'):
 
         if no_bids:
             best_no_bid = max(n[0] for n in no_bids)
-            best_ask = 1.0 - (best_no_bid / 100.0)
+            best_ask = 1.0 - best_no_bid
             ask_depth = sum(n[1] for n in no_bids)
             best_ask_size = next((n[1] for n in no_bids if n[0] == best_no_bid), 0)
         else:
