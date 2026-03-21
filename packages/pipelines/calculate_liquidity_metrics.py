@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Calculate Liquidity Metrics from Orderbook History
+Calculate Liquidity Metrics from Orderbook Summary
 
-Processes the raw orderbook snapshots into aggregate metrics per market.
+Derives per-market aggregate metrics from the orderbook summary's
+running statistics (mean, std, min, max from sum/sum_sq/count).
 
 Input:
-    data/orderbook_history_polymarket.json
-    data/orderbook_history_kalshi.json
+    data/orderbook_summary.json
 
 Output:
     data/liquidity_metrics_by_market.csv
@@ -15,6 +15,7 @@ Output:
 import pandas as pd
 import numpy as np
 import json
+import math
 import os
 import sys
 from datetime import datetime
@@ -25,8 +26,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import BASE_DIR, DATA_DIR
 from category_utils import old_to_new_category
 
-PM_INPUT_FILE = DATA_DIR / "orderbook_history_polymarket.json"
-KALSHI_INPUT_FILE = DATA_DIR / "orderbook_history_kalshi.json"
+try:
+    import orjson
+    def _load_json(f):
+        return orjson.loads(f.read())
+except ImportError:
+    def _load_json(f):
+        return json.load(f)
+
+SUMMARY_FILE = DATA_DIR / "orderbook_summary.json"
 OUTPUT_FILE = DATA_DIR / "liquidity_metrics_by_market.csv"
 
 
@@ -34,58 +42,67 @@ def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
 
-def calculate_market_metrics(market_data):
-    """
-    Calculate aggregate metrics for a single market from its snapshots.
-
-    Returns dict with:
-        - Spread metrics (mean, median, std, min, max)
-        - Depth metrics (mean, median, std)
-        - Sample stats (n_snapshots, time_span)
-    """
-    metrics_list = market_data.get('metrics', [])
-
-    if not metrics_list:
+def stat_mean(s):
+    """Compute mean from running stat dict."""
+    if s["n"] == 0:
         return None
+    return s["sum"] / s["n"]
 
-    # Extract arrays
-    spreads = [m['spread'] for m in metrics_list if m.get('spread') is not None]
-    rel_spreads = [m['relative_spread'] for m in metrics_list if m.get('relative_spread') is not None]
-    total_depths = [m['total_depth'] for m in metrics_list if m.get('total_depth') is not None]
-    bid_depths = [m['bid_depth'] for m in metrics_list if m.get('bid_depth') is not None]
-    ask_depths = [m['ask_depth'] for m in metrics_list if m.get('ask_depth') is not None]
-    midpoints = [m['midpoint'] for m in metrics_list if m.get('midpoint') is not None]
 
-    # Filter non-finite values
-    spreads = [s for s in spreads if np.isfinite(s)]
-    rel_spreads = [s for s in rel_spreads if np.isfinite(s)]
-    total_depths = [d for d in total_depths if np.isfinite(d)]
+def stat_std(s):
+    """Compute std from running stat dict (population std)."""
+    if s["n"] < 2:
+        return 0
+    mean = s["sum"] / s["n"]
+    variance = s["sum_sq"] / s["n"] - mean * mean
+    # Guard against floating-point negative variance
+    if variance < 0:
+        variance = 0
+    return math.sqrt(variance)
 
-    timestamps = [m['timestamp'] for m in metrics_list if m.get('timestamp')]
+
+def derive_market_metrics(market_id, entry):
+    """Derive CSV row from summary running stats."""
+    category = entry.get('category', '')
+    if category:
+        category = old_to_new_category(category)
+    else:
+        category = 'MISC'
 
     result = {
-        'market_id': market_data.get('market_id', ''),
-        'question': market_data.get('question', ''),
-        'category': old_to_new_category(market_data.get('category', '')) if market_data.get('category', '') else 'MISC',
-        'volume_usd': market_data.get('volume_usd', 0),
-        'trading_close_time': market_data.get('trading_close_time', ''),
-        'n_snapshots': len(metrics_list),
+        'market_id': market_id,
+        'question': entry.get('question', ''),
+        'category': category,
+        'volume_usd': entry.get('volume_usd', 0),
+        'trading_close_time': '',
+        'n_snapshots': entry.get('n_snapshots', 0),
+        'platform': 'Polymarket' if entry.get('platform') == 'polymarket' else 'Kalshi',
     }
 
-    # Time span in hours
-    if len(timestamps) >= 2:
-        time_span_hours = (max(timestamps) - min(timestamps)) / 1000 / 3600
-        result['time_span_hours'] = time_span_hours
+    # ID fields
+    if entry.get('platform') == 'polymarket':
+        result['token_id'] = entry.get('id_value', '')
+        result['ticker'] = ''
+    else:
+        result['token_id'] = ''
+        result['ticker'] = entry.get('id_value', '')
+
+    # Time span
+    first_ts = entry.get('first_timestamp')
+    last_ts = entry.get('last_timestamp')
+    if first_ts and last_ts and last_ts > first_ts:
+        result['time_span_hours'] = (last_ts - first_ts) / 1000 / 3600
     else:
         result['time_span_hours'] = 0
 
     # Spread metrics
-    if spreads:
-        result['spread_mean'] = np.mean(spreads)
-        result['spread_median'] = np.median(spreads)
-        result['spread_std'] = np.std(spreads) if len(spreads) > 1 else 0
-        result['spread_min'] = np.min(spreads)
-        result['spread_max'] = np.max(spreads)
+    sp = entry.get('spread', {})
+    if sp.get('n', 0) > 0:
+        result['spread_mean'] = stat_mean(sp)
+        result['spread_median'] = stat_mean(sp)  # approximate
+        result['spread_std'] = stat_std(sp)
+        result['spread_min'] = sp.get('min')
+        result['spread_max'] = sp.get('max')
     else:
         result['spread_mean'] = None
         result['spread_median'] = None
@@ -93,22 +110,24 @@ def calculate_market_metrics(market_data):
         result['spread_min'] = None
         result['spread_max'] = None
 
-    # Relative spread metrics (as percentage)
-    if rel_spreads:
-        result['rel_spread_mean'] = np.mean(rel_spreads) * 100
-        result['rel_spread_median'] = np.median(rel_spreads) * 100
-        result['rel_spread_std'] = np.std(rel_spreads) * 100 if len(rel_spreads) > 1 else 0
+    # Relative spread (as percentage)
+    rs = entry.get('rel_spread', {})
+    if rs.get('n', 0) > 0:
+        result['rel_spread_mean'] = stat_mean(rs) * 100
+        result['rel_spread_median'] = stat_mean(rs) * 100  # approximate
+        result['rel_spread_std'] = stat_std(rs) * 100
     else:
         result['rel_spread_mean'] = None
         result['rel_spread_median'] = None
         result['rel_spread_std'] = None
 
     # Depth metrics
-    if total_depths:
-        result['depth_mean'] = np.mean(total_depths)
-        result['depth_median'] = np.median(total_depths)
-        result['depth_std'] = np.std(total_depths) if len(total_depths) > 1 else 0
-        result['depth_max'] = np.max(total_depths)
+    dp = entry.get('depth', {})
+    if dp.get('n', 0) > 0:
+        result['depth_mean'] = stat_mean(dp)
+        result['depth_median'] = stat_mean(dp)  # approximate
+        result['depth_std'] = stat_std(dp)
+        result['depth_max'] = dp.get('max')
     else:
         result['depth_mean'] = None
         result['depth_median'] = None
@@ -116,25 +135,23 @@ def calculate_market_metrics(market_data):
         result['depth_max'] = None
 
     # Bid/ask balance
-    if bid_depths and ask_depths:
-        result['bid_depth_mean'] = np.mean(bid_depths)
-        result['ask_depth_mean'] = np.mean(ask_depths)
-        # Imbalance: positive = more bids, negative = more asks
-        imbalances = []
-        for m in metrics_list:
-            b, a = m.get('bid_depth'), m.get('ask_depth')
-            if b is not None and a is not None and np.isfinite(b) and np.isfinite(a) and (b + a) > 0:
-                imbalances.append((b - a) / (b + a))
-        result['depth_imbalance_mean'] = np.mean(imbalances)
+    bd = entry.get('bid_depth', {})
+    ad = entry.get('ask_depth', {})
+    if bd.get('n', 0) > 0 and ad.get('n', 0) > 0:
+        result['bid_depth_mean'] = stat_mean(bd)
+        result['ask_depth_mean'] = stat_mean(ad)
+        imb = entry.get('imbalance', {})
+        result['depth_imbalance_mean'] = stat_mean(imb) if imb.get('n', 0) > 0 else None
     else:
         result['bid_depth_mean'] = None
         result['ask_depth_mean'] = None
         result['depth_imbalance_mean'] = None
 
     # Price level (midpoint)
-    if midpoints:
-        result['price_mean'] = np.mean(midpoints)
-        result['price_std'] = np.std(midpoints) if len(midpoints) > 1 else 0
+    mp = entry.get('midpoint', {})
+    if mp.get('n', 0) > 0:
+        result['price_mean'] = stat_mean(mp)
+        result['price_std'] = stat_std(mp)
     else:
         result['price_mean'] = None
         result['price_std'] = None
@@ -144,63 +161,15 @@ def calculate_market_metrics(market_data):
 
 def main():
     log("=" * 60)
-    log("CALCULATING LIQUIDITY METRICS")
+    log("CALCULATING LIQUIDITY METRICS (from summary)")
     log("=" * 60)
 
-    all_metrics = []
-
-    # Process Polymarket
-    log("\n1. Processing Polymarket orderbooks...")
-    if PM_INPUT_FILE.exists():
-        try:
-            with open(PM_INPUT_FILE) as f:
-                pm_data = json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"   Error reading {PM_INPUT_FILE}: {e}")
-            pm_data = {}
-
-        log(f"   Loaded {len(pm_data):,} markets")
-
-        for market_id, market_data in pm_data.items():
-            market_data['market_id'] = market_id
-            metrics = calculate_market_metrics(market_data)
-            if metrics:
-                metrics['platform'] = 'Polymarket'
-                metrics['token_id'] = market_data.get('token_id', '')
-                all_metrics.append(metrics)
-
-        log(f"   Calculated metrics for {len([m for m in all_metrics if m['platform'] == 'Polymarket']):,} markets")
-    else:
-        log(f"   File not found: {PM_INPUT_FILE}")
-
-    # Process Kalshi
-    log("\n2. Processing Kalshi orderbooks...")
-    if KALSHI_INPUT_FILE.exists():
-        try:
-            with open(KALSHI_INPUT_FILE) as f:
-                kalshi_data = json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"   Error reading {KALSHI_INPUT_FILE}: {e}")
-            kalshi_data = {}
-
-        log(f"   Loaded {len(kalshi_data):,} markets")
-
-        for market_id, market_data in kalshi_data.items():
-            market_data['market_id'] = market_id
-            metrics = calculate_market_metrics(market_data)
-            if metrics:
-                metrics['platform'] = 'Kalshi'
-                metrics['ticker'] = market_data.get('ticker', '')
-                all_metrics.append(metrics)
-
-        log(f"   Calculated metrics for {len([m for m in all_metrics if m['platform'] == 'Kalshi']):,} markets")
-    else:
-        log(f"   File not found: {KALSHI_INPUT_FILE}")
-
-    # Create DataFrame
-    log("\n3. Creating output DataFrame...")
-    if not all_metrics:
-        log("WARNING: No liquidity metrics calculated (no orderbook data found). Creating empty output.")
+    # Load summary
+    log("\n1. Loading orderbook summary...")
+    if not SUMMARY_FILE.exists():
+        log(f"   ERROR: {SUMMARY_FILE} not found.")
+        log("   Run bootstrap_orderbook_summary.py or fetch_orderbooks.py first.")
+        # Write empty CSV
         col_order = [
             'platform', 'market_id', 'token_id', 'ticker', 'question', 'category',
             'volume_usd', 'trading_close_time',
@@ -211,14 +180,45 @@ def main():
             'bid_depth_mean', 'ask_depth_mean', 'depth_imbalance_mean',
             'price_mean', 'price_std'
         ]
-        df = pd.DataFrame(columns=col_order)
-        df.to_csv(OUTPUT_FILE, index=False)
-        log(f"   Saved empty file to {OUTPUT_FILE.name}")
+        pd.DataFrame(columns=col_order).to_csv(OUTPUT_FILE, index=False)
         return
 
+    with open(SUMMARY_FILE, 'rb') as f:
+        summary = _load_json(f)
+
+    markets = summary.get('markets', {})
+    log(f"   Loaded {len(markets):,} markets from summary")
+
+    # Derive metrics
+    log("\n2. Deriving per-market metrics...")
+    all_metrics = []
+    for market_id, entry in markets.items():
+        if entry.get('n_snapshots', 0) == 0:
+            continue
+        row = derive_market_metrics(market_id, entry)
+        all_metrics.append(row)
+
+    log(f"   Derived metrics for {len(all_metrics):,} markets")
+
+    if not all_metrics:
+        log("WARNING: No markets with data. Creating empty output.")
+        col_order = [
+            'platform', 'market_id', 'token_id', 'ticker', 'question', 'category',
+            'volume_usd', 'trading_close_time',
+            'n_snapshots', 'time_span_hours',
+            'spread_mean', 'spread_median', 'spread_std', 'spread_min', 'spread_max',
+            'rel_spread_mean', 'rel_spread_median', 'rel_spread_std',
+            'depth_mean', 'depth_median', 'depth_std', 'depth_max',
+            'bid_depth_mean', 'ask_depth_mean', 'depth_imbalance_mean',
+            'price_mean', 'price_std'
+        ]
+        pd.DataFrame(columns=col_order).to_csv(OUTPUT_FILE, index=False)
+        return
+
+    # Create DataFrame
+    log("\n3. Creating output DataFrame...")
     df = pd.DataFrame(all_metrics)
 
-    # Reorder columns
     col_order = [
         'platform', 'market_id', 'token_id', 'ticker', 'question', 'category',
         'volume_usd', 'trading_close_time',
@@ -248,13 +248,11 @@ def main():
 
         log(f"\n{platform} ({len(pdf):,} markets):")
 
-        # Spread stats
         spreads = pdf['spread_mean'].dropna()
         if len(spreads) > 0:
             log(f"  Spread (absolute):")
             log(f"    Mean: {spreads.mean():.4f}")
             log(f"    Median: {spreads.median():.4f}")
-            log(f"    Std: {spreads.std():.4f}")
 
         rel_spreads = pdf['rel_spread_mean'].dropna()
         if len(rel_spreads) > 0:

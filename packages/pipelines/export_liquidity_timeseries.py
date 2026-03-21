@@ -2,124 +2,102 @@
 """
 Export Liquidity Time Series for Website
 
-Aggregates orderbook snapshots by day to show spread and depth over time.
+Reads daily aggregates from orderbook_summary.json to produce
+a time series of spread and depth by platform.
 
 Input:
-    data/orderbook_history_polymarket.json
-    data/orderbook_history_kalshi.json
+    data/orderbook_summary.json
 
 Output:
     website/data/liquidity_timeseries.json
 """
 
-import pandas as pd
 import numpy as np
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from collections import defaultdict
 
-# Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import BASE_DIR, DATA_DIR
 
-PM_FILE = DATA_DIR / "orderbook_history_polymarket.json"
-KALSHI_FILE = DATA_DIR / "orderbook_history_kalshi.json"
+try:
+    import orjson
+    def _load_json(f):
+        return orjson.loads(f.read())
+except ImportError:
+    def _load_json(f):
+        return json.load(f)
+
+SUMMARY_FILE = DATA_DIR / "orderbook_summary.json"
 OUTPUT_FILE = BASE_DIR / "website" / "data" / "liquidity_timeseries.json"
-
-
-def process_orderbook_file(filepath, platform):
-    """Process orderbook JSON and aggregate by day."""
-    if not filepath.exists():
-        print(f"   Warning: {filepath.name} not found")
-        return {}
-
-    try:
-        with open(filepath) as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-        print(f"   Warning: Could not load {filepath.name}: {e}")
-        return {}
-
-    # Aggregate by day
-    daily_data = defaultdict(lambda: {'spreads': [], 'depths': [], 'n_snapshots': 0})
-
-    for market_id, market in data.items():
-        for metric in market.get('metrics', []):
-            ts = metric.get('timestamp', 0)
-            if ts == 0:
-                continue
-
-            # Convert to date string
-            date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime('%Y-%m-%d')
-
-            # Get spread and depth
-            rel_spread = metric.get('relative_spread')
-            depth = metric.get('total_depth')
-
-            if rel_spread is not None and rel_spread > 0:
-                daily_data[date_str]['spreads'].append(rel_spread * 100)  # Convert to %
-            if depth is not None and depth > 0:
-                daily_data[date_str]['depths'].append(depth)
-
-            daily_data[date_str]['n_snapshots'] += 1
-
-    # Calculate daily medians
-    result = {}
-    for date_str, day in sorted(daily_data.items()):
-        if day['spreads'] and day['depths']:
-            result[date_str] = {
-                'spread_median': round(np.median(day['spreads']), 2),
-                'spread_mean': round(np.mean(day['spreads']), 2),
-                'depth_median': round(np.median(day['depths']), 0),
-                'depth_mean': round(np.mean(day['depths']), 0),
-                'n_snapshots': day['n_snapshots'],
-                'n_spread_obs': len(day['spreads']),
-                'n_depth_obs': len(day['depths'])
-            }
-
-    return result
 
 
 def main():
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Exporting liquidity time series...")
 
-    # Process each platform
-    print("   Processing Polymarket...")
-    pm_daily = process_orderbook_file(PM_FILE, 'polymarket')
-    print(f"   -> {len(pm_daily)} days")
+    if not SUMMARY_FILE.exists():
+        print(f"   ERROR: {SUMMARY_FILE} not found.")
+        return
 
-    print("   Processing Kalshi...")
-    kalshi_daily = process_orderbook_file(KALSHI_FILE, 'kalshi')
-    print(f"   -> {len(kalshi_daily)} days")
+    with open(SUMMARY_FILE, 'rb') as f:
+        summary = _load_json(f)
 
-    # Get all dates
-    all_dates = sorted(set(pm_daily.keys()) | set(kalshi_daily.keys()))
+    daily = summary.get('daily', {})
+    print(f"   Loaded {len(daily)} days of daily data")
 
-    # Build output
+    if not daily:
+        print("   No daily data found. Skipping.")
+        return
+
+    all_dates = sorted(daily.keys())
+
+    # Build per-platform arrays
+    pm_spreads = []
+    pm_depths = []
+    pm_counts = []
+    k_spreads = []
+    k_depths = []
+    k_counts = []
+
+    for d in all_dates:
+        day = daily[d]
+
+        pm = day.get('polymarket', {})
+        pm_spreads.append(pm.get('spread_median'))
+        pm_depths.append(pm.get('depth_median'))
+        pm_counts.append(pm.get('n_snapshots', 0))
+
+        k = day.get('kalshi', {})
+        k_spreads.append(k.get('spread_median'))
+        k_depths.append(k.get('depth_median'))
+        k_counts.append(k.get('n_snapshots', 0))
+
+    # Compute summary stats
+    pm_valid_spreads = [s for s in pm_spreads if s is not None]
+    k_valid_spreads = [s for s in k_spreads if s is not None]
+
     output = {
         'dates': all_dates,
         'polymarket': {
-            'spread': [pm_daily.get(d, {}).get('spread_median') for d in all_dates],
-            'depth': [pm_daily.get(d, {}).get('depth_median') for d in all_dates],
-            'n_snapshots': [pm_daily.get(d, {}).get('n_snapshots', 0) for d in all_dates]
+            'spread': pm_spreads,
+            'depth': pm_depths,
+            'n_snapshots': pm_counts
         },
         'kalshi': {
-            'spread': [kalshi_daily.get(d, {}).get('spread_median') for d in all_dates],
-            'depth': [kalshi_daily.get(d, {}).get('depth_median') for d in all_dates],
-            'n_snapshots': [kalshi_daily.get(d, {}).get('n_snapshots', 0) for d in all_dates]
+            'spread': k_spreads,
+            'depth': k_depths,
+            'n_snapshots': k_counts
         },
         'summary': {
             'date_range': f"{all_dates[0]} to {all_dates[-1]}" if all_dates else "",
             'n_days': len(all_dates),
-            'pm_avg_spread': round(np.mean([v['spread_median'] for v in pm_daily.values()]), 2) if pm_daily else None,
-            'kalshi_avg_spread': round(np.mean([v['spread_median'] for v in kalshi_daily.values()]), 2) if kalshi_daily else None
+            'pm_avg_spread': round(float(np.mean(pm_valid_spreads)), 2) if pm_valid_spreads else None,
+            'kalshi_avg_spread': round(float(np.mean(k_valid_spreads)), 2) if k_valid_spreads else None
         }
     }
 
-    # Save
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_FILE, 'w') as f:
         json.dump(output, f, indent=2, allow_nan=False)
