@@ -873,6 +873,17 @@ def main():
     for step, status in step_results.items():
         logger.info(f"  {step}: {status}")
 
+    # Write step results summary for shell script to read
+    summary_file = BASE_DIR / "logs" / "last_run_summary.txt"
+    try:
+        with open(summary_file, 'w') as f:
+            f.write(f"exit_code={'0' if all_success else '1'}\n")
+            f.write(f"success={success_count} failed={fail_count} skipped={skip_count}\n")
+            for step, status in step_results.items():
+                f.write(f"  {step}: {status}\n")
+    except Exception:
+        pass
+
     # Send error email if any errors occurred
     if get_error_count() > 0:
         flush_email()
