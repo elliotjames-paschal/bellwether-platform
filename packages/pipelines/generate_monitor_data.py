@@ -1111,13 +1111,21 @@ def fetch_live_kalshi_prices(market_tickers, max_workers=50):
 
 
 def load_yesterday_kalshi_prices():
-    """Load yesterday's Kalshi price snapshot for 24h change calculation."""
+    """Load yesterday's Kalshi price snapshot for 24h change calculation.
+
+    Falls back to up to 3 days ago if yesterday's file is missing
+    (handles weekends, outages, first run after a gap).
+    """
     from datetime import timedelta
-    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-    yesterday_file = KALSHI_DAILY_PRICES_DIR / f"kalshi_prices_{yesterday}.json"
-    if yesterday_file.exists():
-        with open(yesterday_file, 'r') as f:
-            return json.load(f)
+    for days_back in range(1, 4):
+        target = (datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')
+        target_file = KALSHI_DAILY_PRICES_DIR / f"kalshi_prices_{target}.json"
+        if target_file.exists():
+            with open(target_file, 'r') as f:
+                prices = json.load(f)
+            if days_back > 1:
+                log(f"  Note: Using {days_back}-day-old Kalshi prices ({target}) as fallback")
+            return prices
     return {}
 
 
@@ -1572,6 +1580,9 @@ def generate_monitor_data(skip_prices=False):
                 if fallback is not None:
                     price = fallback
             price_change_24h = calculate_kalshi_24h_change_from_snapshot(market_ticker, price, yesterday_kalshi_prices)
+            # Fallback: use candlestick history if daily snapshot unavailable
+            if price_change_24h is None:
+                price_change_24h = calculate_kalshi_24h_change(market_ticker, kalshi_candlesticks)
 
         return price, price_change_24h
 

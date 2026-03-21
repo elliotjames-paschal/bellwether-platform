@@ -2429,7 +2429,7 @@ function renderLiquidityScatter(platform) {
     const layout = {
         ...LAYOUT_DEFAULTS,
         xaxis: { title: 'Volume (USD)', type: 'log', gridcolor: COLORS.line, zeroline: false },
-        yaxis: { title: 'Relative Spread (%)', gridcolor: COLORS.line, zeroline: false, range: [0, Math.min(50, plat.points.reduce((max, p) => Math.max(max, p.spread), 10) * 1.1)] },
+        yaxis: { title: 'Relative Spread (%)', gridcolor: COLORS.line, zeroline: false, rangemode: 'tozero' },
         margin: { l: 60, r: 20, t: 30, b: 50 },
         showlegend: false,
         annotations: [{

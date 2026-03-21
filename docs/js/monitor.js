@@ -1236,13 +1236,18 @@
             case 'biggest_moves':
                 // All open markets, sorted by volume-weighted price movement
                 // Score = abs(price_change) * log(volume)³ - surfaces moves on markets DC cares about
+                // Markets with volume but no price change get a small baseline score
+                // so they appear below movers but above dead markets
                 sorted.sort((a, b) => {
                     const volA = a.total_volume || a.volume || 0;
                     const volB = b.total_volume || b.volume || 0;
                     const logA = Math.log10(Math.max(volA, 1));
                     const logB = Math.log10(Math.max(volB, 1));
-                    const scoreA = Math.abs(a.price_change_24h || 0) * logA * logA * logA;
-                    const scoreB = Math.abs(b.price_change_24h || 0) * logB * logB * logB;
+                    const changeA = Math.abs(a.price_change_24h || 0);
+                    const changeB = Math.abs(b.price_change_24h || 0);
+                    // Baseline: high-volume markets with no change data get a tiny score
+                    const scoreA = (changeA > 0 ? changeA : (volA > 10000 ? 0.001 : 0)) * logA * logA * logA;
+                    const scoreB = (changeB > 0 ? changeB : (volB > 10000 ? 0.001 : 0)) * logB * logB * logB;
                     return scoreB - scoreA;
                 });
                 break;
