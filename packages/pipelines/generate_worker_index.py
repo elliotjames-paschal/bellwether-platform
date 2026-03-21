@@ -252,18 +252,26 @@ def build_market_index(active_df, tickers):
 def upload_to_kv(data_json: str):
     """Upload market index to Cloudflare KV via wrangler."""
     try:
-        result = subprocess.run(
-            [
-                "npx", "wrangler", "kv", "key", "put",
-                "--namespace-id", KV_NAMESPACE_ID,
-                "--remote",
-                "market_map:latest",
-                data_json,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+        # Use --path with a temp file to avoid 'Argument list too long' error
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write(data_json)
+            tmp_path = f.name
+        try:
+            result = subprocess.run(
+                [
+                    "npx", "wrangler", "kv", "key", "put",
+                    "--namespace-id", KV_NAMESPACE_ID,
+                    "--remote",
+                    "market_map:latest",
+                    "--path", tmp_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        finally:
+            os.unlink(tmp_path)
 
         if result.returncode == 0:
             print(f"  Uploaded to KV key market_map:latest")
