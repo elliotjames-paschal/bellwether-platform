@@ -16,6 +16,7 @@ Requirements: pip install ijson numpy
 """
 
 import json
+import io
 import os
 import sys
 import math
@@ -80,8 +81,24 @@ def process_history_file_streaming(filepath, platform, summary_markets, daily_da
     # ijson streams the top-level dict: each key is a market_id,
     # each value is the market object with metadata + metrics array.
     # We use ijson.items to get each top-level key-value pair.
-    with open(filepath, 'rb') as f:
-        # Stream top-level key-value pairs
+    class NaNFilter(io.RawIOBase):
+        """Wraps a binary file, replacing NaN with null on the fly."""
+        def __init__(self, raw):
+            self._raw = raw
+        def readable(self):
+            return True
+        def readinto(self, b):
+            data = self._raw.read(len(b))
+            if not data:
+                return 0
+            # Replace NaN (not inside quotes) with null
+            data = data.replace(b'NaN', b'null')
+            n = len(data)
+            b[:n] = data
+            return n
+
+    with open(filepath, 'rb') as raw_f:
+        f = io.BufferedReader(NaNFilter(raw_f), buffer_size=1024*1024)
         for market_id, market in ijson.kvitems(f, ''):
             metrics_list = market.get('metrics', [])
             if not metrics_list:
