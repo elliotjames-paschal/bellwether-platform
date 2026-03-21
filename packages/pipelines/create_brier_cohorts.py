@@ -23,8 +23,8 @@ PM_CATEGORIES_OUTPUT = PAPER_DATA_DIR / "polymarket_brier_categories_cohorts.csv
 KALSHI_CATEGORIES_OUTPUT = PAPER_DATA_DIR / "kalshi_brier_categories_cohorts.csv"
 
 # Time horizons (all available points)
-TIME_HORIZONS = [60, 30, 20, 14, 12, 10, 8, 7, 6, 5, 4, 3, 2, 1]
-COHORTS = ['7d', '14d', '30d', '60d']
+TIME_HORIZONS = [60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 4, 3, 2, 1]
+COHORTS = ['5d', '15d', '30d', '60d']
 
 print("=" * 80)
 print("CREATING BRIER SCORE COHORT FILES")
@@ -66,8 +66,8 @@ print("\n2. Defining cohorts...")
 # For example, 7d cohort = markets with data at 7 days before resolution
 
 cohort_definitions = {
-    '7d': 7,
-    '14d': 14,
+    '5d': 5,
+    '15d': 15,
     '30d': 30,
     '60d': 60
 }

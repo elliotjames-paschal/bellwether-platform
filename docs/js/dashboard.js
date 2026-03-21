@@ -21,10 +21,11 @@ const COLORS_SOFT = {
 };
 
 // Cohort colors - blues matching website theme
+// Cohort colors - blues matching website theme
 const COHORT_COLORS = {
-    '7d': 'rgba(91, 141, 238, 0.4)',   // Blue - lightest
-    '14d': 'rgba(91, 141, 238, 0.6)',  // Blue - light
-    '30d': 'rgba(91, 141, 238, 0.8)',  // Blue - medium
+    '5d': 'rgba(91, 141, 238, 0.4)',   // Blue - lightest
+    '15d': 'rgba(91, 141, 238, 0.6)',
+    '30d': 'rgba(91, 141, 238, 0.8)',
     '60d': 'rgba(91, 141, 238, 1)'     // Blue - darkest (#5B8DEE)
 };
 
@@ -518,7 +519,7 @@ async function loadBrierConvergence() {
         const data = await fetchJSON('brier_convergence.json');
 
         const traces = [];
-        const cohortOrder = ['60d', '30d', '14d', '7d'];
+        const cohortOrder = ['60d', '30d', '15d', '5d'];
 
         for (const cohort of cohortOrder) {
             if (data.cohorts[cohort]) {

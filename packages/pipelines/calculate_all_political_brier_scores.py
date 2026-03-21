@@ -21,7 +21,7 @@ from config import BASE_DIR, DATA_DIR, get_market_anchor_time
 from category_utils import OLD_TO_NEW_CATEGORY
 
 # Time horizons to analyze (days before event/reference date)
-TIME_HORIZONS = [60, 30, 20, 14, 12, 10, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+TIME_HORIZONS = [60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 4, 3, 2, 1, 0]
 
 print("=" * 80)
 print("CALCULATING BRIER SCORES FOR ALL POLITICAL MARKETS")

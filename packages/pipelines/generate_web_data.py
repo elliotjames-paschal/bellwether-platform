@@ -1006,10 +1006,10 @@ def generate_brier_convergence():
     df = pd.read_csv(cohort_file)
 
     # All day columns from far to near
-    all_day_cols = ['60d', '30d', '20d', '14d', '12d', '10d', '8d', '7d', '6d', '5d', '4d', '3d', '2d', '1d']
+    all_day_cols = ['60d', '55d', '50d', '45d', '40d', '35d', '30d', '25d', '20d', '15d', '10d', '5d', '4d', '3d', '2d', '1d']
 
-    # All 4 cohorts
-    cohorts = ['7d', '14d', '30d', '60d']
+    # All cohorts
+    cohorts = ['5d', '15d', '30d', '60d']
 
     data = {
         'cohorts': {}
