@@ -37,6 +37,7 @@ API_OUTPUT = PACKAGES_DIR / "api" / "market_map.json"
 WEBSITE_OUTPUT = PACKAGES_DIR / "website" / "data" / "market_map.json"
 
 KV_NAMESPACE_ID = "2ce167f19ce748e0bf09b513eaafe9ad"
+KV_ACCOUNT_ID = "1459befd055e568b62e4c9d789745486"
 
 
 def slugify(text: str) -> str:
@@ -271,6 +272,7 @@ def upload_to_kv(data_json: str):
                 [
                     "npx", "wrangler", "kv", "key", "put",
                     "--namespace-id", KV_NAMESPACE_ID,
+                    "--account-id", KV_ACCOUNT_ID,
                     "--remote",
                     "market_map:latest",
                     "--path", tmp_path,
