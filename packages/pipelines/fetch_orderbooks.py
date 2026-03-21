@@ -16,18 +16,43 @@ Output:
 """
 
 import requests
-import json
 import time
 import os
 import sys
 import threading
+
+try:
+    import orjson
+    def _load_json(f):
+        return orjson.loads(f.read())
+    def _dump_json(obj):
+        return orjson.dumps(obj)
+except ImportError:
+    import json
+    def _load_json(f):
+        return json.load(f)
+    def _dump_json(obj):
+        return json.dumps(obj).encode()
 from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Paths
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config import BASE_DIR, DATA_DIR, atomic_write_json
+from config import BASE_DIR, DATA_DIR
+
+def _atomic_write_json(path, data):
+    """Write JSON atomically, using orjson if available for speed."""
+    import tempfile
+    path = Path(path)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'wb') as f:
+            f.write(_dump_json(data))
+        os.replace(tmp, path)
+    except:
+        os.unlink(tmp)
+        raise
 
 ACTIVE_MARKETS_FILE = BASE_DIR / "docs" / "data" / "active_markets.json"
 PM_OUTPUT_FILE = DATA_DIR / "orderbook_history_polymarket.json"
@@ -230,6 +255,7 @@ def load_active_markets():
         log(f"ERROR: {ACTIVE_MARKETS_FILE} not found. Run generate_web_data.py first.")
         return [], []
 
+    import json
     with open(ACTIVE_MARKETS_FILE) as f:
         data = json.load(f)
 
@@ -331,8 +357,8 @@ def main():
 
     if PM_OUTPUT_FILE.exists():
         try:
-            with open(PM_OUTPUT_FILE) as f:
-                pm_data = json.load(f)
+            with open(PM_OUTPUT_FILE, 'rb') as f:
+                pm_data = _load_json(f)
             total_snapshots = sum(m.get('n_snapshots', len(m.get('metrics', []))) for m in pm_data.values())
             log(f"   Polymarket: {len(pm_data):,} markets, {total_snapshots:,} total snapshots")
         except Exception as e:
@@ -340,8 +366,8 @@ def main():
 
     if KALSHI_OUTPUT_FILE.exists():
         try:
-            with open(KALSHI_OUTPUT_FILE) as f:
-                kalshi_data = json.load(f)
+            with open(KALSHI_OUTPUT_FILE, 'rb') as f:
+                kalshi_data = _load_json(f)
             total_snapshots = sum(m.get('n_snapshots', len(m.get('metrics', []))) for m in kalshi_data.values())
             log(f"   Kalshi: {len(kalshi_data):,} markets, {total_snapshots:,} total snapshots")
         except Exception as e:
@@ -407,10 +433,10 @@ def main():
 
     # 5. Save results
     log("\n5. Saving results...")
-    atomic_write_json(PM_OUTPUT_FILE, pm_data)
+    _atomic_write_json(PM_OUTPUT_FILE, pm_data)
     log(f"   Saved {len(pm_data):,} Polymarket markets")
 
-    atomic_write_json(KALSHI_OUTPUT_FILE, kalshi_data)
+    _atomic_write_json(KALSHI_OUTPUT_FILE, kalshi_data)
     log(f"   Saved {len(kalshi_data):,} Kalshi markets")
 
     # Clean up old checkpoint file
