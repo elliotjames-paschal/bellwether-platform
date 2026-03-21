@@ -103,7 +103,7 @@ def process_history_file_streaming(filepath, platform, summary_markets, daily_da
                 "id_value": market.get(id_field, market_id),
                 "question": str(market.get('question', ''))[:100],
                 "category": str(market.get('category', '')),
-                "volume_usd": market.get('volume_usd', 0) or 0,
+                "volume_usd": float(market.get('volume_usd', 0) or 0),
                 "n_snapshots": len(metrics_list),
                 "first_timestamp": None,
                 "last_timestamp": None,
@@ -117,7 +117,7 @@ def process_history_file_streaming(filepath, platform, summary_markets, daily_da
             }
 
             for m in metrics_list:
-                ts = m.get('timestamp', 0)
+                ts = int(m.get('timestamp', 0) or 0)
 
                 if ts:
                     if entry["first_timestamp"] is None or ts < entry["first_timestamp"]:
@@ -216,8 +216,15 @@ def main():
         "daily": daily_final,
     }
 
+    import decimal
+    class DecimalEncoder(json.JSONEncoder):
+        def default(self, o):
+            if isinstance(o, decimal.Decimal):
+                return float(o)
+            return super().default(o)
+
     with open(SUMMARY_FILE, 'w') as f:
-        json.dump(summary, f)
+        json.dump(summary, f, cls=DecimalEncoder)
 
     size_mb = SUMMARY_FILE.stat().st_size / 1024 / 1024
     log(f"  Saved {SUMMARY_FILE.name} ({size_mb:.1f} MB)")
