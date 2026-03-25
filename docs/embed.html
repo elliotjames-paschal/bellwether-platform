@@ -308,7 +308,7 @@ html,body{background:transparent;font-family:'DM Sans',sans-serif;-webkit-font-s
   }
 
   var BASE = getBasePath();
-  var WORKER = 'https://bellwether-api.paschal-145.workers.dev/api/metrics/combined';
+  var WORKER = 'https://api.bellwethermetrics.com/api/metrics/combined';
 
   fetch(BASE + 'data/active_markets.json')
     .then(function(r){ return r.json(); })
