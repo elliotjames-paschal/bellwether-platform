@@ -83,7 +83,7 @@
     }
 
     // Live data configuration
-    const LIVE_DATA_SERVER = 'https://bellwether-api.paschal-145.workers.dev';
+    const LIVE_DATA_SERVER = 'https://api.bellwethermetrics.com';
 
     // Fetch live data for a single-platform market
     async function fetchLiveData(tokenOrTicker, platform = 'polymarket') {
