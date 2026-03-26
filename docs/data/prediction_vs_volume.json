@@ -738,6 +738,21 @@
           "correct": true
         },
         {
+          "price": 0.1115,
+          "volume": 5322.11,
+          "correct": true
+        },
+        {
+          "price": 0.75,
+          "volume": 8455.77,
+          "correct": true
+        },
+        {
+          "price": 0.005,
+          "volume": 2340.32,
+          "correct": true
+        },
+        {
           "price": 0.765,
           "volume": 74576946.93,
           "correct": true
@@ -4471,15 +4486,15 @@
       "bins": [
         {
           "price_mid": 0.0107,
-          "median_volume": 22598.16
+          "median_volume": 22535.55
         },
         {
           "price_mid": 0.0712,
           "median_volume": 6747.72
         },
         {
-          "price_mid": 0.1253,
-          "median_volume": 10404.5
+          "price_mid": 0.125,
+          "median_volume": 9526.38
         },
         {
           "price_mid": 0.1798,
@@ -4530,8 +4545,8 @@
           "median_volume": 6579.41
         },
         {
-          "price_mid": 0.7743,
-          "median_volume": 18135.87
+          "price_mid": 0.7728,
+          "median_volume": 16468.23
         },
         {
           "price_mid": 0.8239,
@@ -4551,7 +4566,7 @@
         }
       ],
       "correlation": 0.0082,
-      "n": 893
+      "n": 896
     },
     "no": null
   },
@@ -5064,14 +5079,59 @@
           "correct": true
         },
         {
+          "price": 0.54,
+          "volume": 5433.0,
+          "correct": false
+        },
+        {
           "price": 0.49,
           "volume": 107884.0,
           "correct": true
         },
         {
-          "price": 0.53,
+          "price": 0.5,
           "volume": 85912.0,
+          "correct": false
+        },
+        {
+          "price": 0.22,
+          "volume": 2405.0,
           "correct": true
+        },
+        {
+          "price": 0.73,
+          "volume": 7938.0,
+          "correct": false
+        },
+        {
+          "price": 0.64,
+          "volume": 1618.0,
+          "correct": false
+        },
+        {
+          "price": 0.74,
+          "volume": 4711.0,
+          "correct": false
+        },
+        {
+          "price": 0.68,
+          "volume": 4383.0,
+          "correct": false
+        },
+        {
+          "price": 0.73,
+          "volume": 7527.0,
+          "correct": false
+        },
+        {
+          "price": 0.53,
+          "volume": 4210.0,
+          "correct": false
+        },
+        {
+          "price": 0.54,
+          "volume": 1650.0,
+          "correct": false
         },
         {
           "price": 0.01,
@@ -5119,22 +5179,22 @@
           "correct": true
         },
         {
-          "price": 0.98,
+          "price": 0.96,
           "volume": 1649.0,
           "correct": true
         },
         {
-          "price": 0.4,
+          "price": 0.25,
           "volume": 113001.0,
           "correct": true
         },
         {
-          "price": 0.96,
+          "price": 0.93,
           "volume": 8068.0,
           "correct": true
         },
         {
-          "price": 0.49,
+          "price": 0.47,
           "volume": 152899.0,
           "correct": true
         },
@@ -5144,12 +5204,12 @@
           "correct": true
         },
         {
-          "price": 0.07,
+          "price": 0.04,
           "volume": 346108.0,
           "correct": true
         },
         {
-          "price": 0.95,
+          "price": 0.9,
           "volume": 4003.0,
           "correct": true
         },
@@ -5159,57 +5219,37 @@
           "correct": true
         },
         {
-          "price": 0.09,
-          "volume": 43804.0,
-          "correct": true
-        },
-        {
-          "price": 0.13,
-          "volume": 14957.0,
-          "correct": true
-        },
-        {
-          "price": 0.15,
-          "volume": 15482.0,
-          "correct": true
-        },
-        {
-          "price": 0.17,
-          "volume": 43795.0,
-          "correct": true
-        },
-        {
-          "price": 0.34,
+          "price": 0.32,
           "volume": 144305.0,
           "correct": true
         },
         {
-          "price": 0.54,
+          "price": 0.52,
           "volume": 191525.0,
           "correct": false
         },
         {
-          "price": 0.69,
+          "price": 0.74,
           "volume": 155390.0,
           "correct": false
         },
         {
-          "price": 0.84,
+          "price": 0.82,
           "volume": 382496.0,
           "correct": false
         },
         {
-          "price": 0.95,
+          "price": 0.88,
           "volume": 2103166.0,
           "correct": false
         },
         {
-          "price": 0.97,
+          "price": 0.95,
           "volume": 168410.0,
           "correct": true
         },
         {
-          "price": 0.97,
+          "price": 0.98,
           "volume": 91212.0,
           "correct": true
         },
@@ -5219,7 +5259,7 @@
           "correct": true
         },
         {
-          "price": 0.99,
+          "price": 0.96,
           "volume": 35578.0,
           "correct": true
         },
@@ -5229,7 +5269,7 @@
           "correct": true
         },
         {
-          "price": 0.99,
+          "price": 0.98,
           "volume": 3888.0,
           "correct": true
         },
@@ -5249,32 +5289,22 @@
           "correct": true
         },
         {
-          "price": 0.99,
+          "price": 0.97,
           "volume": 1118.0,
           "correct": true
         },
         {
-          "price": 0.99,
+          "price": 0.96,
           "volume": 119.0,
           "correct": true
         },
         {
-          "price": 0.99,
+          "price": 0.98,
           "volume": 288.0,
           "correct": true
         },
         {
-          "price": 0.115,
-          "volume": 2706.0,
-          "correct": true
-        },
-        {
-          "price": 0.23,
-          "volume": 3240.0,
-          "correct": true
-        },
-        {
-          "price": 0.31,
+          "price": 0.37,
           "volume": 38202.0,
           "correct": true
         },
@@ -5284,12 +5314,12 @@
           "correct": false
         },
         {
-          "price": 0.78,
+          "price": 0.66,
           "volume": 131171.0,
           "correct": false
         },
         {
-          "price": 0.91,
+          "price": 0.88,
           "volume": 130527.0,
           "correct": false
         },
@@ -5304,7 +5334,7 @@
           "correct": true
         },
         {
-          "price": 0.99,
+          "price": 0.98,
           "volume": 54.0,
           "correct": true
         },
@@ -5314,37 +5344,37 @@
           "correct": true
         },
         {
-          "price": 0.83,
+          "price": 0.68,
           "volume": 437529.0,
           "correct": true
         },
         {
-          "price": 0.18,
+          "price": 0.11,
           "volume": 1103355.0,
           "correct": false
         },
         {
-          "price": 0.1,
+          "price": 0.04,
           "volume": 277678.0,
           "correct": true
         },
         {
-          "price": 0.16,
+          "price": 0.17,
           "volume": 1112041.0,
           "correct": true
         },
         {
-          "price": 0.08,
+          "price": 0.06,
           "volume": 358070.0,
           "correct": true
         },
         {
-          "price": 0.16,
+          "price": 0.11,
           "volume": 425884.0,
           "correct": true
         },
         {
-          "price": 0.17,
+          "price": 0.14,
           "volume": 709547.0,
           "correct": true
         },
@@ -5354,87 +5384,87 @@
           "correct": true
         },
         {
-          "price": 0.03,
+          "price": 0.05,
           "volume": 120215.0,
           "correct": true
         },
         {
-          "price": 0.02,
+          "price": 0.07,
           "volume": 110090.0,
           "correct": true
         },
         {
-          "price": 0.03,
+          "price": 0.1,
           "volume": 311729.0,
           "correct": true
         },
         {
-          "price": 0.07,
+          "price": 0.13,
           "volume": 269954.0,
           "correct": true
         },
         {
-          "price": 0.01,
+          "price": 0.04,
           "volume": 3424.0,
           "correct": true
         },
         {
-          "price": 0.25,
+          "price": 0.16,
           "volume": 43339.0,
           "correct": true
         },
         {
-          "price": 0.36,
+          "price": 0.34,
           "volume": 54687.0,
           "correct": true
         },
         {
-          "price": 0.16,
+          "price": 0.15,
           "volume": 54219.0,
           "correct": true
         },
         {
-          "price": 0.11,
+          "price": 0.16,
           "volume": 50548.0,
           "correct": true
         },
         {
-          "price": 0.02,
+          "price": 0.05,
           "volume": 9505.0,
           "correct": true
         },
         {
-          "price": 0.02,
+          "price": 0.06,
           "volume": 8564.0,
           "correct": true
         },
         {
-          "price": 0.02,
+          "price": 0.05,
           "volume": 46062.0,
           "correct": true
         },
         {
-          "price": 0.08,
+          "price": 0.06,
           "volume": 70993.0,
           "correct": false
         },
         {
-          "price": 0.01,
+          "price": 0.05,
           "volume": 32139.0,
           "correct": true
         },
         {
-          "price": 0.12,
+          "price": 0.2,
           "volume": 86102.0,
           "correct": false
         },
         {
-          "price": 0.89,
+          "price": 0.81,
           "volume": 113470.0,
           "correct": false
         },
         {
-          "price": 0.99,
+          "price": 0.95,
           "volume": 41950.0,
           "correct": true
         },
@@ -5444,7 +5474,7 @@
           "correct": true
         },
         {
-          "price": 0.01,
+          "price": 0.06,
           "volume": 23792.0,
           "correct": true
         },
@@ -5456,80 +5486,84 @@
       ],
       "bins": [
         {
-          "price_mid": 0.0263,
-          "median_volume": 1062.0
+          "price_mid": 0.0297,
+          "median_volume": 740.0
         },
         {
-          "price_mid": 0.0736,
-          "median_volume": 4945.0
+          "price_mid": 0.07,
+          "median_volume": 4886.0
         },
         {
-          "price_mid": 0.1195,
-          "median_volume": 16722.5
+          "price_mid": 0.121,
+          "median_volume": 213685.0
         },
         {
-          "price_mid": 0.1667,
-          "median_volume": 567715.5
+          "price_mid": 0.1725,
+          "median_volume": 68325.0
         },
         {
-          "price_mid": 0.2433,
-          "median_volume": 3240.0
+          "price_mid": 0.24,
+          "median_volume": 2405.0
         },
         {
           "price_mid": 0.2867,
           "median_volume": 2295.0
         },
         {
-          "price_mid": 0.3267,
-          "median_volume": 38202.0
+          "price_mid": 0.33,
+          "median_volume": 54687.0
         },
         {
-          "price_mid": 0.3833,
-          "median_volume": 54687.0
+          "price_mid": 0.38,
+          "median_volume": 31745.5
         },
         {
           "price_mid": 0.4233,
           "median_volume": 9042.0
         },
         {
-          "price_mid": 0.4833,
-          "median_volume": 107884.0
+          "price_mid": 0.4825,
+          "median_volume": 96898.0
         },
         {
-          "price_mid": 0.535,
-          "median_volume": 138718.5
+          "price_mid": 0.5325,
+          "median_volume": 4821.5
         },
         {
           "price_mid": 0.55,
           "median_volume": 99165.5
         },
         {
-          "price_mid": 0.6667,
+          "price_mid": 0.64,
+          "median_volume": 1618.0
+        },
+        {
+          "price_mid": 0.666,
           "median_volume": 18285.0
         },
         {
-          "price_mid": 0.78,
-          "median_volume": 131171.0
+          "price_mid": 0.735,
+          "median_volume": 7732.5
         },
         {
-          "price_mid": 0.835,
-          "median_volume": 410012.5
+          "price_mid": 0.815,
+          "median_volume": 247983.0
         },
         {
-          "price_mid": 0.886,
-          "median_volume": 18556.0
+          "price_mid": 0.8833,
+          "median_volume": 74541.5
         },
         {
           "price_mid": 0.92,
-          "median_volume": 15058.0
+          "median_volume": 8077.5
         },
         {
-          "price_mid": 0.98,
-          "median_volume": 6427.0
+          "price_mid": 0.9771,
+          "median_volume": 5754.5
         }
       ],
-      "correlation": 0.0847,
-      "n": 179
+      "correlation": 0.0515,
+      "n": 182
     },
     "no": null
   }
