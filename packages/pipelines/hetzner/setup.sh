@@ -343,16 +343,12 @@ SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 
 0 6 * * * /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh >> $CRON_LOG 2>&1
-
-# Full refresh on Sundays at 08:00 UTC (catches any missed markets)
-0 8 * * 0 /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh --full-refresh >> $CRON_LOG 2>&1
 CRONEOF
 )
 
 echo "$CRONTAB_CONTENT" | crontab -u "$SERVICE_USER" -
 echo "  Installed crontab for $SERVICE_USER:"
-echo "    - Daily at 06:00 UTC"
-echo "    - Full refresh Sundays at 08:00 UTC"
+echo "    - Daily at 06:00 UTC (incremental)"
 
 # --------------------------------------------------------------------------
 # 9. Firewall + unattended upgrades
