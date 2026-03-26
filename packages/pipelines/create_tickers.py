@@ -1488,7 +1488,7 @@ def main():
     parser.add_argument(
         "--input", "-i",
         type=Path,
-        default=DATA_DIR / "enriched_political_markets.json.gz",
+        default=DATA_DIR / "enriched_political_markets.json",
         help="Input enriched markets file"
     )
     parser.add_argument(
