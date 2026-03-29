@@ -196,6 +196,8 @@ def extract_market_references(citation):
                         "platform_mentioned": platform,
                         "probability_cited": prob_val,
                         "subject_text": search_text[start:end],
+                        "article_title": citation.get("title", ""),
+                        "article_sentence": citation.get("sentence", ""),
                     })
 
     # 2. Generic prediction market patterns
@@ -214,6 +216,8 @@ def extract_market_references(citation):
                         "platform_mentioned": "generic",
                         "probability_cited": prob / 100.0,
                         "subject_text": search_text[start:end],
+                        "article_title": citation.get("title", ""),
+                        "article_sentence": citation.get("sentence", ""),
                     })
 
     # 3. Platform mentions without probability (still track them)
@@ -227,8 +231,18 @@ def extract_market_references(citation):
                 "platform_mentioned": platform,
                 "probability_cited": None,
                 "subject_text": search_text[start:end],
+                "article_title": citation.get("title", ""),
+                "article_sentence": citation.get("sentence", ""),
             })
             break  # One mention is enough
+
+    # Prepend article title to subject_text for better fuzzy matching
+    title = citation.get("title", "")
+    if title:
+        for ref in references:
+            subj = ref.get("subject_text", "")
+            if title not in subj:
+                ref["subject_text"] = title + " | " + subj
 
     return references
 
@@ -441,6 +455,19 @@ def get_fuzzy_candidates(reference, markets, market_texts, market_keywords):
         if score >= FUZZY_CANDIDATE_THRESHOLD:
             candidates.append((i, score))
 
+    # Second pass: title-only keywords to catch markets missed by context window
+    title_text = reference.get("article_title", "")
+    if title_text:
+        title_kw = extract_keywords(title_text)
+        if title_kw:
+            seen = {idx for idx, _ in candidates}
+            for i, (market, text, kw) in enumerate(zip(markets, market_texts, market_keywords)):
+                if i in seen or not text:
+                    continue
+                title_score = fuzz.token_set_ratio(title_kw, kw) if kw else 0
+                if title_score >= FUZZY_CANDIDATE_THRESHOLD:
+                    candidates.append((i, title_score))
+
     candidates.sort(key=lambda x: x[1], reverse=True)
     return candidates[:FUZZY_CANDIDATE_LIMIT]
 
@@ -454,6 +481,8 @@ def match_with_llm(reference, candidates, markets, openai_client):
     subject = reference.get("subject_text", "")
     platform = reference.get("platform_mentioned", "generic")
     prob_cited = reference.get("probability_cited")
+    article_title = reference.get("article_title", "")
+    article_sentence = reference.get("article_sentence", "")
 
     # Build candidate descriptions
     candidate_lines = []
@@ -469,10 +498,18 @@ def match_with_llm(reference, candidates, markets, openai_client):
     if prob_cited is not None:
         prob_info = f"\nThe article cites a probability of {prob_cited:.0%}."
 
+    # Build structured citation context
+    context_parts = []
+    if article_title:
+        context_parts.append(f'ARTICLE HEADLINE: "{article_title}"')
+    if article_sentence:
+        context_parts.append(f'SENTENCE: "{article_sentence}"')
+    context_parts.append(f'SURROUNDING CONTEXT: "{subject}"')
+    citation_block = "\n".join(context_parts)
+
     prompt = f"""A news article mentions a prediction market. Determine which specific market contract the article is referring to.
 
-CITATION TEXT:
-"{subject}"
+{citation_block}
 
 Platform mentioned: {platform}{prob_info}
 
@@ -480,9 +517,13 @@ CANDIDATE MARKETS:
 {candidates_text}
 
 INSTRUCTIONS:
-- If the citation is clearly discussing one of these specific market contracts, respond with ONLY the number in brackets (e.g. "0" or "3").
-- If the citation is about the prediction market industry in general (regulation, lawsuits, business news, promotions) and NOT about a specific contract's odds, respond with "NONE".
-- If you are not confident the citation is about any of these specific contracts, respond with "NONE".
+- Match if the citation discusses a specific real-world event or outcome that one of these market contracts covers.
+  Example: "betting on the ouster of Venezuelan President Maduro" matches a "Will Maduro leave office?" market.
+- Even if the article is about regulation, insider trading, or industry news, still match if it references a specific event covered by a candidate market.
+- Respond with ONLY the number in brackets (e.g. "0" or "3") if you find a match.
+- Respond with "NONE" only if:
+  (a) The citation discusses prediction markets in general without mentioning any specific event or outcome, OR
+  (b) None of the candidate markets cover the event discussed in the citation.
 - Only match if the TOPIC of the citation clearly aligns with the market question.
 
 Your answer (number or NONE):"""

@@ -15,7 +15,7 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/styles.css?v=20260329d">
+    <link rel="stylesheet" href="css/styles.css?v=20260329e">
     <style>
       :root {
         --bw-blue: #4A90D9;
@@ -549,7 +549,21 @@
         <div class="stat-value"><span id="stat-citations-24h">&mdash;</span> <span style="color:var(--bw-text-secondary);font-size:0.6em;font-weight:400">|</span> <span id="stat-citations-30d">&mdash;</span></div>
         <div class="stat-label">Citations (24h | 30d)</div>
         <div class="stat-tooltip">
-          Number of times a prediction market platform (Polymarket, Kalshi, PredictIt) was mentioned in a news article or broadcast, discovered via GDELT news monitoring. Shown as last 24 hours | last 30 days.
+          Total prediction market mentions discovered via GDELT news monitoring. Shown as last 24 hours | last 30 days.
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-cite-prob">&mdash;</div>
+        <div class="stat-label">Cite a Probability</div>
+        <div class="stat-tooltip">
+          Articles that quote a specific probability or price from a prediction market contract (e.g. &ldquo;62% on Polymarket&rdquo;).
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-matched">&mdash;</div>
+        <div class="stat-label">Matched to Contract</div>
+        <div class="stat-tooltip">
+          Citations successfully matched to a specific Bellwether-tracked prediction market contract, enabling fragility analysis.
         </div>
       </div>
       <div class="stat-card">
@@ -686,6 +700,6 @@
   </div>
 </footer>
 
-<script src="js/media.js?v=20260329d"></script>
+<script src="js/media.js?v=20260329e"></script>
 </body>
 </html>

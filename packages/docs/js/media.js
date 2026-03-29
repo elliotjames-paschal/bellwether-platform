@@ -68,6 +68,8 @@
     const hero = summaryData.hero;
     animateValue('stat-citations-24h', 0, hero.total_citations_24h || 0, 800);
     animateValue('stat-citations-30d', 0, hero.total_citations_30d || 0, 800);
+    animateValue('stat-cite-prob', 0, hero.citations_with_probability || 0, 800);
+    animateValue('stat-matched', 0, hero.citations_matched || 0, 800);
     animateValue('stat-outlets', 0, hero.total_outlets || 0, 800);
   }
 

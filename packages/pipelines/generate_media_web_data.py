@@ -399,12 +399,21 @@ def generate_hero_stats(citations, outlets):
             citations_30d += 1
             outlets_30d.add(domain)
 
+    # Citation quality breakdown
+    cite_prob = sum(1 for c in citations if c.get("market_references") and
+                    any(r.get("probability_cited") is not None for r in c.get("market_references", [])))
+    cite_matched = sum(1 for c in citations if c.get("match_status") == "MATCHED")
+    cite_mention = len(citations) - cite_prob  # general mentions (no probability)
+
     return {
         "total_citations_24h": citations_24h,
         "total_citations_30d": citations_30d,
         "total_outlets_24h": len(outlets_24h),
         "total_outlets_30d": len(outlets_30d),
         "total_outlets": len(outlets),
+        "citations_with_probability": cite_prob,
+        "citations_matched": cite_matched,
+        "citations_mention_only": cite_mention,
     }
 
 

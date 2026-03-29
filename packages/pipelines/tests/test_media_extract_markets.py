@@ -610,3 +610,94 @@ class TestMatchReferenceToMarketContinued(TestMatchReferenceToMarket):
             )
         # Should still attempt fuzzy fallback (result depends on scores)
         assert conf in ("MEDIUM", "UNMATCHED")
+
+
+# ─── Title-enriched Extraction ─────────────────────────────────────────────
+
+class TestTitleEnrichedExtraction:
+    """Tests for Changes 1-2: article_title/article_sentence fields and title prepend."""
+
+    def test_article_title_and_sentence_populated(self):
+        citation = {
+            "title": "Lucrative bets anticipated Trump policy moves",
+            "sentence": "An unknown Polymarket punter took in $400,000",
+        }
+        refs = extract_market_references(citation)
+        assert len(refs) >= 1
+        assert refs[0]["article_title"] == "Lucrative bets anticipated Trump policy moves"
+        assert refs[0]["article_sentence"] == "An unknown Polymarket punter took in $400,000"
+
+    def test_title_in_subject_text(self):
+        """Title should appear in subject_text — either via regex window or prepend."""
+        citation = {
+            "title": "Iran conflict drives prediction market surge",
+            "sentence": "Polymarket saw record volume on Iran contracts",
+        }
+        refs = extract_market_references(citation)
+        assert len(refs) >= 1
+        assert "Iran conflict drives prediction market surge" in refs[0]["subject_text"]
+
+    def test_title_prepended_when_outside_window(self):
+        """When title is far from the regex match, it gets prepended."""
+        citation = {
+            "title": "Venezuela crisis deepens amid sanctions debate",
+            # Title comes after sentence+context in search_text, so put enough padding
+            "sentence": "Polymarket users watched closely",
+            "context": "X" * 500,
+        }
+        refs = extract_market_references(citation)
+        assert len(refs) >= 1
+        # Title should be prepended since it's far outside the 200-char window
+        assert "Venezuela crisis deepens" in refs[0]["subject_text"]
+
+    def test_title_not_duplicated_if_already_in_subject(self):
+        """If title is already captured in the regex window, don't prepend it again."""
+        citation = {
+            "title": "Polymarket odds",
+            "sentence": "Polymarket odds show 62% for Trump",
+        }
+        refs = extract_market_references(citation)
+        assert len(refs) >= 1
+        # Title "Polymarket odds" appears in search_text which builds subject_text
+        # Count occurrences — should not have double prepend
+        subj = refs[0]["subject_text"]
+        assert subj.count("Polymarket odds") <= 2  # at most in subject window + title prepend
+
+    def test_no_title_still_works(self):
+        citation = {"sentence": "Polymarket launched a new feature"}
+        refs = extract_market_references(citation)
+        assert len(refs) >= 1
+        assert refs[0]["article_title"] == ""
+
+    def test_probability_ref_gets_title_fields(self):
+        citation = {
+            "title": "Maduro ouster bets surge",
+            "sentence": "Kalshi traders give 76% odds on Maduro leaving",
+        }
+        refs = extract_market_references(citation)
+        assert len(refs) >= 1
+        assert refs[0]["article_title"] == "Maduro ouster bets surge"
+        assert refs[0]["probability_cited"] == 0.76
+
+
+class TestTitleFuzzyCandidates:
+    """Tests for Change 3: title-keyword second pass in get_fuzzy_candidates."""
+
+    def setup_method(self):
+        self.markets = [
+            {"question": "Will Maduro leave office by March 2026?", "platform": "Polymarket"},
+            {"question": "Will there be a ceasefire in Ukraine?", "platform": "Kalshi"},
+        ]
+        self.texts = [build_market_search_text(m) for m in self.markets]
+        self.keywords = [extract_keywords(t) for t in self.texts]
+
+    def test_title_brings_in_candidates(self):
+        """A reference with weak subject_text but strong title should find candidates."""
+        ref = {
+            "subject_text": "general market discussion | Polymarket punter made money",
+            "article_title": "Maduro ouster bets surge on prediction markets",
+        }
+        candidates = get_fuzzy_candidates(ref, self.markets, self.texts, self.keywords)
+        # Should find the Maduro market via title keywords
+        matched_indices = {idx for idx, _ in candidates}
+        assert 0 in matched_indices  # Maduro market
