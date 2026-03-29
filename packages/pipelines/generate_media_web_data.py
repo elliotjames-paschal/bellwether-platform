@@ -15,6 +15,7 @@ Output: docs/data/media_citations.json  (~200KB - 500 most recent citations)
 
 import json
 import logging
+import math
 import re
 import sys
 from collections import defaultdict
@@ -26,6 +27,16 @@ from config import DATA_DIR, WEBSITE_DIR, atomic_write_json
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+
+def _safe_str(val, default=""):
+    """Return val as a string, converting NaN/None to default."""
+    if val is None:
+        return default
+    if isinstance(val, float) and math.isnan(val):
+        return default
+    return str(val) if not isinstance(val, str) else val
+
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -143,6 +154,7 @@ def generate_outlet_leaderboard(citations):
         "citations_30d": 0,
         # 30d quality accumulators
         "fragility_scores": [],
+        "cost_to_move_values": [],
         "brier_scores": [],
         "tiers": {"reportable": 0, "caution": 0, "fragile": 0},
         "platforms": {"polymarket": 0, "kalshi": 0, "generic": 0},
@@ -189,6 +201,10 @@ def generate_outlet_leaderboard(citations):
             if "fragility_score" in frag:
                 entry["fragility_scores"].append(frag["fragility_score"])
 
+            ctm = frag.get("cost_to_move_5c")
+            if ctm is not None:
+                entry["cost_to_move_values"].append(ctm)
+
             tier = frag.get("price_tier")
             if tier == 1:
                 entry["tiers"]["reportable"] += 1
@@ -209,6 +225,9 @@ def generate_outlet_leaderboard(citations):
         scores = data["fragility_scores"]
         avg_fragility = round(sum(scores) / len(scores), 1) if scores else None
 
+        ctm_values = data["cost_to_move_values"]
+        avg_cost_to_move = round(sum(ctm_values) / len(ctm_values), 0) if ctm_values else None
+
         brier = data["brier_scores"]
         avg_brier = round(sum(brier) / len(brier), 3) if brier else None
 
@@ -222,6 +241,7 @@ def generate_outlet_leaderboard(citations):
             "citations_30d": data["citations_30d"],
             "total_citations": data["total_citations"],
             "avg_fragility": avg_fragility,
+            "avg_cost_to_move_5c": avg_cost_to_move,
             "avg_brier": avg_brier,
             "pct_reportable": pct_reportable,
             "tier_breakdown": data["tiers"],
@@ -489,8 +509,12 @@ def prepare_web_citations(citations, limit=MAX_CITATIONS_WEB):
             "platform": primary_ref.get("platform_mentioned", "") if primary_ref else "",
             "probability_cited": primary_ref.get("probability_cited") if primary_ref else None,
             "match_confidence": primary_ref.get("match_confidence", "") if primary_ref else "",
-            "market_question": matched.get("question", ""),
-            "market_ticker": matched.get("bwr_ticker", ""),
+            "market_question": _safe_str(matched.get("question")),
+            "market_ticker": _safe_str(matched.get("bwr_ticker")),
+            "k_ticker": _safe_str(matched.get("k_ticker")),
+            "pm_token_id": _safe_str(matched.get("pm_token_id")),
+            "pm_market_id": _safe_str(matched.get("pm_market_id")),
+            "pm_slug": _safe_str(matched.get("pm_market_slug")),
             "price_at_citation": matched.get("price_at_citation"),
             "fragility_score": frag.get("fragility_score"),
             "price_tier": frag.get("price_tier"),

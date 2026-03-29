@@ -15,7 +15,7 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/styles.css?v=20260329b">
+    <link rel="stylesheet" href="css/styles.css?v=20260329d">
     <style>
       :root {
         --bw-blue: #4A90D9;
@@ -38,7 +38,7 @@
       body {
         font-family: var(--font-sans) !important;
         color: var(--bw-text);
-        background: var(--bw-white);
+        background: var(--bw-bg);
         -webkit-font-smoothing: antialiased;
       }
 
@@ -121,7 +121,7 @@
         padding-top: 32px;
       }
       .stat-card {
-        background: var(--bw-bg); border: 1px solid var(--bw-border);
+        background: var(--bw-white); border: 1px solid var(--bw-border);
         border-radius: 10px; padding: 24px; text-align: center;
         transition: border-color 0.2s; position: relative;
       }
@@ -179,7 +179,7 @@
       /* ══ TOPIC CARDS ══ */
       .topic-row {
         display: flex; gap: 12px; overflow-x: auto;
-        padding-bottom: 8px; /* scrollbar space */
+        padding-bottom: 8px;
         -webkit-overflow-scrolling: touch;
       }
       .topic-row::-webkit-scrollbar { height: 4px; }
@@ -194,7 +194,7 @@
       }
       .topic-card:hover { border-color: var(--bw-blue-muted); }
       .topic-card.active {
-        border-color: var(--bw-dark); background: var(--bw-bg);
+        border-color: var(--bw-dark); background: var(--bw-white);
       }
       .topic-name {
         font-family: var(--font-serif); font-size: 15px; font-weight: 600;
@@ -231,7 +231,7 @@
         transition: background 0.15s;
       }
       .outlet-table tbody tr { cursor: pointer; }
-      .outlet-table tbody tr:hover td { background: var(--bw-bg); }
+      .outlet-table tbody tr:hover td { background: var(--bw-white); }
       .outlet-table .col-domain { font-weight: 500; }
       .outlet-table .col-num {
         font-family: var(--font-mono); font-size: 13px; text-align: right;
@@ -319,7 +319,7 @@
       .citation-list { display: flex; flex-direction: column; gap: 12px; }
 
       .citation-card {
-        background: white; border: 1px solid var(--bw-border); border-radius: 8px;
+        background: var(--bw-white); border: 1px solid var(--bw-border); border-radius: 8px;
         padding: 20px 24px; transition: border-color 0.2s;
       }
       .citation-card:hover { border-color: var(--bw-blue-muted); }
@@ -336,6 +336,8 @@
       }
       .cc-platform.pm { color: #2563eb; background: #eff6ff; }
       .cc-platform.k { color: #059669; background: #ecfdf5; }
+      a.cc-platform { text-decoration: none; transition: opacity 0.2s; }
+      a.cc-platform:hover { opacity: 0.7; }
 
       .cc-title {
         font-family: var(--font-serif); font-size: 16px; font-weight: 500;
@@ -374,38 +376,8 @@
         margin-top: 4px;
       }
 
-      /* ══ TIMELINE ══ */
-      .timeline-wrap {
-        padding-top: 12px; padding-bottom: 8px;
-      }
-      .timeline-chart {
-        display: flex; align-items: flex-end; gap: 3px;
-        height: 80px; padding: 0;
-      }
-      .timeline-bar-wrap {
-        flex: 1; display: flex; flex-direction: column; align-items: center;
-        gap: 4px; min-width: 0;
-      }
-      .timeline-bar {
-        width: 100%; min-width: 8px; border-radius: 3px 3px 0 0;
-        background: var(--bw-blue); opacity: 0.7;
-        transition: opacity 0.2s, background 0.2s;
-        position: relative;
-      }
-      .timeline-bar:hover { opacity: 1; }
-      .timeline-bar-label {
-        font-family: var(--font-mono); font-size: 9px; color: var(--bw-text-secondary);
-        writing-mode: vertical-rl; text-orientation: mixed;
-        white-space: nowrap; max-height: 40px; overflow: hidden;
-      }
-      .timeline-bar .bar-tooltip {
-        display: none; position: absolute; z-index: 10;
-        bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
-        background: var(--bw-dark); color: rgba(255,255,255,0.9);
-        font-size: 12px; padding: 6px 10px; border-radius: 4px;
-        white-space: nowrap; pointer-events: none;
-      }
-      .timeline-bar:hover .bar-tooltip { display: block; }
+      .frag-badge[data-modal-id] { cursor: pointer; transition: opacity 0.2s; }
+      .frag-badge[data-modal-id]:hover { opacity: 0.75; }
 
       /* ══ SORTABLE TABLE ══ */
       .outlet-table th.sortable {
@@ -422,7 +394,7 @@
       /* ══ METHODOLOGY ══ */
       .methodology-section {
         margin-top: 40px; padding: 24px 28px;
-        background: var(--bw-bg); border: 1px solid var(--bw-border);
+        background: var(--bw-white); border: 1px solid var(--bw-border);
         border-radius: 10px;
       }
       .methodology-toggle {
@@ -467,7 +439,7 @@
       .load-more-btn {
         padding: 10px 32px;
         font-family: var(--font-sans); font-size: 14px; font-weight: 500;
-        color: var(--bw-text-secondary); background: white;
+        color: var(--bw-text-secondary); background: var(--bw-white);
         border: 1px solid var(--bw-border); border-radius: 6px;
         cursor: pointer; transition: all 0.2s;
       }
@@ -481,7 +453,8 @@
 
       /* ══ FOOTER ══ */
       .v2-footer {
-        border-top: 1px solid var(--bw-border); padding: 60px 32px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        padding: 60px 32px;
         background: var(--bw-dark); margin-top: 60px;
       }
       .v2-footer .footer-inner {
@@ -589,15 +562,6 @@
       </div>
     </div>
 
-    <!-- TIMELINE -->
-    <div class="section-header">
-      <h2>Citation Volume</h2>
-      <span class="section-count" id="timeline-range"></span>
-    </div>
-    <div class="timeline-wrap">
-      <div class="timeline-chart" id="timeline-chart"></div>
-    </div>
-
     <!-- TOP TOPICS -->
     <div class="section-header">
       <h2>Top Cited Topics</h2>
@@ -628,7 +592,7 @@
           <tr>
             <th class="sortable" data-sort="name">Outlet <span class="sort-arrow" id="sort-name"></span></th>
             <th class="col-num sortable" data-sort="citations"><span class="col-tip">Citations<span class="col-tooltip">Number of times this outlet cited prediction market data. Shown as 24-hour count | 30-day count.</span></span> <span class="sort-arrow desc" id="sort-citations"></span></th>
-            <th class="col-num sortable" data-sort="reportable"><span class="col-tip">% Reportable<span class="col-tooltip">Percentage of this outlet's cited markets (last 30 days) that are Tier 1 (reportable) — meaning the market has sufficient liquidity and the cited probability is accurate. Higher is better.</span></span> <span class="sort-arrow" id="sort-reportable"></span></th>
+            <th class="col-num sortable" data-sort="reportable"><span class="col-tip">% Reportable<span class="col-tooltip">Percentage of this outlet's cited markets (last 30 days) that are Tier 1 (reportable) &mdash; meaning the market has sufficient liquidity and the cited probability is accurate. Higher is better.</span></span> <span class="sort-arrow" id="sort-reportable"></span></th>
             <th class="col-num sortable" data-sort="fragility"><span class="col-tip">Avg $ to Move 5&cent;<span class="col-tooltip">Average dollar cost required to move the price of cited markets by 5 cents (last 30 days). Higher values mean more liquid, harder-to-manipulate markets.</span></span> <span class="sort-arrow" id="sort-fragility"></span></th>
             <th class="col-num sortable" data-sort="brier"><span class="col-tip">Avg Brier<span class="col-tooltip">Average Brier score of resolved markets cited by this outlet over the last 30 days. Ranges from 0 (perfect accuracy) to 1 (perfectly wrong). Lower is better. Only computed for citations where the market has resolved.</span></span> <span class="sort-arrow" id="sort-brier"></span></th>
             <th class="col-center">Tier Mix</th>
@@ -688,6 +652,11 @@
 
 </div><!-- /media-page -->
 
+<!-- CONTRACT DETAIL MODAL (same pattern as monitor.html) -->
+<div id="media-modal" class="modal-overlay">
+  <div class="modal-content" id="media-modal-content" style="max-width:560px"></div>
+</div>
+
 <!-- FOOTER -->
 <footer class="v2-footer">
   <div class="footer-inner">
@@ -717,6 +686,6 @@
   </div>
 </footer>
 
-<script src="js/media.js?v=20260329b"></script>
+<script src="js/media.js?v=20260329d"></script>
 </body>
 </html>

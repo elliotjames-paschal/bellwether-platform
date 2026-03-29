@@ -33,6 +33,7 @@
 
       renderDashboard();
       setupHandlers();
+      setupModal();
     } catch (err) {
       console.error('Failed to load media data:', err);
       showEmptyState();
@@ -51,7 +52,6 @@
     renderMetaDate();
     renderHeroStats();
     renderOutletTooltip();
-    renderTimeline();
     renderTopics();
     renderOutletTable();
   }
@@ -66,12 +66,8 @@
 
   function renderHeroStats() {
     const hero = summaryData.hero;
-
-    // Citations card — dual 24h | 30d
     animateValue('stat-citations-24h', 0, hero.total_citations_24h || 0, 800);
     animateValue('stat-citations-30d', 0, hero.total_citations_30d || 0, 800);
-
-    // Outlets card
     animateValue('stat-outlets', 0, hero.total_outlets || 0, 800);
   }
 
@@ -104,77 +100,6 @@
       if (progress < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
-  }
-
-  // ─── Timeline ───────────────────────────────────────────────────────────────
-  function renderTimeline() {
-    const container = document.getElementById('timeline-chart');
-    const rangeEl = document.getElementById('timeline-range');
-    if (!container || !summaryData) return;
-
-    const timeline = summaryData.timeline || [];
-    if (!timeline.length) {
-      container.innerHTML = '<div class="empty-state" style="padding:16px;font-size:13px"><p>No timeline data yet.</p></div>';
-      return;
-    }
-
-    // Find max count for scaling
-    const maxCount = Math.max(...timeline.map(w => w.count), 1);
-
-    // Show date range
-    if (rangeEl && timeline.length > 0) {
-      const first = new Date(timeline[0].week);
-      const last = new Date(timeline[timeline.length - 1].week);
-      rangeEl.textContent = first.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        + ' \u2013 '
-        + last.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
-
-    container.innerHTML = '';
-
-    timeline.forEach(w => {
-      const wrap = document.createElement('div');
-      wrap.className = 'timeline-bar-wrap';
-
-      const bar = document.createElement('div');
-      bar.className = 'timeline-bar';
-      const heightPct = Math.max(4, (w.count / maxCount) * 100);
-      bar.style.height = heightPct + '%';
-
-      // Color based on tier mix
-      const tiers = w.tiers || {};
-      const total = (tiers.reportable || 0) + (tiers.caution || 0) + (tiers.fragile || 0);
-      if (total > 0) {
-        const reportablePct = (tiers.reportable || 0) / total;
-        if (reportablePct >= 0.6) bar.style.background = 'var(--bw-green)';
-        else if (reportablePct >= 0.3) bar.style.background = 'var(--bw-amber)';
-        else bar.style.background = 'var(--bw-red)';
-        bar.style.opacity = '0.8';
-      }
-
-      // Tooltip
-      const tooltip = document.createElement('div');
-      tooltip.className = 'bar-tooltip';
-      const weekDate = new Date(w.week);
-      let tipText = weekDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        + ': ' + w.count + ' citation' + (w.count !== 1 ? 's' : '');
-      if (total > 0) {
-        tipText += '\n' + (tiers.reportable || 0) + ' reportable, '
-          + (tiers.caution || 0) + ' caution, '
-          + (tiers.fragile || 0) + ' fragile';
-      }
-      tooltip.textContent = tipText;
-      bar.appendChild(tooltip);
-
-      // Week label
-      const label = document.createElement('div');
-      label.className = 'timeline-bar-label';
-      label.textContent = weekDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-      wrap.appendChild(bar);
-      wrap.appendChild(label);
-      container.appendChild(wrap);
-    });
   }
 
   // ─── Topics ─────────────────────────────────────────────────────────────────
@@ -223,7 +148,6 @@
     activeTopic = topicName;
     topicDisplayCount = 10;
 
-    // Update active card styling
     document.querySelectorAll('.topic-card').forEach(c => {
       c.classList.toggle('active', c.dataset.topic === topicName);
     });
@@ -247,7 +171,6 @@
 
     if (!detail || !container || !citationsData) return;
 
-    // Filter citations for this topic
     const all = (citationsData.citations || []).filter(c => c.topic === topicName);
     const toShow = all.slice(0, topicDisplayCount);
 
@@ -265,7 +188,6 @@
       loadMore.dataset.topic = topicName;
     }
 
-    // Smooth scroll to detail
     detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
@@ -276,7 +198,7 @@
       case 'name': return (outlet.domain_name || outlet.domain || '').toLowerCase();
       case 'citations': return outlet.citations_30d != null ? outlet.citations_30d : (outlet.total_citations || 0);
       case 'reportable': return outlet.pct_reportable != null ? outlet.pct_reportable : -1;
-      case 'fragility': return outlet.avg_fragility != null ? outlet.avg_fragility : -1;
+      case 'fragility': return outlet.avg_cost_to_move_5c != null ? outlet.avg_cost_to_move_5c : -1;
       case 'brier': return outlet.avg_brier != null ? outlet.avg_brier : 999;
       default: return 0;
     }
@@ -322,22 +244,17 @@
     sorted.forEach(o => {
       const tr = document.createElement('tr');
 
-      // Platforms
       const plats = [];
       if (o.platforms.polymarket > 0) plats.push('<span class="plat-tag" style="color:#2563eb">PM ' + o.platforms.polymarket + '</span>');
       if (o.platforms.kalshi > 0) plats.push('<span class="plat-tag" style="color:#059669">K ' + o.platforms.kalshi + '</span>');
 
-      // Display name
       const displayName = o.domain_name || o.domain;
-
-      // Stats (30d window)
       const pctR = o.pct_reportable != null ? o.pct_reportable + '%' : '\u2014';
-      const avgF = o.avg_fragility != null ? '$' + o.avg_fragility.toLocaleString() : '\u2014';
+      const avgF = o.avg_cost_to_move_5c != null ? formatVolume(o.avg_cost_to_move_5c) : '\u2014';
       const avgB = o.avg_brier != null ? o.avg_brier.toFixed(3) : '\u2014';
       const c24 = o.citations_24h != null ? o.citations_24h : (o.total_citations || 0);
       const c30 = o.citations_30d != null ? o.citations_30d : (o.total_citations || 0);
 
-      // Tier bar
       const tiers = o.tier_breakdown || {};
       const tierTotal = (tiers.reportable || 0) + (tiers.caution || 0) + (tiers.fragile || 0);
       let tierBarHtml = '\u2014';
@@ -389,11 +306,9 @@
   }
 
   function setupHandlers() {
-    // Back button from outlet detail
     const backBtn = document.getElementById('back-btn');
     if (backBtn) backBtn.addEventListener('click', showDashboard);
 
-    // Load more in outlet detail
     const loadMore = document.getElementById('detail-load-more');
     if (loadMore) {
       loadMore.addEventListener('click', () => {
@@ -403,11 +318,9 @@
       });
     }
 
-    // Close topic detail
     const topicClose = document.getElementById('topic-close-btn');
     if (topicClose) topicClose.addEventListener('click', closeTopic);
 
-    // Load more in topic detail
     const topicLoadMore = document.getElementById('topic-load-more');
     if (topicLoadMore) {
       topicLoadMore.addEventListener('click', () => {
@@ -417,7 +330,6 @@
       });
     }
 
-    // Sortable table headers
     document.querySelectorAll('.outlet-table th.sortable').forEach(th => {
       th.addEventListener('click', () => {
         const col = th.dataset.sort;
@@ -425,14 +337,12 @@
           sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
         } else {
           sortColumn = col;
-          // Default direction: desc for numbers, asc for name
           sortDirection = col === 'name' ? 'asc' : 'desc';
         }
         renderOutletTable();
       });
     });
 
-    // Methodology toggle
     const methToggle = document.getElementById('methodology-toggle');
     const methSection = document.getElementById('methodology');
     if (methToggle && methSection) {
@@ -455,12 +365,11 @@
     if (outlet.platforms.kalshi > 0) platParts.push('Kalshi (' + outlet.platforms.kalshi + ')');
 
     const pctR = outlet.pct_reportable != null ? outlet.pct_reportable + '%' : '\u2014';
-    const avgF = outlet.avg_fragility != null ? '$' + outlet.avg_fragility.toLocaleString() : '\u2014';
+    const avgF = outlet.avg_cost_to_move_5c != null ? formatVolume(outlet.avg_cost_to_move_5c) : '\u2014';
     const avgB = outlet.avg_brier != null ? outlet.avg_brier.toFixed(3) : '\u2014';
     const c24 = outlet.citations_24h != null ? outlet.citations_24h : outlet.total_citations;
     const c30 = outlet.citations_30d != null ? outlet.citations_30d : outlet.total_citations;
 
-    // Tier breakdown for detail view
     const tiers = outlet.tier_breakdown || {};
     const tierTotal = (tiers.reportable || 0) + (tiers.caution || 0) + (tiers.fragile || 0);
     let tierHtml = '';
@@ -538,9 +447,18 @@
       : '';
     const displayName = c.domain_name || c.station || c.domain || '';
 
+    // Platform pill — link to platform contract if available
     let platHtml = '';
-    if (c.platform === 'polymarket') platHtml = '<span class="cc-platform pm">Polymarket</span>';
-    else if (c.platform === 'kalshi') platHtml = '<span class="cc-platform k">Kalshi</span>';
+    const platUrl = buildPlatformUrl(c);
+    if (c.platform === 'polymarket') {
+      platHtml = platUrl
+        ? '<a href="' + esc(platUrl) + '" target="_blank" rel="noopener" class="cc-platform pm">Polymarket</a>'
+        : '<span class="cc-platform pm">Polymarket</span>';
+    } else if (c.platform === 'kalshi') {
+      platHtml = platUrl
+        ? '<a href="' + esc(platUrl) + '" target="_blank" rel="noopener" class="cc-platform k">Kalshi</a>'
+        : '<span class="cc-platform k">Kalshi</span>';
+    }
 
     let sentenceHtml = '';
     if (c.sentence) {
@@ -557,7 +475,6 @@
       const probText = c.probability_cited != null ? (c.probability_cited * 100).toFixed(0) + '% cited' : '';
       const priceText = c.price_at_citation != null ? (c.price_at_citation * 100).toFixed(0) + '% actual' : '';
 
-      // Accuracy gap
       let gapHtml = '';
       if (c.probability_cited != null && c.price_at_citation != null) {
         const gap = Math.abs(c.probability_cited - c.price_at_citation) * 100;
@@ -565,13 +482,17 @@
         gapHtml = '<span style="color:' + gapColor + ';font-weight:500">\u0394' + gap.toFixed(0) + 'pp</span>';
       }
 
+      const questionHtml = '<strong>' + esc(c.market_question) + '</strong>';
+
+      // Frag badge is clickable to open modal
+      const badgeAttr = ' data-modal-id="' + esc(c.id) + '"';
       matchHtml = `
         <div class="cc-match">
           <div class="cc-match-info">
-            <strong>${esc(c.market_question)}</strong>
+            ${questionHtml}
             ${probText || priceText ? '<div class="cc-prob">' + [probText, priceText, gapHtml].filter(Boolean).join(' \u00b7 ') + '</div>' : ''}
           </div>
-          ${tierLabel ? '<span class="frag-badge ' + tierClass + '">' + tierLabel + (fragText ? ' \u00b7 ' + fragText : '') + '</span>' : ''}
+          ${tierLabel ? '<span class="frag-badge ' + tierClass + '"' + badgeAttr + '>' + tierLabel + (fragText ? ' \u00b7 ' + fragText : '') + '</span>' : ''}
         </div>
       `;
     } else if (c.probability_cited != null) {
@@ -605,6 +526,204 @@
     const div = document.createElement('div');
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
+  }
+
+  function buildPlatformUrl(c) {
+    if (!c) return '';
+    // Build URL for whichever platform we have identifiers for
+    if (c.pm_slug) return 'https://polymarket.com/event/' + encodeURIComponent(c.pm_slug);
+    if (c.pm_market_id) return 'https://polymarket.com/market/' + encodeURIComponent(c.pm_market_id);
+    if (c.k_ticker) return 'https://kalshi.com/markets/' + encodeURIComponent(c.k_ticker);
+    return '';
+  }
+
+  function formatVolume(v) {
+    if (v == null) return '\u2014';
+    if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+    if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
+    return '$' + Math.round(v).toLocaleString();
+  }
+
+  // ──�� Contract Modal (same as monitor.html) ───────��─────────────────────────
+  const LIVE_DATA_SERVER = 'https://api.bellwethermetrics.com';
+
+  function setupModal() {
+    const overlay = document.getElementById('media-modal');
+    if (!overlay) return;
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeMediaModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMediaModal();
+    });
+
+    // Delegate click on frag-badge (or any data-modal-id element)
+    document.addEventListener('click', (e) => {
+      const target = e.target.closest('[data-modal-id]');
+      if (!target) return;
+      e.preventDefault();
+      openMediaModal(target.dataset.modalId);
+    });
+  }
+
+  function closeMediaModal() {
+    const modal = document.getElementById('media-modal');
+    if (modal) {
+      modal.classList.remove('visible');
+      document.body.style.overflow = '';
+    }
+  }
+
+  // ── Live data fetch (same API as monitor.html) ──
+  async function fetchLiveData(tokenOrTicker, platform) {
+    if (!tokenOrTicker) return null;
+    try {
+      const r = await fetch(LIVE_DATA_SERVER + '/api/metrics/' + platform + '/' + tokenOrTicker);
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (e) {
+      console.warn('Live data fetch failed:', e);
+      return null;
+    }
+  }
+
+  function formatPrice(v) {
+    if (v == null) return '\u2014';
+    return Math.round(v * 100) + '%';
+  }
+
+  function renderLiveDataSection(data) {
+    if (!data) {
+      return '<div class="modal-live-data"><div class="modal-live-data-header">Live Market Depth</div><div class="modal-live-data-note">Live data not available for this market</div></div>';
+    }
+
+    const robustness = data.robustness || {};
+    const vwap = data.vwap_details || data.vwap_6h || {};
+
+    const costToMove = robustness.cost_to_move_5c != null ? formatVolume(robustness.cost_to_move_5c) : 'N/A';
+    const vwapValue = data.bellwether_price != null ? Math.round(data.bellwether_price * 100) + '%' : 'No trades';
+    const vwapLabel = data.price_label || '6h VWAP';
+
+    const reportability = robustness.reportability || 'fragile';
+    const badgeLabel = reportability.charAt(0).toUpperCase() + reportability.slice(1);
+
+    return '<div class="modal-live-data">' +
+      '<div class="modal-live-data-header">Live Market Depth</div>' +
+      '<div class="modal-live-data-grid">' +
+        '<div class="modal-live-data-item">' +
+          '<div class="modal-live-data-label">Cost to Move 5\u00a2</div>' +
+          '<div class="modal-live-data-value">' + costToMove + '</div>' +
+          '<div class="modal-live-data-badge ' + reportability + '">' + badgeLabel + '</div>' +
+        '</div>' +
+        '<div class="modal-live-data-item">' +
+          '<div class="modal-live-data-label">' + esc(vwapLabel) + '</div>' +
+          '<div class="modal-live-data-value">' + vwapValue + '</div>' +
+          '<div class="modal-live-data-sub">' + (vwap.trade_count != null ? vwap.trade_count : '\u2014') + ' trades</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="modal-live-data-timestamp">Updated ' + (data.fetched_at ? new Date(data.fetched_at).toLocaleTimeString() : 'Unknown') + '</div>' +
+    '</div>';
+  }
+
+  function openMediaModal(citationId) {
+    if (!citationsData) return;
+    const c = (citationsData.citations || []).find(x => x.id === citationId);
+    if (!c || !c.market_question) return;
+
+    const modal = document.getElementById('media-modal');
+    const content = document.getElementById('media-modal-content');
+    if (!modal || !content) return;
+
+    const platformClass = c.platform === 'polymarket' ? 'pm' : 'kalshi';
+    const platformLabel = c.platform === 'polymarket' ? 'Polymarket' : 'Kalshi';
+
+    // ── Price box (same as renderMarketModal) ──
+    let priceVal = '\u2014';
+    let priceSub = '';
+    if (c.price_at_citation != null) {
+      priceVal = (c.price_at_citation * 100).toFixed(0) + '\u00a2';
+      priceSub = 'at citation';
+    } else if (c.probability_cited != null) {
+      priceVal = (c.probability_cited * 100).toFixed(0) + '\u00a2';
+      priceSub = 'cited';
+    }
+
+    const pricesHtml = `
+      <div class="modal-price-box ${platformClass}">
+        <div class="modal-price-label">${platformLabel}</div>
+        <div class="modal-price-value">${priceVal}</div>
+        <div class="modal-price-sub">${priceSub}${c.volume_usd != null ? ' \u00b7 ' + formatVolume(c.volume_usd) + ' vol' : ''}</div>
+      </div>`;
+
+    // ── Platform link (same as renderMarketModal) ��─
+    let linkHtml = '';
+    const url = buildPlatformUrl(c);
+    if (url) {
+      linkHtml = `<div class="modal-links single">
+        <a href="${esc(url)}" target="_blank" rel="noopener" class="modal-link-box ${platformClass}">
+          <div class="modal-link-info"><span class="modal-link-platform">${platformLabel}</span><span class="modal-link-text">View market details &amp; trade</span></div>
+          <span class="modal-link-arrow">\u2197</span>
+        </a>
+      </div>`;
+    }
+
+    // ── BWR ticker ─���
+    const tickerHtml = c.market_ticker
+      ? '<div style="font-family:var(--font-mono);font-size:0.6875rem;color:var(--gray-500,#888);margin-top:2px">' + esc(c.market_ticker) + '</div>'
+      : '';
+
+    // ── Tier badge for header ──
+    const tierNum = c.price_tier || 0;
+    const tierBadgeHtml = c.tier_label
+      ? '<span class="frag-badge tier-' + tierNum + '" style="font-size:11px;padding:2px 8px">' + esc(c.tier_label) + '</span>'
+      : '';
+
+    content.innerHTML = `
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <div class="modal-meta">
+            <span class="platform-badge ${platformClass}">${platformClass === 'pm' ? 'PM' : 'K'}</span>
+            ${tierBadgeHtml}
+          </div>
+          <h2 class="modal-title">${esc(c.market_question)}</h2>
+          ${tickerHtml}
+        </div>
+        <button class="modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-prices single-col">${pricesHtml}</div>
+        <div class="modal-live-data-container"><div class="modal-live-data"><div class="modal-live-data-header">Live Market Depth</div><div class="modal-live-data-loading">Loading...</div></div></div>
+        ${linkHtml}
+      </div>
+    `;
+
+    const closeBtn = content.querySelector('.modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeMediaModal);
+
+    modal.classList.add('visible');
+    document.body.style.overflow = 'hidden';
+
+    // ── Fetch live data (same as monitor.html openModal) ──
+    const liveContainer = content.querySelector('.modal-live-data-container');
+    const pmTokenId = c.pm_token_id || '';
+    const kTicker = c.k_ticker || '';
+
+    if (pmTokenId) {
+      fetchLiveData(pmTokenId, 'polymarket').then(data => {
+        if (liveContainer) liveContainer.innerHTML = renderLiveDataSection(data);
+      }).catch(() => {
+        if (liveContainer) liveContainer.innerHTML = renderLiveDataSection(null);
+      });
+    } else if (kTicker) {
+      fetchLiveData(kTicker, 'kalshi').then(data => {
+        if (liveContainer) liveContainer.innerHTML = renderLiveDataSection(data);
+      }).catch(() => {
+        if (liveContainer) liveContainer.innerHTML = renderLiveDataSection(null);
+      });
+    } else {
+      if (liveContainer) liveContainer.innerHTML = renderLiveDataSection(null);
+    }
   }
 
   // ─── Boot ───────────────────────────────────────────────────────────────────

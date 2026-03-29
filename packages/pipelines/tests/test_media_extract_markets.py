@@ -4,6 +4,7 @@ Tests for pipeline_media_extract_markets.py — market reference extraction and 
 Run: pytest packages/pipelines/tests/test_media_extract_markets.py -v
 """
 
+import json
 import math
 import pytest
 import sys
@@ -25,6 +26,8 @@ from pipeline_media_extract_markets import (
     match_by_url,
     match_with_llm,
     match_reference_to_market,
+    load_bwr_ticker_map,
+    resolve_bwr_ticker,
 )
 
 
@@ -535,6 +538,64 @@ class TestMatchReferenceToMarket:
         # LLM should have been called
         mock_client.chat.completions.create.assert_called_once()
 
+# ─── BWR Ticker Bridge ──────────────────────────────────────────────────────
+
+class TestResolveBwrTicker:
+    def test_resolves_by_k_ticker(self):
+        lookup = {("k", "CONTROLH-2026-D"): "BWR-DEM-WIN-HOUSE-2026"}
+        market = {"k_ticker": "CONTROLH-2026-D", "pm_token_id": ""}
+        assert resolve_bwr_ticker(market, lookup) == "BWR-DEM-WIN-HOUSE-2026"
+
+    def test_resolves_by_pm_token_id(self):
+        lookup = {("pm", "1234567890"): "BWR-FED-CUT-FFR-JAN2026"}
+        market = {"k_ticker": "", "pm_token_id": "1234567890"}
+        assert resolve_bwr_ticker(market, lookup) == "BWR-FED-CUT-FFR-JAN2026"
+
+    def test_k_ticker_takes_priority(self):
+        lookup = {
+            ("k", "TICKER-1"): "BWR-FROM-KALSHI",
+            ("pm", "9999"): "BWR-FROM-PM",
+        }
+        market = {"k_ticker": "TICKER-1", "pm_token_id": "9999"}
+        assert resolve_bwr_ticker(market, lookup) == "BWR-FROM-KALSHI"
+
+    def test_returns_empty_when_no_match(self):
+        lookup = {("k", "OTHER"): "BWR-OTHER"}
+        market = {"k_ticker": "MISSING", "pm_token_id": ""}
+        assert resolve_bwr_ticker(market, lookup) == ""
+
+    def test_returns_empty_for_empty_market(self):
+        assert resolve_bwr_ticker({}, {}) == ""
+
+    def test_load_bwr_ticker_map_missing_file(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "pipeline_media_extract_markets.MARKET_MAP_FILE",
+            tmp_path / "nonexistent.json",
+        )
+        result = load_bwr_ticker_map()
+        assert result == {}
+
+    def test_load_bwr_ticker_map_valid(self, tmp_path, monkeypatch):
+        map_file = tmp_path / "market_map.json"
+        map_file.write_text(json.dumps({
+            "markets": [
+                {"ticker": "BWR-TEST-1", "k_ticker": "K1", "pm_token_id": None},
+                {"ticker": "BWR-TEST-2", "k_ticker": None, "pm_token_id": "PM2"},
+                {"ticker": "", "k_ticker": "K3", "pm_token_id": "PM3"},
+            ]
+        }))
+        monkeypatch.setattr(
+            "pipeline_media_extract_markets.MARKET_MAP_FILE", map_file,
+        )
+        lookup = load_bwr_ticker_map()
+        assert lookup[("k", "K1")] == "BWR-TEST-1"
+        assert lookup[("pm", "PM2")] == "BWR-TEST-2"
+        assert ("k", "K3") not in lookup  # empty ticker skipped
+
+
+# ─── Full Match Pipeline (continued) ────────────────────────────────────────
+
+class TestMatchReferenceToMarketContinued(TestMatchReferenceToMarket):
     def test_fuzzy_fallback_when_llm_disabled(self):
         ref = {
             "subject_text": "Democrats expected to win midterm House race",

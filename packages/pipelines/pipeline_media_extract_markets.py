@@ -556,6 +556,43 @@ def match_reference_to_market(reference, markets, market_texts, market_keywords,
 
 # ─── Main Pipeline ───────────────────────────────────────────────────────────
 
+def load_bwr_ticker_map():
+    """Load market_map.json and build lookup dicts from k_ticker/pm_token_id to BWR ticker."""
+    if not MARKET_MAP_FILE.exists():
+        logger.warning(f"Market map not found: {MARKET_MAP_FILE} — BWR tickers will be empty")
+        return {}
+
+    data = json.loads(MARKET_MAP_FILE.read_text(encoding="utf-8"))
+    lookup = {}
+    for m in data.get("markets", []):
+        bwr = m.get("ticker", "")
+        if not bwr:
+            continue
+        kt = m.get("k_ticker")
+        if kt:
+            lookup[("k", kt)] = bwr
+        pt = m.get("pm_token_id")
+        if pt:
+            lookup[("pm", str(pt))] = bwr
+    logger.info(f"Loaded BWR ticker map with {len(lookup)} entries")
+    return lookup
+
+
+def resolve_bwr_ticker(matched_market, bwr_lookup):
+    """Look up BWR ticker for a matched market using k_ticker or pm_token_id."""
+    # Try k_ticker, then market_id (which is the Kalshi ticker in CSV data)
+    for field in ("k_ticker", "market_id"):
+        kt = matched_market.get(field, "")
+        if kt and not _is_missing(kt) and ("k", kt) in bwr_lookup:
+            return bwr_lookup[("k", kt)]
+    # Try pm_token_id_yes (CSV field), then pm_token_id
+    for field in ("pm_token_id_yes", "pm_token_id"):
+        pt = matched_market.get(field, "")
+        if pt and not _is_missing(pt) and ("pm", str(pt)) in bwr_lookup:
+            return bwr_lookup[("pm", str(pt))]
+    return ""
+
+
 def main():
     logger.info("=" * 60)
     logger.info("MEDIA CITATION: EXTRACT & MATCH MARKETS")
@@ -575,6 +612,9 @@ def main():
     if not markets:
         logger.error("No enriched markets loaded, cannot match")
         return 1
+
+    # Load BWR ticker lookup
+    bwr_lookup = load_bwr_ticker_map()
 
     # Pre-build search text and keyword index for all markets
     market_texts = [build_market_search_text(m) for m in markets]
@@ -634,18 +674,26 @@ def main():
 
             if market:
                 has_match = True
+                # Use pm_token_id_yes (CSV field name) for Polymarket token ID
+                pm_token = market.get("pm_token_id_yes") or market.get("pm_token_id", "")
+                # Ensure slug is a string, not None
+                pm_slug = market.get("pm_market_slug") or ""
+                if pm_slug in ("nan", "None"):
+                    pm_slug = ""
                 matched_ref["matched_market"] = {
-                    "market_id": market.get("pm_market_id") or market.get("k_ticker") or "",
-                    "bwr_ticker": market.get("bwr_ticker", ""),
+                    "market_id": market.get("pm_market_id") or market.get("k_ticker") or market.get("market_id") or "",
+                    "bwr_ticker": resolve_bwr_ticker(market, bwr_lookup),
                     "question": market.get("question") or market.get("title", ""),
                     "platform": "polymarket" if market.get("pm_market_id") else "kalshi",
                     "category": market.get("category", ""),
-                    "k_ticker": market.get("k_ticker", ""),
-                    "pm_token_id": market.get("pm_token_id", ""),
+                    "k_ticker": market.get("k_ticker") or market.get("market_id", ""),
+                    "pm_token_id": pm_token,
                     "pm_market_id": market.get("pm_market_id", ""),
+                    "pm_market_slug": pm_slug,
                     "k_yes_price": market.get("k_yes_price"),
                     "pm_yes_price": market.get("pm_yes_price"),
-                    "total_volume": market.get("total_volume") or market.get("volume", 0),
+                    "total_volume": market.get("total_volume") or market.get("volume_usd") or market.get("volume", 0),
+                    "k_liquidity_dollars": market.get("k_liquidity_dollars"),
                     "status": market.get("status", ""),
                 }
 

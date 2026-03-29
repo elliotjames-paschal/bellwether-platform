@@ -97,16 +97,58 @@ def load_price_history():
 
 
 def load_orderbook_summary():
-    """Load orderbook summary for liquidity metrics."""
+    """Load orderbook summary for liquidity metrics.
+
+    The summary file uses a nested format: {"version": ..., "markets": {market_id: {...}}, ...}.
+    We extract the per-market data and flatten running stats into simple values.
+    """
     if not ORDERBOOK_FILE.exists():
-        logger.warning(f"Orderbook summary not found: {ORDERBOOK_FILE}")
+        logger.warning(f"Orderbook summary not found: {ORDERBOOK_FILE} — will use inline market liquidity data")
         return {}
 
     try:
         with open(ORDERBOOK_FILE, "r") as f:
-            data = json.load(f)
-        logger.info(f"Loaded orderbook summary: {len(data)} entries")
-        return data
+            raw = json.load(f)
+
+        # Handle nested format from bootstrap_orderbook_summary.py
+        markets = raw.get("markets", raw) if isinstance(raw, dict) else {}
+        if not markets or (isinstance(raw, dict) and "version" in raw and not raw.get("markets")):
+            logger.warning("Orderbook summary is empty or has no market data")
+            return {}
+
+        # Flatten running stats into simple mean values
+        result = {}
+        for market_id, entry in markets.items():
+            flat = {}
+            # Extract mean depth as cost_to_move_5c proxy
+            depth_stat = entry.get("depth", {})
+            if isinstance(depth_stat, dict) and depth_stat.get("n", 0) > 0:
+                flat["cost_to_move_5c"] = depth_stat["sum"] / depth_stat["n"]
+            elif isinstance(depth_stat, (int, float)):
+                flat["cost_to_move_5c"] = depth_stat
+
+            # Extract mean relative spread
+            spread_stat = entry.get("rel_spread", {})
+            if isinstance(spread_stat, dict) and spread_stat.get("n", 0) > 0:
+                flat["rel_spread_mean"] = spread_stat["sum"] / spread_stat["n"]
+            elif isinstance(spread_stat, (int, float)):
+                flat["rel_spread_mean"] = spread_stat
+
+            # Also check for direct fields (in case summary format changes)
+            if "cost_to_move_5c" not in flat:
+                if "cost_to_move_5c" in entry:
+                    flat["cost_to_move_5c"] = entry["cost_to_move_5c"]
+            if "rel_spread_mean" not in flat:
+                for key in ("rel_spread_mean", "spread_mean"):
+                    if key in entry:
+                        flat["rel_spread_mean"] = entry[key]
+                        break
+
+            if flat:
+                result[market_id] = flat
+
+        logger.info(f"Loaded orderbook summary: {len(result)} markets with liquidity data")
+        return result
     except (json.JSONDecodeError, IOError) as e:
         logger.warning(f"Failed to load orderbook summary: {e}")
         return {}
@@ -298,6 +340,18 @@ def compute_fragility_score(volume_usd, cost_to_move_5c, spread, volatility_24h)
     }
 
 
+def estimate_depth_from_volume(volume_usd):
+    """Estimate orderbook depth from total volume when no orderbook data is available.
+
+    Empirical heuristic: liquid markets typically have depth ~5-15% of total volume.
+    We use a conservative 5% estimate to avoid overstating depth.
+    Returns None if volume is missing/zero.
+    """
+    if volume_usd is None or volume_usd <= 0:
+        return None
+    return volume_usd * 0.05
+
+
 def assign_tier(cost_to_move_5c):
     """Assign reportability tier based on orderbook depth."""
     if cost_to_move_5c is not None and cost_to_move_5c >= TIER1_THRESHOLD:
@@ -365,6 +419,21 @@ def main():
             ob_data = orderbook.get(ob_key, {})
             cost_to_move = ob_data.get("cost_to_move_5c")
             spread = ob_data.get("rel_spread_mean") or ob_data.get("spread_mean")
+
+            # Fallback 1: use inline liquidity data from enriched market (Kalshi)
+            if cost_to_move is None:
+                liq = matched.get("k_liquidity_dollars")
+                if liq is not None:
+                    try:
+                        liq = float(liq)
+                        if liq > 0 and not math.isnan(liq):
+                            cost_to_move = liq
+                    except (ValueError, TypeError):
+                        pass
+
+            # Fallback 2: estimate depth from volume (when no orderbook data)
+            if cost_to_move is None and volume > 0:
+                cost_to_move = estimate_depth_from_volume(volume)
 
             # Calculate price volatility
             volatility = None
