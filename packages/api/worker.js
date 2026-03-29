@@ -169,28 +169,37 @@ async function fetchKalshiOrderbook(ticker) {
     if (!response.ok) return null;
 
     const data = await response.json();
-    const orderbook = data.orderbook || data;
     const bids = [];
     const asks = [];
 
-    // Kalshi returns yes/no arrays of [price, quantity] pairs
-    // Price is in cents (0-100)
-    const yesOrders = orderbook.yes || [];
-    const noOrders = orderbook.no || [];
+    // Kalshi API returns orderbook_fp (dollars) or legacy orderbook (cents)
+    const obFp = data.orderbook_fp;
+    const obLegacy = data.orderbook || data;
 
-    // YES bids = people willing to buy YES at this price
-    for (const [priceVal, qty] of yesOrders) {
-      const price = Number(priceVal) / 100; // Convert cents to decimal
-      const size = Number(qty);
-      if (price > 0 && size > 0) bids.push({ price, size });
-    }
-
-    // NO orders convert to YES asks: ask price = 1 - no_price
-    for (const [priceVal, qty] of noOrders) {
-      const noPrice = Number(priceVal) / 100;
-      const price = 1 - noPrice;
-      const size = Number(qty);
-      if (price > 0 && price < 1 && size > 0) asks.push({ price, size });
+    if (obFp && (obFp.yes_dollars || obFp.no_dollars)) {
+      // New format: orderbook_fp with decimal dollar strings
+      for (const [priceStr, qtyStr] of (obFp.yes_dollars || [])) {
+        const price = Number(priceStr);
+        const size = Number(qtyStr);
+        if (price > 0 && size > 0) bids.push({ price, size });
+      }
+      for (const [priceStr, qtyStr] of (obFp.no_dollars || [])) {
+        const price = 1 - Number(priceStr);
+        const size = Number(qtyStr);
+        if (price > 0 && price < 1 && size > 0) asks.push({ price, size });
+      }
+    } else {
+      // Legacy format: cents integers
+      for (const [priceVal, qty] of (obLegacy.yes || [])) {
+        const price = Number(priceVal) / 100;
+        const size = Number(qty);
+        if (price > 0 && size > 0) bids.push({ price, size });
+      }
+      for (const [priceVal, qty] of (obLegacy.no || [])) {
+        const price = 1 - Number(priceVal) / 100;
+        const size = Number(qty);
+        if (price > 0 && price < 1 && size > 0) asks.push({ price, size });
+      }
     }
 
     bids.sort((a, b) => b.price - a.price);
@@ -274,10 +283,12 @@ async function fetchKalshiTrades(ticker, windowHours) {
       const tradeList = data.trades || [];
 
       for (const trade of tradeList) {
-        // Price is in cents (0-100), convert to decimal
-        const price = Number(trade.yes_price) / 100;
-        // Kalshi trade.count = number of contracts in this trade (correct for VWAP volume weighting)
-        const size = Number(trade.count || 1);
+        // Kalshi API returns yes_price_dollars (decimal string) or legacy yes_price (cents integer)
+        const price = trade.yes_price_dollars != null
+          ? Number(trade.yes_price_dollars)
+          : Number(trade.yes_price) / 100;
+        // Kalshi trade.count_fp (decimal string) or legacy count (integer)
+        const size = Number(trade.count_fp || trade.count || 1);
         let timestamp = trade.created_time;
 
         // Parse ISO timestamp to milliseconds
@@ -422,11 +433,11 @@ function getReportability(costToMove5c, tier) {
   let base;
   if (costToMove5c === null || costToMove5c < 10000) base = "fragile";
   else if (costToMove5c < 100000) base = "caution";
-  else base = "robust";
+  else base = "reportable";
 
   // Downgrade for stale data
   if (tier === 2) {
-    if (base === "robust") return "caution";
+    if (base === "reportable") return "caution";
     if (base === "caution") return "fragile";
   }
   if (tier === 3) return "fragile";

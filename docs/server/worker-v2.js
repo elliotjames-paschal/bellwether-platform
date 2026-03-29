@@ -191,24 +191,35 @@ async function fetchKalshiOrderbook(ticker) {
     if (!response.ok) return null;
 
     const data = await response.json();
-    const orderbook = data.orderbook || data;
     const bids = [];
     const asks = [];
 
-    const yesOrders = orderbook.yes || [];
-    const noOrders = orderbook.no || [];
+    // Kalshi API returns orderbook_fp (dollars) or legacy orderbook (cents)
+    const obFp = data.orderbook_fp;
+    const obLegacy = data.orderbook || data;
 
-    for (const [priceVal, qty] of yesOrders) {
-      const price = Number(priceVal) / 100;
-      const size = Number(qty);
-      if (price > 0 && size > 0) bids.push({ price, size });
-    }
-
-    for (const [priceVal, qty] of noOrders) {
-      const noPrice = Number(priceVal) / 100;
-      const price = 1 - noPrice;
-      const size = Number(qty);
-      if (price > 0 && price < 1 && size > 0) asks.push({ price, size });
+    if (obFp && (obFp.yes_dollars || obFp.no_dollars)) {
+      for (const [priceStr, qtyStr] of (obFp.yes_dollars || [])) {
+        const price = Number(priceStr);
+        const size = Number(qtyStr);
+        if (price > 0 && size > 0) bids.push({ price, size });
+      }
+      for (const [priceStr, qtyStr] of (obFp.no_dollars || [])) {
+        const price = 1 - Number(priceStr);
+        const size = Number(qtyStr);
+        if (price > 0 && price < 1 && size > 0) asks.push({ price, size });
+      }
+    } else {
+      for (const [priceVal, qty] of (obLegacy.yes || [])) {
+        const price = Number(priceVal) / 100;
+        const size = Number(qty);
+        if (price > 0 && size > 0) bids.push({ price, size });
+      }
+      for (const [priceVal, qty] of (obLegacy.no || [])) {
+        const price = 1 - Number(priceVal) / 100;
+        const size = Number(qty);
+        if (price > 0 && price < 1 && size > 0) asks.push({ price, size });
+      }
     }
 
     bids.sort((a, b) => b.price - a.price);
@@ -289,8 +300,11 @@ async function fetchKalshiTrades(ticker, windowHours) {
       const tradeList = data.trades || [];
 
       for (const trade of tradeList) {
-        const price = Number(trade.yes_price) / 100;
-        const size = Number(trade.count || 1);
+        // Kalshi API returns yes_price_dollars (decimal string) or legacy yes_price (cents integer)
+        const price = trade.yes_price_dollars != null
+          ? Number(trade.yes_price_dollars)
+          : Number(trade.yes_price) / 100;
+        const size = Number(trade.count_fp || trade.count || 1);
         let timestamp = trade.created_time;
 
         if (typeof timestamp === "string") {
