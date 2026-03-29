@@ -63,7 +63,7 @@ def run_step(script_name, description, script_dir=None, extra_args=None):
 
     result = subprocess.run(
         cmd,
-        capture_output=True, text=True, timeout=600,
+        capture_output=True, text=True, timeout=1800,
     )
 
     elapsed = time.time() - start
