@@ -6,7 +6,8 @@
 #
 # Usage (manual):
 #   sudo -u bellwether /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh
-#   sudo -u bellwether /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh --full-refresh
+#   sudo -u bellwether /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh --weekly-refresh
+#   sudo -u bellwether /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh --full-refresh  # needs 4GB+ RAM
 # ============================================================================
 
 set -euo pipefail
@@ -113,6 +114,23 @@ if ! git pull --ff-only origin v2/hetzner 2>&1; then
 fi
 
 # --------------------------------------------------------------------------
+# Check for OOM kills from previous run
+# --------------------------------------------------------------------------
+# If the previous run was OOM-killed, the process dies instantly (SIGKILL)
+# and never reaches the alert code. Detect it here at the start of the next run.
+check_previous_oom() {
+    # Check dmesg for OOM kills of python3 in the last 48 hours
+    local oom_lines
+    oom_lines=$(dmesg --time-format iso 2>/dev/null | grep -i "oom.*python3\|killed process.*python3" | tail -5)
+    if [[ -n "$oom_lines" ]]; then
+        log "WARNING: OOM kill detected from previous run:"
+        log "$oom_lines"
+        send_alert "OOM kill detected" "Python3 was OOM-killed on $(hostname). Recent dmesg entries:\n$oom_lines\n\nThis likely means the previous pipeline run (possibly --full-refresh or --weekly-refresh) exceeded the 2GB RAM limit."
+    fi
+}
+check_previous_oom
+
+# --------------------------------------------------------------------------
 # Run pipeline
 # --------------------------------------------------------------------------
 log "======================================================================"
@@ -127,6 +145,14 @@ EXIT_CODE=0
 python3 -u packages/pipelines/pipeline_daily_refresh.py "$@" || EXIT_CODE=$?
 
 log "Pipeline finished with exit code: $EXIT_CODE"
+
+# --------------------------------------------------------------------------
+# Check if pipeline was OOM-killed (exit code 137 = SIGKILL)
+# --------------------------------------------------------------------------
+if [[ $EXIT_CODE -eq 137 ]]; then
+    log "ERROR: Pipeline killed with SIGKILL (exit code 137) — likely OOM"
+    send_alert "Pipeline OOM-killed" "Pipeline exited with code 137 (SIGKILL) on $(hostname). Args: $*. This typically means the process exceeded available RAM."
+fi
 
 # --------------------------------------------------------------------------
 # Push website data to GitHub (triggers GitHub Pages deploy)

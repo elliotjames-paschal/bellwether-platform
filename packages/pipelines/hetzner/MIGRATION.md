@@ -132,7 +132,7 @@ bash bellwether-platform/packages/pipelines/hetzner/teardown_sherlock.sh
 | Job | Schedule | Command |
 |-----|----------|---------|
 | Daily refresh | 06:00 UTC daily | `run_pipeline.sh` |
-| Full refresh | 08:00 UTC Sundays | `run_pipeline.sh --full-refresh` |
+| Weekly refresh | 08:00 UTC Sundays | `run_pipeline.sh --weekly-refresh` |
 
 ## Monitoring
 
