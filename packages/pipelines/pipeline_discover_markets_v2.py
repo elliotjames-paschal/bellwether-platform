@@ -57,6 +57,7 @@ from config import DATA_DIR
 KALSHI_POLITICAL_TICKERS_FILE = DATA_DIR / "kalshi_political_event_tickers.json"
 NEW_MARKETS_CSV = DATA_DIR / "new_markets_discovered.csv"
 INDEX_FILE = DATA_DIR / "market_id_index.json"
+SLUG_MAPPING_FILE = DATA_DIR / "pm_event_slug_mapping.json"
 
 # Rate limiting
 KALSHI_RATE_LIMIT = 0.1  # 10 req/sec max
@@ -473,10 +474,12 @@ def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> li
     def fetch_one_tag(slug):
         events = _fetch_events_for_tag(slug)
         time.sleep(POLYMARKET_RATE_LIMIT)
-        # Extract markets from events
+        # Extract markets from events, carrying the event slug for URL building
         markets = []
         for event in events:
+            event_slug = event.get("slug", "")
             for market in (event.get("markets") or []):
+                market["_event_slug"] = event_slug
                 markets.append(market)
         return slug, markets
 
@@ -591,6 +594,7 @@ def process_polymarket_market_native(market: dict) -> dict:
         "pm_condition_id": market.get("conditionId"),
         "pm_token_id_yes": pm_token_yes,
         "pm_token_id_no": pm_token_no,
+        "pm_event_slug": market.get("_event_slug", ""),
         "question": market.get("question"),
         "tags": json.dumps([category] if category else []),
         "volume_usd": market.get("volumeNum") or market.get("volume") or 0,
@@ -728,12 +732,35 @@ def main():
         # Write empty CSV with headers so downstream scripts don't break
         pd.DataFrame(columns=[
             "platform", "market_id", "pm_condition_id", "pm_token_id_yes",
-            "pm_token_id_no", "k_event_ticker", "question", "tags",
-            "volume_usd", "scheduled_end_time", "trading_close_time",
+            "pm_token_id_no", "pm_event_slug", "k_event_ticker", "question",
+            "tags", "volume_usd", "scheduled_end_time", "trading_close_time",
             "is_closed", "pm_closed", "k_status", "k_last_price",
             "k_expiration_time", "winning_outcome", "political_category",
         ]).to_csv(NEW_MARKETS_CSV, index=False)
         log(f"Saved: {NEW_MARKETS_CSV} (empty — no new markets)")
+
+    # Update PM event slug mapping incrementally (replaces weekly batch crawl)
+    new_slugs = {
+        m["pm_condition_id"]: m["pm_event_slug"]
+        for m in pm_markets
+        if m.get("pm_condition_id") and m.get("pm_event_slug")
+    }
+    if new_slugs:
+        slug_data = {"mapping": {}, "generated_at": ""}
+        if SLUG_MAPPING_FILE.exists():
+            try:
+                with open(SLUG_MAPPING_FILE, 'r') as f:
+                    slug_data = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                pass
+        existing_mapping = slug_data.get("mapping", {})
+        added = sum(1 for k in new_slugs if k not in existing_mapping)
+        existing_mapping.update(new_slugs)
+        slug_data["mapping"] = existing_mapping
+        slug_data["generated_at"] = datetime.now().isoformat()
+        with open(SLUG_MAPPING_FILE, 'w') as f:
+            json.dump(slug_data, f)
+        log(f"Updated slug mapping: {added} new, {len(existing_mapping)} total")
 
     # =========================================================================
     # SUMMARY

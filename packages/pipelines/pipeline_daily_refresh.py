@@ -33,12 +33,9 @@ PIPELINE STEPS:
     16. GENERATE MARKET MAP - Extract cross-platform markets for commercial API
 
 Usage:
-    python pipeline_daily_refresh.py [--weekly-refresh] [--full-refresh] [--start-phase N]
+    python pipeline_daily_refresh.py [--full-refresh] [--start-phase N]
 
 Options:
-    --weekly-refresh   Weekly pass: re-classify Kalshi events, refresh PM slugs,
-                       optimize liquidity weights. Skips memory-heavy full price
-                       fetch and full discovery (safe for 2GB VPS).
     --full-refresh     Full rebuild: all markets, all price history (needs 4GB+ RAM)
     --start-phase N    Start from phase N (1-6), skipping earlier phases
 
@@ -171,18 +168,7 @@ def save_state(state):
 def main():
     """Main orchestration function."""
     full_refresh = "--full-refresh" in sys.argv
-    weekly_refresh = "--weekly-refresh" in sys.argv
     run_start_time = time.time()
-
-    # --weekly-refresh is a slimmed-down version of --full-refresh that avoids
-    # the memory-heavy steps (full price history, full discovery) which cause
-    # OOM kills on the 2GB Hetzner VPS. It only enables:
-    #   - Full Kalshi event classification (cheap, catches new events under existing series)
-    #   - PM event slug refresh (already incremental when file exists)
-    #   - Liquidity accuracy optimization (lightweight weekly recalibration)
-    # It does NOT enable:
-    #   - Full price fetch (Kalshi prices file alone is ~1.2 GB in memory)
-    #   - Full market discovery (scanning 5,500 closed events is pointless)
 
     # Parse --start-phase argument
     start_phase = 1  # Default: run all phases
@@ -204,15 +190,14 @@ def main():
                     return 1
 
     # Initialize logging
-    run_name = "full_refresh" if full_refresh else ("weekly" if weekly_refresh else "daily")
+    run_name = "full_refresh" if full_refresh else "daily"
     setup_logging(run_name=run_name)
     logger = get_logger("orchestrator")
 
     # Log header
     log_header("BELLWETHER PIPELINE: DAILY REFRESH")
     logger.info(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    mode_label = "FULL REFRESH" if full_refresh else ("WEEKLY REFRESH" if weekly_refresh else "INCREMENTAL")
-    logger.info(f"Mode: {mode_label}")
+    logger.info(f"Mode: {'FULL REFRESH' if full_refresh else 'INCREMENTAL'}")
     if start_phase > 1:
         logger.info(f"Starting from Phase {start_phase} (skipping Phases 1-{start_phase-1})")
 
@@ -261,8 +246,7 @@ def main():
             step_results["refresh_political_tags"] = "SKIP"
 
         # Step 0b: Classify Kalshi political event tickers (native API + keywords)
-        # Weekly: re-classify all series to catch new events under existing series (~100 MB, cheap)
-        kalshi_classify_args = ["--full-refresh"] if (full_refresh or weekly_refresh) else []
+        kalshi_classify_args = ["--full-refresh"] if full_refresh else []
         success = run_script(
             "pipeline_classify_kalshi_events.py",
             "Classify Kalshi political event tickers (native API)",
@@ -542,22 +526,21 @@ def main():
     if start_phase <= 5:
         log_phase(5, "WEB DATA GENERATION")
 
-        # Fetch PM event slugs for URL building (needed by generate_monitor_data)
-        # Run on weekly/full refresh or if mapping file missing. Uses --incremental when
-        # file exists so only fetches new events (~50-80 MB, not the full 8-hour crawl)
+        # PM event slugs are now captured inline during market discovery
+        # (pipeline_discover_markets_v2.py updates pm_event_slug_mapping.json).
+        # The separate batch crawl (fetch_pm_event_slugs.py) is only needed for
+        # initial backfill when the mapping file doesn't exist yet.
         slug_file = DATA_DIR / "pm_event_slug_mapping.json"
-        if full_refresh or weekly_refresh or not slug_file.exists():
-            slug_args = ["--incremental"] if slug_file.exists() else []
+        if not slug_file.exists():
             success = run_script(
                 "fetch_pm_event_slugs.py",
-                "Fetch Polymarket event slugs for URLs",
-                args=slug_args if slug_args else None,
+                "Backfill Polymarket event slugs (first run)",
                 required=False
             )
             results["fetch_pm_slugs"] = success
             step_results["fetch_pm_slugs"] = "OK" if success else ("FAIL" if success is False else "SKIP")
         else:
-            logger.info("Skipping slug fetch (daily run, mapping file exists)")
+            logger.info("Skipping slug backfill (mapping maintained by discovery step)")
             results["fetch_pm_slugs"] = None
             step_results["fetch_pm_slugs"] = "SKIP"
 
@@ -770,8 +753,8 @@ def main():
         results["liquidity_timeseries"] = success
         step_results["export_liquidity_ts"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
-        # Optimize liquidity accuracy weights (weekly — lightweight, ~200-300 MB)
-        if full_refresh or weekly_refresh:
+        # Optimize liquidity accuracy weights (only on full refresh, or run manually)
+        if full_refresh:
             success = run_script(
                 "optimize_liquidity_accuracy.py",
                 "Optimize liquidity accuracy weights",

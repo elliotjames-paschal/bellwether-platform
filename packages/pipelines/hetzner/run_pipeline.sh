@@ -6,7 +6,6 @@
 #
 # Usage (manual):
 #   sudo -u bellwether /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh
-#   sudo -u bellwether /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh --weekly-refresh
 #   sudo -u bellwether /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh --full-refresh  # needs 4GB+ RAM
 # ============================================================================
 
@@ -125,7 +124,7 @@ check_previous_oom() {
     if [[ -n "$oom_lines" ]]; then
         log "WARNING: OOM kill detected from previous run:"
         log "$oom_lines"
-        send_alert "OOM kill detected" "Python3 was OOM-killed on $(hostname). Recent dmesg entries:\n$oom_lines\n\nThis likely means the previous pipeline run (possibly --full-refresh or --weekly-refresh) exceeded the 2GB RAM limit."
+        send_alert "OOM kill detected" "Python3 was OOM-killed on $(hostname). Recent dmesg entries:\n$oom_lines\n\nThis likely means the previous pipeline run (possibly --full-refresh or --full-refresh) exceeded the 2GB RAM limit."
     fi
 }
 check_previous_oom

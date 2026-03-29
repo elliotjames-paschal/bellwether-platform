@@ -210,7 +210,6 @@ cat > "$RUNNER" << 'RUNEOF'
 #
 # Usage (manual):
 #   sudo -u bellwether /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh
-#   sudo -u bellwether /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh --weekly-refresh
 #   sudo -u bellwether /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh --full-refresh  # needs 4GB+ RAM
 # ============================================================================
 
@@ -359,18 +358,12 @@ SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 
 0 6 * * * /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh >> $CRON_LOG 2>&1
-
-# Weekly refresh on Sundays at 08:00 UTC (re-classify Kalshi events, refresh PM slugs,
-# optimize liquidity weights). Uses --weekly-refresh instead of --full-refresh to avoid
-# OOM kills on the 2GB VPS (full price fetch alone needs ~1.4 GB RAM).
-0 8 * * 0 /opt/bellwether/packages/pipelines/hetzner/run_pipeline.sh --weekly-refresh >> $CRON_LOG 2>&1
 CRONEOF
 )
 
 echo "$CRONTAB_CONTENT" | crontab -u "$SERVICE_USER" -
 echo "  Installed crontab for $SERVICE_USER:"
 echo "    - Daily at 06:00 UTC"
-echo "    - Weekly refresh Sundays at 08:00 UTC"
 
 # --------------------------------------------------------------------------
 # 9. Firewall + unattended upgrades
