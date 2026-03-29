@@ -771,6 +771,44 @@ def main():
         )
         results["civic_elections"] = success
         step_results["civic_elections"] = "OK" if success else ("FAIL" if success is False else "SKIP")
+
+        # ── PHASE 5b: MEDIA CITATIONS ──
+        log_step_start("Media citation pipeline (GDELT)")
+
+        media_ok = run_script(
+            "pipeline_media_discover_citations.py",
+            "Discover prediction market citations (GDELT)",
+            required=False
+        )
+        results["media_discover"] = media_ok
+        step_results["media_discover"] = "OK" if media_ok else ("FAIL" if media_ok is False else "SKIP")
+
+        if media_ok:
+            media_ok = run_script(
+                "pipeline_media_extract_markets.py",
+                "Extract and match market references from citations",
+                required=False
+            )
+            results["media_extract"] = media_ok
+            step_results["media_extract"] = "OK" if media_ok else ("FAIL" if media_ok is False else "SKIP")
+
+        if media_ok:
+            media_ok = run_script(
+                "pipeline_media_calculate_fragility.py",
+                "Calculate citation fragility metrics",
+                required=False
+            )
+            results["media_fragility"] = media_ok
+            step_results["media_fragility"] = "OK" if media_ok else ("FAIL" if media_ok is False else "SKIP")
+
+        # Always try to generate web data (even with stale input)
+        success = run_script(
+            "generate_media_web_data.py",
+            "Generate media section website data",
+            required=False
+        )
+        results["media_web_data"] = success
+        step_results["media_web_data"] = "OK" if success else ("FAIL" if success is False else "SKIP")
     else:
         logger.info(f"Skipping Phase 5 (starting from Phase {start_phase})")
 

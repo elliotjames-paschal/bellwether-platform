@@ -18,6 +18,7 @@ BASE_DIR = PACKAGES_DIR.parent                   # bellwether-platform/
 DATA_DIR = BASE_DIR / "data"
 SCRIPTS_DIR = PIPELINES_DIR  # Pipeline scripts are in packages/pipelines/
 WEBSITE_DIR = BASE_DIR / "docs"
+MEDIA_DATA_DIR = DATA_DIR / "media"  # Media citation pipeline intermediate data
 
 # API Keys - loaded from environment or local file
 def get_openai_api_key():

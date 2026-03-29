@@ -21,7 +21,9 @@ Supported by the Hoover Institution and the Stanford Graduate School of Business
 ### Tape API
 REST API returning live prediction market data. Every market is scored for manipulation resistance, matched across platforms via canonical tickers, and tagged with a reportability label. Cached for 30 seconds. No authentication required.
 
-Base URL: https://bellwethermetrics.com/api
+Base URL: https://api.bellwethermetrics.com/api
+
+A commercial API is also available at /v1/... endpoints (e.g. /v1/events, /v1/search) with API key authentication. Contact paschal@stanford.edu for access.
 
 ### Market Blueprints
 Open, immutable contract specifications for prediction markets. A blueprint defines the event, resolution source, resolution criteria, edge cases, fallback sources, and settlement rules — all specified before trading begins. Any platform can list a blueprint. All resolve identically.
@@ -32,6 +34,17 @@ Interactive analysis of prediction market accuracy, calibration, liquidity, and 
 ### MCP Server
 Model Context Protocol server giving AI agents direct access to live market prices, search, and data quality assessments. Install: npx bellwether-mcp
 
+Claude Desktop configuration (add to claude_desktop_config.json):
+
+{
+  "mcpServers": {
+    "bellwether": {
+      "command": "npx",
+      "args": ["bellwether-mcp"]
+    }
+  }
+}
+
 ## API Endpoints
 
 ### GET /api/metrics/event/{slug}
@@ -41,12 +54,20 @@ Parameters:
 - slug (required, string): Bellwether event slug, e.g. bwr-dem-control-house-certified-any-2026
 
 Response fields:
+- slug (string): The Bellwether event slug.
+- title (string): Human-readable market title.
+- category (string): Political category (see Political Categories).
+- country (string): ISO country code, e.g. "us", "ie".
+- platform (string): Source platform ("polymarket", "kalshi", or both for cross-platform).
 - bellwether_price (float): Volume-weighted average price. Null if insufficient trade data.
 - price_tier (int): 1 = 6h VWAP with 10+ trades; 2 = 12-24h VWAP; 3 = stale or no data.
 - price_label (string): Human-readable price source, e.g. "6h VWAP across platforms".
 - price_source (string): Machine-readable: "6h_vwap", "12h_vwap", "24h_vwap", "stale_vwap", "no_data".
+- platform_prices (object): For cross-platform markets, contains polymarket and kalshi token IDs.
 - robustness.cost_to_move_5c (int): Dollars required to shift price by 5 cents via market order.
 - robustness.reportability (string): "reportable", "caution", or "fragile".
+- robustness.raw_reportability (string): Pre-downgrade reportability (before tier adjustments).
+- robustness.weakest_platform (string): Which platform has lower cost_to_move_5c (cross-platform only).
 - vwap_details.trade_count (int): Number of trades in the VWAP window.
 - vwap_details.total_volume (float): Total volume in the VWAP window.
 - orderbook_midpoint (float): Best bid/ask midpoint.
