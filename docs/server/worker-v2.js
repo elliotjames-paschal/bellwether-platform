@@ -289,8 +289,10 @@ async function fetchKalshiTrades(ticker, windowHours) {
       const tradeList = data.trades || [];
 
       for (const trade of tradeList) {
-        const price = Number(trade.yes_price) / 100;
-        const size = Number(trade.count || 1);
+        const price = trade.yes_price_dollars != null
+          ? Number(trade.yes_price_dollars)
+          : Number(trade.yes_price) / 100;
+        const size = Number(trade.count_fp || trade.count || 1);
         let timestamp = trade.created_time;
 
         if (typeof timestamp === "string") {
@@ -316,31 +318,57 @@ async function fetchKalshiTrades(ticker, windowHours) {
   return allTrades;
 }
 
+async function resolvePolymarketConditionId(tokenId) {
+  try {
+    const url = `https://gamma-api.polymarket.com/markets?clob_token_ids=${tokenId}`;
+    const response = await fetchWithTimeout(url, { headers: { "Accept": "application/json" } });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return data[0].conditionId || null;
+    }
+    return null;
+  } catch (err) {
+    console.error(`Polymarket conditionId lookup error: ${err}`);
+    return null;
+  }
+}
+
 async function fetchPolymarketTrades(tokenId, windowHours) {
   const nowMs = Date.now();
   const startMs = nowMs - (windowHours * 60 * 60 * 1000);
 
+  const conditionId = await resolvePolymarketConditionId(tokenId);
+  if (!conditionId) return [];
+
   const allTrades = [];
-  let cursor = null;
+  let offset = 0;
+  const pageSize = 1000;
   const maxPages = 10;
 
   for (let page = 0; page < maxPages; page++) {
-    const params = new URLSearchParams({ asset_id: tokenId });
-    if (cursor) params.set("next_cursor", cursor);
+    const params = new URLSearchParams({
+      market: conditionId,
+      limit: pageSize.toString(),
+      offset: offset.toString(),
+    });
 
-    const url = `${POLYMARKET_CLOB_BASE}/trades?${params}`;
+    const url = `https://data-api.polymarket.com/trades?${params}`;
 
     try {
       const response = await fetchWithTimeout(url, { headers: { "Accept": "application/json" } });
       if (!response.ok) break;
 
-      const data = await response.json();
-      const tradeList = Array.isArray(data) ? data : (data.trades || data.data || []);
+      const tradeList = await response.json();
+      if (!Array.isArray(tradeList) || tradeList.length === 0) break;
 
       for (const trade of tradeList) {
-        const price = Number(trade.price || trade.p);
-        const size = Number(trade.size || trade.s || trade.amount || 1);
-        let timestamp = Number(trade.timestamp || trade.t || trade.time || trade.created_at);
+        // Only count trades for this specific token (YES side)
+        if (trade.asset !== tokenId) continue;
+
+        const price = Number(trade.price);
+        const size = Number(trade.size || 1);
+        let timestamp = Number(trade.timestamp);
         if (timestamp < 1e12) timestamp = timestamp * 1000;
 
         if (price > 0 && price <= 1 && timestamp >= startMs) {
@@ -348,8 +376,8 @@ async function fetchPolymarketTrades(tokenId, windowHours) {
         }
       }
 
-      cursor = data.next_cursor;
-      if (!cursor || tradeList.length === 0) break;
+      if (tradeList.length < pageSize) break;
+      offset += pageSize;
 
     } catch (err) {
       console.error(`Polymarket trades fetch error: ${err}`);
