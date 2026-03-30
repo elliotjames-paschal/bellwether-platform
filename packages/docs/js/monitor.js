@@ -822,8 +822,8 @@
                 </div>
                 <button class="modal-close" aria-label="Close">&times;</button>
             </div>
-            <div class="modal-body${currentView === 'divergences' ? ' modal-body-split' : ''}">
-                <div class="${currentView === 'divergences' ? 'modal-panel-left' : ''}">
+            <div class="modal-body${currentView === 'cross-platform' ? ' modal-body-split' : ''}">
+                <div class="${currentView === 'cross-platform' ? 'modal-panel-left' : ''}">
                     <div class="modal-prices${pricesClass}">${pricesHtml}</div>
                     ${linksHtml}
                     ${liveDataHtml}
@@ -831,7 +831,7 @@
                     ${rulesPlaceholder}
                     ${embedHtml}
                 </div>
-                ${currentView === 'divergences' ? `<div class="modal-panel-right">${renderModalFeedbackSection()}</div>` : ''}
+                ${currentView === 'cross-platform' ? `<div class="modal-panel-right">${renderModalFeedbackSection()}</div>` : ''}
             </div>
         `;
     }
@@ -1247,12 +1247,11 @@
                     return true;
                 });
                 break;
-            case 'divergences':
-                // Only elections with both platforms and spread > 5%
-                // Check for entry_type === 'election' OR old format (has_both with pm_price/k_price)
+            case 'cross-platform':
+                // Markets available on both Kalshi and Polymarket
                 sorted = sorted.filter(m => {
                     const isCrossPlatform = m.entry_type === 'election' || m.entry_type === 'cross_platform' || (m.has_both && m.pm_price !== undefined);
-                    return isCrossPlatform && m.has_both && m.spread !== null && m.spread > 0.05;
+                    return isCrossPlatform && m.has_both;
                 });
                 sorted.sort((a, b) => (b.spread || 0) - (a.spread || 0));
                 break;
@@ -1308,19 +1307,19 @@
     function updateTabCounts() {
         const movesCount = document.getElementById('tab-count-moves');
         const volumeCount = document.getElementById('tab-count-volume');
-        const divergencesCount = document.getElementById('tab-count-divergences');
+        const crossPlatformCount = document.getElementById('tab-count-cross-platform');
         const reportableCount = document.getElementById('tab-count-reportable');
 
         const withChange = filteredMarkets;
         const withVolume = filteredMarkets.filter(m => m.total_volume > 0 || m.volume > 0);
-        const divergences = filteredMarkets.filter(m => {
-            const isElection = m.entry_type === 'election' || (m.has_both && m.pm_price !== undefined);
-            return isElection && m.has_both && m.spread !== null && m.spread > 0.05;
+        const crossPlatform = filteredMarkets.filter(m => {
+            const isCrossPlatform = m.entry_type === 'election' || (m.has_both && m.pm_price !== undefined);
+            return isCrossPlatform && m.has_both;
         });
 
         if (movesCount) movesCount.textContent = withChange.length;
         if (volumeCount) volumeCount.textContent = withVolume.length;
-        if (divergencesCount) divergencesCount.textContent = divergences.length;
+        if (crossPlatformCount) crossPlatformCount.textContent = crossPlatform.length;
         if (reportableCount) reportableCount.textContent = reportableMarkets.length;
     }
 
