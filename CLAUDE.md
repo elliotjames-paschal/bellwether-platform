@@ -54,3 +54,74 @@ https://docs.google.com/spreadsheets/d/e/2PACX-1vRPiDl8J5hruzzB3_CR83cDz1xrVob9X
 
 <!-- UPDATE THIS AFTER EACH REVIEW SESSION -->
 **last_reviewed_timestamp: 2026-02-12T22:41:28.460Z**
+
+---
+
+## Media Pipeline - Hetzner Deployment
+
+### Architecture
+The media pipeline runs on Hetzner **separately from production**:
+
+```
+/opt/bellwether/          ← production (v2/hetzner branch) — DO NOT TOUCH
+/opt/bellwether-media/    ← media pipeline (media branch)
+/opt/bellwether/.env      ← shared secrets
+/opt/bellwether/venv/     ← shared venv
+/opt/bellwether/locks/    ← separate lock files per pipeline
+```
+
+The media pipeline **only** pulls from and pushes to the `media` branch. It never touches `v2/hetzner`.
+
+### Setup Steps (on Hetzner, as root)
+
+#### 1. Clone media branch into separate directory
+```bash
+git clone --branch media https://github.com/elliotjames-paschal/bellwether-platform.git /opt/bellwether-media
+chown -R bellwether:bellwether /opt/bellwether-media
+sudo -u bellwether git -C /opt/bellwether-media config user.name "Bellwether Bot"
+sudo -u bellwether git -C /opt/bellwether-media config user.email "bellwether-bot@noreply.github.com"
+```
+
+#### 2. Set up SSH deploy key (for push to media branch)
+The production deploy key may already cover this. Test with:
+```bash
+sudo -u bellwether git -C /opt/bellwether-media push --dry-run origin media
+```
+If it fails, the existing deploy key needs write access, or set the remote to use the PAT:
+```bash
+# Option: use PAT-based remote (reads PAT from .env at push time)
+sudo -u bellwether git -C /opt/bellwether-media remote set-url origin git@github.com:elliotjames-paschal/bellwether-platform.git
+```
+
+#### 3. Install new dependencies
+```bash
+sudo -u bellwether /opt/bellwether/venv/bin/pip install -r /opt/bellwether-media/packages/pipelines/requirements.txt
+```
+
+#### 4. Add NEWSAPI_KEY to .env (optional but recommended)
+```bash
+nano /opt/bellwether/.env
+# Add: NEWSAPI_KEY=your_key_here
+```
+
+#### 5. Test run
+```bash
+sudo -u bellwether /opt/bellwether-media/packages/pipelines/hetzner/run_media_pipeline.sh
+```
+
+#### 6. Add cron job
+```bash
+# As root, edit bellwether's crontab:
+crontab -u bellwether -e
+
+# Add this line (runs at 07:30 UTC, 1.5h after main pipeline):
+30 7 * * * /opt/bellwether-media/packages/pipelines/hetzner/run_media_pipeline.sh >> /opt/bellwether/logs/media_cron.log 2>&1
+```
+
+### Status
+- [ ] Push `media` branch to remote
+- [ ] Clone on Hetzner
+- [ ] Install deps
+- [ ] Test run
+- [ ] Add cron
+- [ ] Verify first automated run
