@@ -57,71 +57,31 @@ https://docs.google.com/spreadsheets/d/e/2PACX-1vRPiDl8J5hruzzB3_CR83cDz1xrVob9X
 
 ---
 
-## Media Pipeline - Hetzner Deployment
+## Media Pipeline
 
 ### Architecture
-The media pipeline runs on Hetzner **separately from production**:
+The media pipeline is **integrated into the main daily pipeline** (Phase 5b in `pipeline_daily_refresh.py`).
+It runs automatically as part of the daily 06:00 UTC cron on `/opt/bellwether/` (v2/hetzner branch).
 
-```
-/opt/bellwether/          ← production (v2/hetzner branch) — DO NOT TOUCH
-/opt/bellwether-media/    ← media pipeline (media branch)
-/opt/bellwether/.env      ← shared secrets
-/opt/bellwether/venv/     ← shared venv
-/opt/bellwether/locks/    ← separate lock files per pipeline
-```
+**Pipeline steps** (all non-blocking — failures don't stop the main pipeline):
+1. `pipeline_media_discover_citations.py` — Discover citations via GDELT
+2. `pipeline_media_extract_markets.py` — Extract & match market references (GPT)
+3. `pipeline_media_calculate_fragility.py` — Calculate fragility metrics
+4. `generate_media_web_data.py` — Generate `docs/data/media_*.json` for website
 
-The media pipeline **only** pulls from and pushes to the `media` branch. It never touches `v2/hetzner`.
+**Output files** (committed by `run_pipeline.sh` alongside other `docs/data/` files):
+- `docs/data/media_summary.json` — Hero stats, timeline
+- `docs/data/media_outlets.json` — Outlet leaderboard with grades
+- `docs/data/media_citations.json` — Top 500 recent citations
 
-### Setup Steps (on Hetzner, as root)
+**Frontend**: `docs/media.html` + `docs/js/media.js`
 
-#### 1. Clone media branch into separate directory
+### Hetzner Setup
+After pulling the merged v2/hetzner branch, install new dependencies:
 ```bash
-git clone --branch media https://github.com/elliotjames-paschal/bellwether-platform.git /opt/bellwether-media
-chown -R bellwether:bellwether /opt/bellwether-media
-sudo -u bellwether git -C /opt/bellwether-media config user.name "Bellwether Bot"
-sudo -u bellwether git -C /opt/bellwether-media config user.email "bellwether-bot@noreply.github.com"
+sudo -u bellwether /opt/bellwether/venv/bin/pip install -r /opt/bellwether/packages/pipelines/requirements.txt
 ```
 
-#### 2. Set up SSH deploy key (for push to media branch)
-The production deploy key may already cover this. Test with:
-```bash
-sudo -u bellwether git -C /opt/bellwether-media push --dry-run origin media
-```
-If it fails, the existing deploy key needs write access, or set the remote to use the PAT:
-```bash
-# Option: use PAT-based remote (reads PAT from .env at push time)
-sudo -u bellwether git -C /opt/bellwether-media remote set-url origin git@github.com:elliotjames-paschal/bellwether-platform.git
-```
+Add `NEWSAPI_KEY` to `/opt/bellwether/.env` (optional but recommended for broader coverage).
 
-#### 3. Install new dependencies
-```bash
-sudo -u bellwether /opt/bellwether/venv/bin/pip install -r /opt/bellwether-media/packages/pipelines/requirements.txt
-```
-
-#### 4. Add NEWSAPI_KEY to .env (optional but recommended)
-```bash
-nano /opt/bellwether/.env
-# Add: NEWSAPI_KEY=your_key_here
-```
-
-#### 5. Test run
-```bash
-sudo -u bellwether /opt/bellwether-media/packages/pipelines/hetzner/run_media_pipeline.sh
-```
-
-#### 6. Add cron job
-```bash
-# As root, edit bellwether's crontab:
-crontab -u bellwether -e
-
-# Add this line (runs at 07:30 UTC, 1.5h after main pipeline):
-30 7 * * * /opt/bellwether-media/packages/pipelines/hetzner/run_media_pipeline.sh >> /opt/bellwether/logs/media_cron.log 2>&1
-```
-
-### Status
-- [ ] Push `media` branch to remote
-- [ ] Clone on Hetzner
-- [ ] Install deps
-- [ ] Test run
-- [ ] Add cron
-- [ ] Verify first automated run
+No separate cron needed — media runs as part of the existing daily pipeline.
