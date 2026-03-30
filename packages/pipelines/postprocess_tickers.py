@@ -471,8 +471,12 @@ def fix_name_collisions(ticker: dict) -> bool:
 
 
 def fix_missing_threshold(ticker: dict) -> bool:
-    """Fix 14: Re-extract threshold for HIT markets that have ANY."""
-    if ticker.get('action') != 'HIT' or ticker.get('threshold', '') != 'ANY':
+    """Fix 14: Re-extract threshold for any market that has ANY threshold.
+
+    Originally limited to HIT actions, now applies to all actions since
+    extract_threshold() handles absolute counts (jobs, seats, votes, etc.).
+    """
+    if ticker.get('threshold', '') != 'ANY':
         return False
 
     question = ticker.get('original_question', '')

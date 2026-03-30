@@ -160,6 +160,7 @@ def extract_threshold(text: str) -> str:
     - 25BPS, 50BPS, 75BPS, 100BPS
     - GT_1.0PCT, GTE_2.0PCT, LT_3.0PCT, EQ_4.2PCT
     - 1X, 2X, 3X (for "1 time", "2 times", etc.)
+    - GT_125000, LT_300, EQ_193, RANGE_193_197 (absolute counts)
     - ANY if nothing found
     """
     if not text:
@@ -218,6 +219,124 @@ def extract_threshold(text: str) -> str:
     match = re.search(r'(\d+)\s*(?:or more|plus|\+)', text_lower)
     if match:
         return f"GTE_{match.group(1)}X"
+
+    # --- Absolute count thresholds (jobs, seats, votes, etc.) ---
+
+    # Dollar amounts: "hit $40 trillion", "hit $8B", "$1,000 billion"
+    match = re.search(
+        r'\$\s*([\d,]+(?:\.\d+)?)\s*(?:trillion|T\b)',
+        text, re.IGNORECASE
+    )
+    if match:
+        val = match.group(1).replace(',', '')
+        return f"GT_{val}T"
+
+    match = re.search(
+        r'\$\s*([\d,]+(?:\.\d+)?)\s*(?:billion|B\b)',
+        text, re.IGNORECASE
+    )
+    if match:
+        val = match.group(1).replace(',', '')
+        return f"GT_{val}B"
+
+    # "above N jobs" / "above -25000 jobs" (payroll markets)
+    match = re.search(
+        r'(?:above|more than|greater than|over|exceed)\s+(-?[\d,]+)\s*(?:jobs?|nonfarm)',
+        text_lower
+    )
+    if match:
+        val = match.group(1).replace(',', '')
+        return f"GT_{val}"
+
+    # "fewer than N" / "less than N" / "fall below 7.00" (exec orders, indices, etc.)
+    match = re.search(
+        r'(?:fewer than|less than|under|below)\s+([\d,]+(?:\.\d+)?)',
+        text_lower
+    )
+    if match:
+        val = match.group(1).replace(',', '')
+        # Skip if followed by % (already handled by percentage patterns above)
+        after_pos = match.end()
+        if after_pos < len(text_lower) and text_lower[after_pos:after_pos+1] == '%':
+            pass  # fall through to next pattern
+        else:
+            return f"LT_{val}"
+
+    # "exactly N" (senators losing, governors, etc.)
+    match = re.search(r'(?:exactly)\s+([\d,]+)', text_lower)
+    if match:
+        val = match.group(1).replace(',', '')
+        return f"EQ_{val}"
+
+    # "between N and N" (vote counts, seat ranges, post ranges)
+    match = re.search(
+        r'(?:between|from)\s+([\d,]+)\s+(?:and|to)\s+([\d,]+)',
+        text_lower
+    )
+    if match:
+        lo = match.group(1).replace(',', '')
+        hi = match.group(2).replace(',', '')
+        # Skip year ranges like "between 2025 and 2028"
+        if not (2020 <= int(lo) <= 2100 and 2020 <= int(hi) <= 2100):
+            return f"RANGE_{lo}_{hi}"
+
+    # "N-N seats/posts/..." (range with hyphen: "193-197 seats", "20-39 posts")
+    match = re.search(
+        r'\b(\d+)\s*[-–]\s*(\d+)\s+(?:seats?|posts?|votes?|challengers?)',
+        text_lower
+    )
+    if match:
+        lo = match.group(1)
+        hi = match.group(2)
+        return f"RANGE_{lo}_{hi}"
+
+    # "win/hold N seats" (exact seat count)
+    match = re.search(
+        r'(?:win|hold|gain|lose)\s+([\d,]+)\s+seats?',
+        text_lower
+    )
+    if match:
+        val = match.group(1).replace(',', '')
+        return f"EQ_{val}"
+
+    # "N senators/representatives vote" (vote threshold)
+    match = re.search(
+        r'(?:will\s+)?([\d,]+)\s+(?:senators?|representatives?|house\s+members?)\s+vote',
+        text_lower
+    )
+    if match:
+        val = match.group(1).replace(',', '')
+        return f"EQ_{val}"
+
+    # "decrease/increase by N" (spending, debt, etc.)
+    match = re.search(
+        r'(?:decrease|increase|grow|decline|drop|rise)\s+(?:by\s+)?([\d,]+)',
+        text_lower
+    )
+    if match:
+        val = match.group(1).replace(',', '')
+        before = text_lower[:match.start()]
+        if 'decrease' in match.group(0) or 'decline' in match.group(0) or 'drop' in match.group(0):
+            return f"GT_{val}_DOWN"
+        return f"GT_{val}"
+
+    # "strike N countries" / "win N seats" (generic count with verb)
+    match = re.search(
+        r'(?:strike|hit|reach|win)\s+([\d,]+)\s+(?:countries|states|seats?|districts?)',
+        text_lower
+    )
+    if match:
+        val = match.group(1).replace(',', '')
+        return f"EQ_{val}"
+
+    # "N-N" range followed by a noun (generic catch-all for hyphenated ranges)
+    match = re.search(r'\b(\d+)\s*[-–]\s*(\d+)\s+\w+', text_lower)
+    if match:
+        lo = match.group(1)
+        hi = match.group(2)
+        # Avoid matching year ranges like "2025-2029" or date ranges
+        if int(lo) < 2020 and int(hi) < 2100:
+            return f"RANGE_{lo}_{hi}"
 
     return "ANY"
 
