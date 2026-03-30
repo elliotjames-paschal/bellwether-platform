@@ -536,6 +536,7 @@
       <a href="#events" class="sidebar-link">Events</a>
       <a href="#events-get" class="sidebar-link nested">Get event</a>
       <a href="#markets" class="sidebar-link">Markets</a>
+      <a href="#markets-ticker" class="sidebar-link nested">Get by ticker</a>
       <a href="#markets-platform" class="sidebar-link nested">Platform data</a>
       <a href="#markets-combined" class="sidebar-link nested">Combined data</a>
       <a href="#reportability" class="sidebar-link">Reportability</a>
@@ -659,9 +660,10 @@
               <tr><td><span class="param-name">price_tier</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Data quality tier: 1 (6h VWAP, 10+ trades), 2 (12-24h VWAP), 3 (stale or no data).</span></td></tr>
               <tr><td><span class="param-name">price_label</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Human-readable description of the price source. E.g. <code>6h VWAP across platforms</code>.</span></td></tr>
               <tr><td><span class="param-name">price_source</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Machine-readable source: <code>6h_vwap</code>, <code>12h_vwap</code>, <code>24h_vwap</code>, <code>stale_vwap</code>, or <code>no_data</code>.</span></td></tr>
-              <tr><td><span class="param-name">robustness</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>cost_to_move_5c</code>, <code>reportability</code>, <code>raw_reportability</code>, and <code>weakest_platform</code>.</span></td></tr>
+              <tr><td><span class="param-name">robustness</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>cost_to_move_5c</code>, <code>cost_to_move_up_5c</code>, <code>cost_to_move_down_5c</code>, <code>reportability</code>, <code>raw_reportability</code>, and <code>weakest_platform</code>.</span></td></tr>
               <tr><td><span class="param-name">vwap_details</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>window_hours</code>, <code>trade_count</code>, and <code>total_volume</code>.</span></td></tr>
               <tr><td><span class="param-name">orderbook_midpoint</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Best bid/ask midpoint from current order book.</span></td></tr>
+              <tr><td><span class="param-name">orderbook_summary</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>bid_levels</code>, <code>ask_levels</code>, <code>best_bid</code>, <code>best_ask</code>, <code>top_5_bids</code>, <code>top_5_asks</code>. For cross-platform markets, each entry includes a <code>platform</code> field (<code>"polymarket"</code> or <code>"kalshi"</code>).</span></td></tr>
               <tr><td><span class="param-name">fetched_at</span></td><td><span class="param-type">datetime</span></td><td><span class="param-desc">When upstream data was last fetched. Cached for 30 seconds.</span></td></tr>
             </tbody>
           </table>
@@ -673,7 +675,46 @@
     <!-- MARKETS (platform-specific) -->
     <div class="doc-section" id="markets">
       <h2>Markets</h2>
-      <p>For direct access to platform-specific data. These endpoints fetch live order book and trade data from the native Polymarket CLOB and Kalshi Elections APIs.</p>
+      <div class="endpoint-card" id="markets-ticker">
+        <div class="endpoint-header">
+          <span class="endpoint-method">GET</span>
+          <span class="endpoint-path">/api/markets/{ticker}</span>
+          <span class="endpoint-desc">Get market by BWR ticker</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="muted" style="margin-bottom:16px">Returns live price, VWAP, robustness metrics, reportability, and platform availability for a market identified by its canonical Bellwether ticker. This is the primary way to look up a specific market.</p>
+          <table class="param-table">
+            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">ticker</span><span class="param-required">required</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Bellwether ticker. E.g. <code>BWR-DEM-WIN-SENATE_TX-CERTIFIED-ANY-2026</code></span></td>
+              </tr>
+            </tbody>
+          </table>
+          <h3 style="margin-top:20px; font-size:14px">Response fields</h3>
+          <table class="param-table">
+            <thead><tr><th style="width:180px">Field</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="param-name">ticker</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Canonical BWR ticker.</span></td></tr>
+              <tr><td><span class="param-name">slug</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">URL-friendly identifier.</span></td></tr>
+              <tr><td><span class="param-name">title</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Human-readable market title.</span></td></tr>
+              <tr><td><span class="param-name">category</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Political category. E.g. <code>ELECTORAL</code>.</span></td></tr>
+              <tr><td><span class="param-name">country</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">ISO country code. E.g. <code>us</code>.</span></td></tr>
+              <tr><td><span class="param-name">platforms</span></td><td><span class="param-type">array</span></td><td><span class="param-desc">Platforms this market trades on: <code>["polymarket", "kalshi"]</code>.</span></td></tr>
+              <tr><td><span class="param-name">volume_usd</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Total trading volume in USD.</span></td></tr>
+              <tr><td><span class="param-name">bellwether_price</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Volume-weighted price (VWAP). Null if insufficient data.</span></td></tr>
+              <tr><td><span class="param-name">price_tier</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Data quality tier: 1, 2, or 3.</span></td></tr>
+              <tr><td><span class="param-name">robustness</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>cost_to_move_5c</code>, <code>cost_to_move_up_5c</code>, <code>cost_to_move_down_5c</code>, <code>reportability</code>, <code>weakest_platform</code>.</span></td></tr>
+              <tr><td><span class="param-name">orderbook_summary</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>bid_levels</code>, <code>ask_levels</code>, <code>best_bid</code>, <code>best_ask</code>, <code>top_5_bids</code>, <code>top_5_asks</code>. For cross-platform markets, entries include <code>platform</code>.</span></td></tr>
+              <tr><td><span class="param-name">fetched_at</span></td><td><span class="param-type">datetime</span></td><td><span class="param-desc">When upstream data was last fetched.</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p style="margin-top:24px">For direct access to platform-specific data. These endpoints fetch live order book and trade data from the native Polymarket CLOB and Kalshi Elections APIs.</p>
 
       <div class="endpoint-card" id="markets-platform">
         <div class="endpoint-header">
@@ -740,6 +781,18 @@
             </tbody>
           </table>
           <p class="muted" style="margin-top:12px; font-size:12px">Provide at least one of <code>pm_token</code> or <code>k_ticker</code>. Provide both for cross-platform aggregation.</p>
+          <h3 style="margin-top:20px; font-size:14px">Response fields</h3>
+          <table class="param-table">
+            <thead><tr><th style="width:180px">Field</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="param-name">bellwether_price</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Combined VWAP price across both platforms.</span></td></tr>
+              <tr><td><span class="param-name">price_tier</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Data quality tier: 1, 2, or 3.</span></td></tr>
+              <tr><td><span class="param-name">robustness</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>cost_to_move_5c</code>, <code>cost_to_move_up_5c</code>, <code>cost_to_move_down_5c</code>, <code>reportability</code>, <code>raw_reportability</code>, <code>weakest_platform</code>.</span></td></tr>
+              <tr><td><span class="param-name">orderbook_midpoint</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Best bid/ask midpoint from merged order book.</span></td></tr>
+              <tr><td><span class="param-name">orderbook_summary</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>bid_levels</code>, <code>ask_levels</code>, <code>best_bid</code>, <code>best_ask</code>, <code>top_5_bids</code>, <code>top_5_asks</code>. Each entry includes a <code>platform</code> field (<code>"polymarket"</code> or <code>"kalshi"</code>).</span></td></tr>
+              <tr><td><span class="param-name">fetched_at</span></td><td><span class="param-type">datetime</span></td><td><span class="param-desc">When upstream data was last fetched.</span></td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

@@ -755,6 +755,20 @@ async function getEventMetrics(market, kv) {
     reportability = "fragile";
   }
 
+  // Build merged orderbooks with platform tags
+  const mergedBids = [
+    ...pmBids.map(b => ({ ...b, platform: "polymarket" })),
+    ...kBids.map(b => ({ ...b, platform: "kalshi" })),
+  ].sort((a, b) => b.price - a.price);
+
+  const mergedAsks = [
+    ...pmAsks.map(a => ({ ...a, platform: "polymarket" })),
+    ...kAsks.map(a => ({ ...a, platform: "kalshi" })),
+  ].sort((a, b) => a.price - b.price);
+
+  const costUp = computeCostToMoveUp5Cents(mergedAsks);
+  const costDown = computeCostToMoveDown5Cents(mergedBids);
+
   return {
     ticker: market.ticker,
     bellwether_price: tieredPrice.price,
@@ -767,6 +781,8 @@ async function getEventMetrics(market, kv) {
     },
     robustness: {
       cost_to_move_5c: minCost,
+      cost_to_move_up_5c: costUp,
+      cost_to_move_down_5c: costDown,
       reportability,
       raw_reportability: rawReportability,
       weakest_platform: weakestPlatform,
@@ -776,10 +792,15 @@ async function getEventMetrics(market, kv) {
       trade_count: tieredPrice.trade_count,
       total_volume: tieredPrice.total_volume,
     },
-    orderbook_midpoint: computeOrderbookMidpoint(
-      [...pmBids, ...kBids].sort((a, b) => b.price - a.price),
-      [...pmAsks, ...kAsks].sort((a, b) => a.price - b.price)
-    ),
+    orderbook_midpoint: computeOrderbookMidpoint(mergedBids, mergedAsks),
+    orderbook_summary: {
+      bid_levels: mergedBids.length,
+      ask_levels: mergedAsks.length,
+      best_bid: mergedBids.length > 0 ? mergedBids[0].price : null,
+      best_ask: mergedAsks.length > 0 ? mergedAsks[0].price : null,
+      top_5_bids: mergedBids.slice(0, 5).map(b => ({ price: b.price, size: b.size, platform: b.platform })),
+      top_5_asks: mergedAsks.slice(0, 5).map(a => ({ price: a.price, size: a.size, platform: a.platform })),
+    },
     fetched_at: new Date().toISOString(),
   };
 }
@@ -830,11 +851,12 @@ export default {
           description: "V2: All active markets via KV market index",
           endpoints: {
             "/health": "Server health check",
+            "/api/markets/:ticker": "Get live data for a market by BWR ticker (e.g. BWR-DEM-WIN-SENATE_TX-CERTIFIED-ANY-2026)",
+            "/api/markets/search": "Search markets by keyword (query: q, category, limit)",
+            "/api/markets/top": "Top markets by volume (query: category, limit)",
             "/api/metrics/:platform/:token_id": "Get tiered price + robustness for a single-platform market",
             "/api/metrics/combined": "Get cross-platform tiered price + min robustness (query: pm_token, k_ticker)",
             "/api/metrics/event/:slug": "Get live data for an event by Bellwether slug",
-            "/api/markets/search": "Search markets by keyword (query: q, category, limit)",
-            "/api/markets/top": "Top markets by volume (query: category, limit)",
           },
           price_tiers: {
             1: "6h VWAP (10+ trades) - Full reportability",
@@ -879,6 +901,50 @@ export default {
           category: market.category,
           country: market.country,
           platform: market.platform,
+          ...metrics,
+        }),
+        { headers: corsHeaders }
+      );
+    }
+
+    // GET /api/markets/:ticker - Look up market by BWR ticker
+    const tickerMatch = url.pathname.match(/^\/api\/markets\/([A-Z0-9_-]+)$/);
+    if (tickerMatch) {
+      const tickerParam = tickerMatch[1];
+      const markets = await loadMarketMap(kv);
+      const market = markets.find(m => m.ticker === tickerParam);
+
+      if (!market) {
+        return new Response(
+          JSON.stringify({
+            error: "Market not found",
+            ticker: tickerParam,
+            hint: "Use /api/markets/search?q=... to find available tickers",
+          }),
+          { status: 404, headers: corsHeaders }
+        );
+      }
+
+      const metrics = await getEventMetrics(market, kv);
+      if (!metrics) {
+        return new Response(
+          JSON.stringify({ error: "Market data unavailable", ticker: tickerParam }),
+          { status: 502, headers: corsHeaders }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          ticker: market.ticker,
+          slug: market.slug,
+          title: market.title,
+          category: market.category,
+          country: market.country,
+          platforms: [
+            market.pm_token_id || market.pm_token ? "polymarket" : null,
+            market.k_ticker ? "kalshi" : null,
+          ].filter(Boolean),
+          volume_usd: market.total_volume || 0,
           ...metrics,
         }),
         { headers: corsHeaders }
@@ -981,6 +1047,20 @@ export default {
       );
       if (match) ticker = match.ticker;
 
+      // Build merged orderbooks with platform tags
+      const mergedBids = [
+        ...pmBids.map(b => ({ ...b, platform: "polymarket" })),
+        ...kBids.map(b => ({ ...b, platform: "kalshi" })),
+      ].sort((a, b) => b.price - a.price);
+
+      const mergedAsks = [
+        ...pmAsks.map(a => ({ ...a, platform: "polymarket" })),
+        ...kAsks.map(a => ({ ...a, platform: "kalshi" })),
+      ].sort((a, b) => a.price - b.price);
+
+      const costUp = computeCostToMoveUp5Cents(mergedAsks);
+      const costDown = computeCostToMoveDown5Cents(mergedBids);
+
       const combined = {
         ticker,
         bellwether_price: tieredPrice.price,
@@ -989,6 +1069,8 @@ export default {
         price_source: tieredPrice.source,
         robustness: {
           cost_to_move_5c: minCost,
+          cost_to_move_up_5c: costUp,
+          cost_to_move_down_5c: costDown,
           reportability,
           raw_reportability: rawReportability,
           weakest_platform: weakestPlatform,
@@ -998,10 +1080,15 @@ export default {
           trade_count: tieredPrice.trade_count,
           total_volume: tieredPrice.total_volume,
         },
-        orderbook_midpoint: computeOrderbookMidpoint(
-          [...pmBids, ...kBids].sort((a, b) => b.price - a.price),
-          [...pmAsks, ...kAsks].sort((a, b) => a.price - b.price)
-        ),
+        orderbook_midpoint: computeOrderbookMidpoint(mergedBids, mergedAsks),
+        orderbook_summary: {
+          bid_levels: mergedBids.length,
+          ask_levels: mergedAsks.length,
+          best_bid: mergedBids.length > 0 ? mergedBids[0].price : null,
+          best_ask: mergedAsks.length > 0 ? mergedAsks[0].price : null,
+          top_5_bids: mergedBids.slice(0, 5).map(b => ({ price: b.price, size: b.size, platform: b.platform })),
+          top_5_asks: mergedAsks.slice(0, 5).map(a => ({ price: a.price, size: a.size, platform: a.platform })),
+        },
         fetched_at: new Date().toISOString(),
       };
 
@@ -1138,7 +1225,7 @@ export default {
     return new Response(
       JSON.stringify({
         error: "Not found",
-        available_endpoints: ["/", "/health", "/api/metrics/:platform/:token_id", "/api/metrics/combined", "/api/metrics/event/:slug", "/api/markets/search", "/api/markets/top"]
+        available_endpoints: ["/", "/health", "/api/markets/BWR-DEM-WIN-SENATE_TX-CERTIFIED-ANY-2026", "/api/markets/search", "/api/markets/top", "/api/metrics/:platform/:token_id", "/api/metrics/combined", "/api/metrics/event/:slug"]
       }),
       { status: 404, headers: corsHeaders }
     );

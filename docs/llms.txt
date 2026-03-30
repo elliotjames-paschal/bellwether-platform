@@ -34,6 +34,34 @@ Model Context Protocol server giving AI agents direct access to live market pric
 
 ## API Endpoints
 
+### GET /api/markets/{ticker}
+Look up a market by its canonical Bellwether ticker. Returns live price, VWAP, robustness metrics, reportability, and platform availability. This is the primary way to retrieve data for a specific market.
+
+Parameters:
+- ticker (required, string): Bellwether ticker, e.g. BWR-DEM-WIN-SENATE_TX-CERTIFIED-ANY-2026
+
+Response fields:
+- ticker (string): Canonical BWR ticker.
+- slug (string): URL-friendly identifier.
+- title (string): Human-readable market title.
+- category (string): Political category, e.g. "ELECTORAL".
+- country (string): ISO country code, e.g. "us".
+- platforms (array): Platforms this market trades on, e.g. ["polymarket", "kalshi"].
+- volume_usd (float): Total trading volume in USD.
+- bellwether_price (float): Volume-weighted average price. Null if insufficient data.
+- price_tier (int): 1 = 6h VWAP with 10+ trades; 2 = 12-24h VWAP; 3 = stale or no data.
+- price_label (string): Human-readable price source.
+- price_source (string): Machine-readable: "6h_vwap", "12h_vwap", "24h_vwap", "stale_vwap", or "no_data".
+- robustness.cost_to_move_5c (int): Dollars required to shift price by 5 cents.
+- robustness.cost_to_move_up_5c (int): Cost to push price up 5 cents.
+- robustness.cost_to_move_down_5c (int): Cost to push price down 5 cents.
+- robustness.reportability (string): "reportable", "caution", or "fragile".
+- vwap_details.trade_count (int): Number of trades in the VWAP window.
+- vwap_details.total_volume (float): Total volume in the VWAP window.
+- orderbook_midpoint (float): Best bid/ask midpoint.
+- orderbook_summary (object): bid_levels, ask_levels, best_bid, best_ask, top_5_bids, top_5_asks. For cross-platform markets, entries include "platform" field.
+- fetched_at (datetime): ISO 8601 timestamp of upstream data fetch.
+
 ### GET /api/metrics/event/{slug}
 Returns live price, VWAP, robustness metrics, and reportability for a market identified by its Bellwether slug.
 
@@ -46,10 +74,13 @@ Response fields:
 - price_label (string): Human-readable price source, e.g. "6h VWAP across platforms".
 - price_source (string): Machine-readable: "6h_vwap", "12h_vwap", "24h_vwap", "stale_vwap", "no_data".
 - robustness.cost_to_move_5c (int): Dollars required to shift price by 5 cents via market order.
+- robustness.cost_to_move_up_5c (int): Cost to push price up 5 cents via merged orderbook.
+- robustness.cost_to_move_down_5c (int): Cost to push price down 5 cents via merged orderbook.
 - robustness.reportability (string): "reportable", "caution", or "fragile".
 - vwap_details.trade_count (int): Number of trades in the VWAP window.
 - vwap_details.total_volume (float): Total volume in the VWAP window.
 - orderbook_midpoint (float): Best bid/ask midpoint.
+- orderbook_summary (object): bid_levels, ask_levels, best_bid, best_ask, top_5_bids, top_5_asks. For cross-platform markets, entries include "platform" field.
 - fetched_at (datetime): ISO 8601 timestamp of upstream data fetch.
 
 ### GET /api/metrics/{platform}/{token_id}
@@ -60,9 +91,11 @@ Parameters:
 - token_id (required, string): Polymarket token ID or Kalshi market ticker
 
 Response fields: Same as /api/metrics/event/{slug}, plus:
-- orderbook_summary (object): bid_levels, ask_levels, best_bid, best_ask, top_5_bids, top_5_asks
+- orderbook_summary (object): bid_levels, ask_levels, best_bid, best_ask, top_5_bids, top_5_asks. Each entry in top_5_bids/top_5_asks has price, size.
 - robustness.cost_to_move_up_5c (int): Cost to push price up 5 cents.
 - robustness.cost_to_move_down_5c (int): Cost to push price down 5 cents.
+
+Note: orderbook_summary and directional costs (cost_to_move_up_5c, cost_to_move_down_5c) are also returned by /api/markets/{ticker}, /api/metrics/event/{slug}, and /api/metrics/combined for cross-platform markets. For cross-platform markets, top_5_bids and top_5_asks entries include a "platform" field ("polymarket" or "kalshi") indicating the source, and are interleaved by price.
 
 ### GET /api/metrics/combined
 Returns volume-weighted combined data for a matched pair across both platforms.
@@ -71,6 +104,8 @@ Parameters:
 - pm_token (string): Polymarket token ID
 - k_ticker (string): Kalshi market ticker
 - Provide at least one. Provide both for cross-platform aggregation.
+
+Response fields: Same as /api/metrics/event/{slug}, including orderbook_summary with platform-tagged entries and directional costs.
 
 ### GET /api/markets/search
 Search active political prediction markets by keyword.
