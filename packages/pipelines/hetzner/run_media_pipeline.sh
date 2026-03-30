@@ -130,11 +130,12 @@ else
     git commit -m "$COMMIT_MSG"
     log "Committed: $COMMIT_MSG"
 
+    # Push to origin (main repo, media branch)
     PUSH_SUCCESS=false
     for attempt in $(seq 1 $GIT_PUSH_MAX_RETRIES); do
-        log "Git push attempt $attempt/$GIT_PUSH_MAX_RETRIES..."
+        log "Git push attempt $attempt/$GIT_PUSH_MAX_RETRIES (origin)..."
         if git push origin "$BRANCH" 2>&1; then
-            log "Pushed to GitHub (branch: $BRANCH)"
+            log "Pushed to origin (branch: $BRANCH)"
             PUSH_SUCCESS=true
             break
         else
@@ -148,8 +149,15 @@ else
     done
 
     if [[ "$PUSH_SUCCESS" != "true" ]]; then
-        log "ERROR: git push failed after $GIT_PUSH_MAX_RETRIES attempts"
+        log "ERROR: git push to origin failed after $GIT_PUSH_MAX_RETRIES attempts"
         EXIT_CODE=1
+    fi
+
+    # Push to pages fork (triggers GitHub Pages deploy)
+    if git push pages "$BRANCH" 2>&1; then
+        log "Pushed to pages fork (GitHub Pages will auto-deploy)"
+    else
+        log "WARNING: git push to pages fork failed (non-fatal)"
     fi
 fi
 
