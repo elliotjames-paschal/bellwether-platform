@@ -7,7 +7,8 @@ PIPELINE SCRIPT: Discover Prediction Market Citations in Media
 Searches multiple sources for news articles that mention prediction markets:
   1. GDELT Context 2.0 / DOC 2.0 APIs (free, no auth)
   2. NewsAPI.org (requires NEWSAPI_KEY, free tier = 100 req/day)
-  3. Internet Archive TV News Archive (free, no auth)
+  3. The Guardian Content API (requires GUARDIAN_API_KEY, free tier = 5,000 req/day)
+  4. Internet Archive TV News Archive (free, no auth)
 
 Outputs: data/media_citations_raw.json
 State:   data/media_pipeline_state.json
@@ -45,6 +46,7 @@ OUTPUT_FILE = DATA_DIR / "media_citations_raw.json"
 GDELT_CONTEXT_URL = "https://api.gdeltproject.org/api/v2/context/context"
 GDELT_DOC_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 GDELT_TV_URL = "https://api.gdeltproject.org/api/v2/tv/tv"
+GDELT_LOWERTHIRD_URL = "https://api.gdeltproject.org/api/v2/tvlowerthird/tvlowerthird"
 
 # ─── NewsAPI.org Configuration ────────────────────────────────────────────────
 # Free tier: 100 requests/day, articles up to 30 days old
@@ -67,6 +69,20 @@ NEWSAPI_QUERIES = [
     '"betting market" AND (election OR political OR trump OR president)',
 ]
 
+# ─── The Guardian Content API Configuration ──────────────────────────────────
+# Free tier: 12 calls/sec, 5,000 calls/day
+# Register at https://open-platform.theguardian.com/access/
+GUARDIAN_API_URL = "https://content.guardianapis.com/search"
+GUARDIAN_PAGE_SIZE = 50
+
+GUARDIAN_QUERIES = [
+    "Polymarket",
+    "Kalshi",
+    '"prediction market"',
+    '"prediction markets"',
+    '"betting odds" AND (election OR political)',
+]
+
 
 def _get_newsapi_key():
     """Get NewsAPI key from environment or .env file. Returns None if not configured."""
@@ -78,6 +94,20 @@ def _get_newsapi_key():
         for line in env_file.read_text().splitlines():
             line = line.strip()
             if line.startswith("NEWSAPI_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return None
+
+
+def _get_guardian_key():
+    """Get Guardian API key from environment or .env file. Returns None if not configured."""
+    key = os.environ.get("GUARDIAN_API_KEY")
+    if key:
+        return key
+    env_file = BASE_DIR / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("GUARDIAN_API_KEY="):
                 return line.split("=", 1)[1].strip().strip('"').strip("'")
     return None
 
@@ -366,9 +396,49 @@ def search_tv_api(keyword, timespan="3months"):
                 "source_type": "tv",
                 "search_keyword": keyword,
                 "domain": station.lower(),
+                "discovery_source": "gdelt_tv",
             })
 
     return all_clips
+
+
+def search_lowerthird_api(keyword, timespan="3months"):
+    """
+    Search GDELT TV LowerThird (chyron/on-screen text) API.
+    Covers CNN, MSNBC, FOXNEWSW, BBCNEWS only.
+    No station filter needed — API covers all 4 stations.
+    Returns list of TV clip dicts.
+    """
+    start_date, end_date = tv_timespan_to_dates(timespan)
+    params = {
+        "query": keyword,
+        "mode": "clipgallery",
+        "format": "json",
+        "startdatetime": start_date,
+        "enddatetime": end_date,
+    }
+
+    data = gdelt_request(GDELT_LOWERTHIRD_URL, params)
+    if not data or "clips" not in data:
+        return []
+
+    clips = []
+    for clip in data["clips"]:
+        clips.append({
+            "url": clip.get("preview_url", clip.get("url", "")),
+            "title": clip.get("show", ""),
+            "seendate": clip.get("date", ""),
+            "station": clip.get("station", ""),
+            "show": clip.get("show", ""),
+            "snippet": clip.get("snippet", ""),
+            "preview_url": clip.get("preview_url", ""),
+            "source_type": "tv",
+            "search_keyword": keyword,
+            "domain": clip.get("station", "").lower(),
+            "discovery_source": "gdelt_lowerthird",
+        })
+
+    return clips
 
 
 # ─── NewsAPI.org Search ───────────────────────────────────────────────────────
@@ -455,6 +525,77 @@ def search_newsapi(query, from_date, to_date, api_key):
             "source_type": "article",
             "search_keyword": query,
             "discovery_source": "newsapi",
+        })
+
+    return articles
+
+
+# ─── The Guardian Content API Search ─────────────────────────────────────────
+
+def search_guardian(query, from_date, to_date, api_key):
+    """
+    Search The Guardian Content API for articles matching query.
+
+    Returns list of citation dicts in the same format as other sources.
+    Free tier: 12 calls/sec, 5,000 calls/day.  Full article body text included.
+    """
+    params = {
+        "q": query,
+        "from-date": from_date,
+        "to-date": to_date,
+        "page-size": GUARDIAN_PAGE_SIZE,
+        "show-fields": "trailText,bodyText,headline,byline",
+        "order-by": "newest",
+        "api-key": api_key,
+    }
+
+    try:
+        resp = requests.get(GUARDIAN_API_URL, params=params, timeout=30)
+        if resp.status_code == 401:
+            logger.warning("Guardian API: invalid API key")
+            return []
+        if resp.status_code == 429:
+            logger.warning("Guardian API: rate limit reached")
+            return []
+        if resp.status_code != 200:
+            logger.warning(f"Guardian API returned {resp.status_code}: {resp.text[:200]}")
+            return []
+
+        data = resp.json()
+        results = data.get("response", {}).get("results", [])
+
+    except (requests.RequestException, ValueError) as e:
+        logger.warning(f"Guardian API request failed: {e}")
+        return []
+
+    articles = []
+    for art in results:
+        url = art.get("webUrl", "")
+        if not url:
+            continue
+
+        fields = art.get("fields", {})
+        title = (art.get("webTitle") or "").strip()
+        trail_text = (fields.get("trailText") or "").strip()
+        body_text = (fields.get("bodyText") or "").strip()
+
+        # Parse publication date to GDELT-compatible seendate format
+        pub_date = art.get("webPublicationDate", "")
+        seendate = pub_date.replace("-", "").replace(":", "").replace("T", "").replace("Z", "")
+
+        articles.append({
+            "url": url,
+            "title": title,
+            "seendate": seendate,
+            "domain": "theguardian.com",
+            "language": "ENGLISH",
+            "sourcecountry": "",
+            "socialimage": "",
+            "sentence": trail_text[:500] if trail_text else "",
+            "context": body_text[:1000] if body_text else "",
+            "source_type": "article",
+            "search_keyword": query,
+            "discovery_source": "guardian",
         })
 
     return articles
@@ -778,7 +919,24 @@ def main():
     else:
         logger.info("--- NewsAPI.org: SKIPPED (no NEWSAPI_KEY configured) ---")
 
-    # 5. TV — Internet Archive TV News Archive (replaces GDELT TV, offline since Oct 2024)
+    # 5. The Guardian Content API — full article body text for free
+    guardian_key = _get_guardian_key()
+    if guardian_key:
+        logger.info("--- The Guardian Content API ---")
+        guardian_from = (run_start - timedelta(days=backfill_days)).strftime("%Y-%m-%d")
+        guardian_to = run_start.strftime("%Y-%m-%d")
+        for query in GUARDIAN_QUERIES:
+            results = search_guardian(query, guardian_from, guardian_to, guardian_key)
+            if results:
+                logger.info(f"  '{query}': {len(results)} articles")
+                all_new.extend(results)
+            else:
+                logger.info(f"  '{query}': 0 articles")
+            time.sleep(1)  # Be gentle with rate limits
+    else:
+        logger.info("--- The Guardian: SKIPPED (no GUARDIAN_API_KEY) ---")
+
+    # 6. TV — Internet Archive TV News Archive (replaces GDELT TV, offline since Oct 2024)
     logger.info("--- Internet Archive TV News (Tier 1: platform names) ---")
     for kw in TIER1_KEYWORDS:
         results = search_ia_tv(kw, days_back=backfill_days)
@@ -787,6 +945,26 @@ def main():
             all_new.extend(results)
         else:
             logger.info(f"  '{kw}': 0 TV clips")
+
+    # 7. GDELT TV API (may be offline since Oct 2024, but try anyway)
+    logger.info("--- GDELT TV API (Tier 1: platform names) ---")
+    for kw in TIER1_KEYWORDS:
+        results = search_tv_api(kw, timespan)
+        if results:
+            logger.info(f"  '{kw}': {len(results)} TV clips (GDELT)")
+            all_new.extend(results)
+        else:
+            logger.info(f"  '{kw}': 0 TV clips (GDELT)")
+
+    # 8. GDELT LowerThird / Chyron API (CNN/MSNBC/Fox/BBC only)
+    logger.info("--- GDELT LowerThird API (Tier 1: on-screen text) ---")
+    for kw in TIER1_KEYWORDS:
+        results = search_lowerthird_api(kw, timespan)
+        if results:
+            logger.info(f"  '{kw}': {len(results)} chyron clips")
+            all_new.extend(results)
+        else:
+            logger.info(f"  '{kw}': 0 chyron clips")
 
     logger.info(f"Total raw results: {len(all_new)} (API errors: {api_errors})")
 

@@ -28,6 +28,19 @@ from pipeline_media_extract_markets import (
     match_reference_to_market,
     load_bwr_ticker_map,
     resolve_bwr_ticker,
+    filter_markets_by_platform,
+    keyword_prefilter,
+    validate_probability_match,
+    generate_market_url,
+    normalize_title,
+    deduplicate_citations,
+    classify_citation_topic,
+    build_topic_clusters,
+    find_cross_platform_counterpart,
+    POLYMARKET_MARKET_URL,
+    POLYMARKET_URL,
+    KALSHI_URL,
+    FUZZY_CANDIDATE_THRESHOLD,
 )
 
 
@@ -282,7 +295,7 @@ class TestBuildMarketIndices:
             {"pm_market_slug": "fed-rate-hike", "pm_event_slug": "fed-stuff"},
             {"pm_market_slug": float("nan")},
         ]
-        slug_idx, ticker_idx = build_market_indices(markets)
+        slug_idx, ticker_idx, pm_id_idx = build_market_indices(markets)
         assert "fed-rate-hike" in slug_idx
         assert "fed-stuff" in slug_idx
         assert slug_idx["fed-rate-hike"] == 0
@@ -291,12 +304,12 @@ class TestBuildMarketIndices:
         markets = [
             {"k_ticker": "CONTROLH-2026-D", "market_id": "CONTROLH-2026-D"},
         ]
-        slug_idx, ticker_idx = build_market_indices(markets)
+        slug_idx, ticker_idx, pm_id_idx = build_market_indices(markets)
         assert "CONTROLH-2026-D" in ticker_idx
 
     def test_nan_excluded(self):
         markets = [{"pm_market_slug": "nan", "k_ticker": float("nan")}]
-        slug_idx, ticker_idx = build_market_indices(markets)
+        slug_idx, ticker_idx, pm_id_idx = build_market_indices(markets)
         assert len(slug_idx) == 0
         assert len(ticker_idx) == 0
 
@@ -491,7 +504,7 @@ class TestMatchReferenceToMarket:
         ]
         self.texts = [build_market_search_text(m) for m in self.markets]
         self.keywords = [extract_keywords(t) for t in self.texts]
-        self.slug_idx, self.ticker_idx = build_market_indices(self.markets)
+        self.slug_idx, self.ticker_idx, self.pm_id_idx = build_market_indices(self.markets)
 
     def test_url_match_takes_priority(self):
         ref = {
@@ -701,3 +714,612 @@ class TestTitleFuzzyCandidates:
         # Should find the Maduro market via title keywords
         matched_indices = {idx for idx, _ in candidates}
         assert 0 in matched_indices  # Maduro market
+
+
+# ─── Improvement 1: Polymarket /market/{ID} URL + pm_id_index ────────────────
+
+class TestPolymarketMarketUrl:
+    def test_regex_matches_market_id(self):
+        m = POLYMARKET_MARKET_URL.search("polymarket.com/market/abc-123-def")
+        assert m is not None
+        assert m.group(1) == "abc-123-def"
+
+    def test_regex_no_match_event(self):
+        m = POLYMARKET_MARKET_URL.search("polymarket.com/event/some-slug")
+        assert m is None
+
+    def test_pm_id_index_built(self):
+        markets = [
+            {"pm_market_id": "12345", "question": "Test?"},
+            {"pm_market_id": "", "question": "No ID"},
+            {"question": "No PM field"},
+        ]
+        _, _, pm_id_idx = build_market_indices(markets)
+        assert "12345" in pm_id_idx
+        assert pm_id_idx["12345"] == 0
+        assert len(pm_id_idx) == 1
+
+    def test_match_by_url_with_pm_id(self):
+        markets = [{"pm_market_id": "99887", "question": "PM market?"}]
+        _, _, pm_id_idx = build_market_indices(markets)
+        ref = {"subject_text": "See polymarket.com/market/99887 for details"}
+        result = match_by_url(ref, markets, {}, {}, pm_id_index=pm_id_idx)
+        assert result is not None
+        market, conf, score = result
+        assert market["question"] == "PM market?"
+        assert conf == "HIGH"
+
+
+# ─── Improvement 2: Platform Filtering ───────────────────────────────────────
+
+class TestFilterMarketsByPlatform:
+    def test_polymarket_filter(self):
+        markets = [
+            {"pm_market_id": "123", "question": "PM market"},
+            {"k_ticker": "K-1", "question": "Kalshi market"},
+            {"pm_market_id": "456", "question": "Another PM"},
+        ]
+        indices = filter_markets_by_platform(markets, "polymarket")
+        assert indices == [0, 2]
+
+    def test_kalshi_filter(self):
+        markets = [
+            {"pm_market_id": "123", "question": "PM market"},
+            {"k_ticker": "K-1", "question": "Kalshi market"},
+        ]
+        indices = filter_markets_by_platform(markets, "kalshi")
+        assert indices == [1]
+
+    def test_generic_returns_none(self):
+        markets = [{"pm_market_id": "123"}, {"k_ticker": "K-1"}]
+        assert filter_markets_by_platform(markets, "generic") is None
+
+
+# ─── Improvement 3: Keyword Pre-filter ───────────────────────────────────────
+
+class TestKeywordPrefilter:
+    def test_filters_by_keywords(self):
+        # All top keywords: "presidential", "election", "trump" (3 keywords >= 4 chars)
+        texts = [
+            "Will Trump win the presidential election in 2028?",
+            "Fed rate hike decision in 2025",
+            "Trump presidential election odds 2028 look strong",
+            "Bitcoin price above 100k",
+            "Trump beats Biden in presidential election polls",
+            "Trump presidential election heats up in swing states",
+        ]
+        result = keyword_prefilter("Trump presidential election", texts)
+        assert result is not None
+        # Texts 0, 2, 4, 5 all contain trump + presidential + election
+        assert 0 in result
+        assert 2 in result
+        assert 1 not in result
+        assert 3 not in result
+
+    def test_falls_back_when_few_keywords(self):
+        texts = ["test market"]
+        # Subject with only 1 keyword >= 4 chars
+        result = keyword_prefilter("go up", texts)
+        assert result is None  # Falls back
+
+    def test_falls_back_when_few_matches(self):
+        texts = ["Completely unrelated topic about cooking recipes"] * 10
+        result = keyword_prefilter("Trump presidential election 2028", texts)
+        # No markets match all keywords, should fall back
+        assert result is None
+
+    def test_respects_candidate_indices(self):
+        texts = [
+            "Trump election 2028 presidential race",
+            "Biden economy policy changes",
+            "Trump wins presidential election 2028",
+        ]
+        result = keyword_prefilter("Trump presidential election 2028", texts, candidate_indices=[0, 2])
+        assert result is not None
+        assert 1 not in result
+
+
+# ─── Improvement 4: TF-IDF Index ────────────────────────────────────────────
+
+class TestMarketSearchIndex:
+    @pytest.fixture
+    def search_index(self):
+        from pipeline_media_extract_markets import MarketSearchIndex
+        texts = [
+            "Will Trump win the 2028 presidential election?",
+            "Fed rate hike interest rates 2025",
+            "Will Bitcoin reach 100k in 2025?",
+        ]
+        return MarketSearchIndex(texts)
+
+    def test_construction(self, search_index):
+        assert search_index is not None
+        assert search_index._matrix.shape[0] == 3
+
+    def test_search_returns_results(self, search_index):
+        results = search_index.search("Trump presidential election 2028")
+        assert len(results) > 0
+        # First result should be the Trump market (index 0)
+        assert results[0][0] == 0
+
+    def test_search_with_candidate_indices(self, search_index):
+        results = search_index.search("Trump election", candidate_indices=[1, 2])
+        # Should only search within indices 1 and 2
+        for idx, _ in results:
+            assert idx in (1, 2)
+
+
+# ─── Improvement 5: Topic Clusters ──────────────────────────────────────────
+
+class TestTopicClusters:
+    def test_build_clusters(self):
+        markets = [
+            {"question": "Trump win?"},
+            {"question": "Fed rate cut?"},
+        ]
+        texts = [
+            "Will Trump win the presidential election 2028?",
+            "Will the Federal Reserve cut interest rates?",
+        ]
+        clusters = build_topic_clusters(markets, texts)
+        assert isinstance(clusters, dict)
+        # Should have at least one cluster
+        assert len(clusters) > 0
+
+    def test_classify_citation_by_title(self):
+        ref = {
+            "article_title": "Trump leads in election polls",
+            "subject_text": "some unrelated text",
+        }
+        topic = classify_citation_topic(ref)
+        assert topic == "US Politics"
+
+    def test_classify_citation_fallback_to_subject(self):
+        ref = {
+            "article_title": "",
+            "subject_text": "Federal Reserve rate cut decision upcoming",
+        }
+        topic = classify_citation_topic(ref)
+        assert topic == "Fed & Rates"
+
+
+# ─── Improvement 6: Probability Validation ──────────────────────────────────
+
+class TestValidateProbabilityMatch:
+    def test_no_prob_cited_passthrough(self):
+        ref = {"probability_cited": None, "platform_mentioned": "polymarket"}
+        market = {"pm_yes_price": 0.5}
+        m, c, s = validate_probability_match(ref, market, "HIGH", 95)
+        assert c == "HIGH"
+        assert s == 95
+
+    def test_large_gap_downgrades_high(self):
+        ref = {"probability_cited": 0.80, "platform_mentioned": "polymarket"}
+        market = {"pm_yes_price": 0.50}  # 30pp gap
+        m, c, s = validate_probability_match(ref, market, "HIGH", 95)
+        assert c == "MEDIUM"
+        assert s == 70
+
+    def test_large_gap_subtracts_for_medium(self):
+        ref = {"probability_cited": 0.80, "platform_mentioned": "kalshi"}
+        market = {"k_yes_price": 0.50}  # 30pp gap
+        m, c, s = validate_probability_match(ref, market, "MEDIUM", 60)
+        assert s == 40
+
+    def test_small_gap_no_change(self):
+        ref = {"probability_cited": 0.62, "platform_mentioned": "polymarket"}
+        market = {"pm_yes_price": 0.65}  # 3pp gap
+        m, c, s = validate_probability_match(ref, market, "HIGH", 95)
+        assert c == "HIGH"
+        assert s == 95
+
+
+# ─── Improvement 7: Market URL Generation ───────────────────────────────────
+
+class TestGenerateMarketUrl:
+    def test_polymarket_slug(self):
+        market = {"pm_event_slug": "fed-rate-hike", "pm_market_id": "123"}
+        url = generate_market_url(market)
+        assert url == "https://polymarket.com/event/fed-rate-hike"
+
+    def test_polymarket_market_id_fallback(self):
+        market = {"pm_market_id": "99887", "pm_event_slug": "nan"}
+        url = generate_market_url(market)
+        assert url == "https://polymarket.com/market/99887"
+
+    def test_kalshi_ticker(self):
+        market = {"k_ticker": "CONTROLH-2026-D"}
+        url = generate_market_url(market)
+        assert url == "https://kalshi.com/markets/CONTROLH-2026-D"
+
+    def test_empty_market(self):
+        assert generate_market_url({}) == ""
+        assert generate_market_url(None) == ""
+
+
+# ─── Improvement 8: Cross-Platform Matching ─────────────────────────────────
+
+class TestCrossPlatformMatching:
+    def test_find_counterpart_kalshi_to_pm(self):
+        markets = [
+            {"k_ticker": "K-1", "question": "Kalshi market?"},
+            {"pm_market_id": "PM-1", "question": "PM market?", "pm_event_slug": "pm-event"},
+        ]
+        lookup = {"K-1": "PM-1", "PM-1": "K-1"}
+        ticker_index = {"K-1": 0}
+        slug_index = {}
+        result = find_cross_platform_counterpart(
+            markets[0], "polymarket", lookup, markets, ticker_index, slug_index
+        )
+        assert result is not None
+        assert result["platform"] == "polymarket"
+        assert result["market_id"] == "PM-1"
+
+    def test_find_counterpart_pm_to_kalshi(self):
+        markets = [
+            {"k_ticker": "K-1", "question": "Kalshi market?"},
+            {"pm_market_id": "PM-1", "question": "PM market?"},
+        ]
+        lookup = {"K-1": "PM-1", "PM-1": "K-1"}
+        ticker_index = {"K-1": 0}
+        slug_index = {}
+        result = find_cross_platform_counterpart(
+            markets[1], "kalshi", lookup, markets, ticker_index, slug_index
+        )
+        assert result is not None
+        assert result["platform"] == "kalshi"
+
+    def test_no_counterpart(self):
+        markets = [{"k_ticker": "K-1", "question": "Test?"}]
+        result = find_cross_platform_counterpart(
+            markets[0], "polymarket", {}, markets, {}, {}
+        )
+        assert result is None
+
+    def test_empty_lookup(self):
+        result = find_cross_platform_counterpart(
+            {"k_ticker": "K-1"}, "polymarket", {}, [], {}, {}
+        )
+        assert result is None
+
+
+# ─── Improvement 9: Syndicated Article Deduplication ────────────────────────
+
+class TestNormalizeTitle:
+    def test_basic_normalization(self):
+        assert normalize_title("Trump's Bold Move!") == "trumps bold move"
+
+    def test_unicode_normalization(self):
+        # Full-width characters or accents
+        result = normalize_title("Café Economics")
+        assert "cafe" in result
+
+    def test_empty(self):
+        assert normalize_title("") == ""
+        assert normalize_title(None) == ""
+
+    def test_whitespace_collapse(self):
+        assert normalize_title("  Hello   World  ") == "hello world"
+
+
+class TestDeduplicateCitations:
+    def test_groups_by_title(self):
+        citations = [
+            {"title": "Breaking: Trump wins big", "domain": "reuters.com"},
+            {"title": "Breaking: Trump wins big", "domain": "townhall.com"},
+            {"title": "Unrelated article", "domain": "cnn.com"},
+        ]
+        result, syn_map = deduplicate_citations(citations)
+        assert 1 in syn_map
+        assert syn_map[1] == 0  # townhall syndicated from reuters
+        assert result[1].get("syndicated_from") == "reuters.com"
+
+    def test_authority_picks_highest(self):
+        citations = [
+            {"title": "Big news about prediction markets today", "domain": "townhall.com"},
+            {"title": "Big news about prediction markets today", "domain": "reuters.com"},
+        ]
+        result, syn_map = deduplicate_citations(citations)
+        # reuters (authority 5) should be primary, townhall (authority 2) should be syndicated
+        assert 0 in syn_map
+        assert syn_map[0] == 1
+
+    def test_short_titles_not_grouped(self):
+        citations = [
+            {"title": "Short", "domain": "reuters.com"},
+            {"title": "Short", "domain": "cnn.com"},
+        ]
+        result, syn_map = deduplicate_citations(citations)
+        assert len(syn_map) == 0  # Too short to group
+
+    def test_unique_titles_no_dedup(self):
+        citations = [
+            {"title": "Article one about markets and politics today", "domain": "reuters.com"},
+            {"title": "Article two about different things entirely", "domain": "cnn.com"},
+        ]
+        result, syn_map = deduplicate_citations(citations)
+        assert len(syn_map) == 0
+
+
+# ─── URL Extraction from Full Text ──────────────────────────────────────────
+
+class TestURLExtraction:
+    """Tests for step 0: direct URL extraction from full citation text."""
+
+    def test_url_extraction_from_context(self):
+        """URL in context field (not near platform mention) is extracted."""
+        citation = {
+            "sentence": "Prediction markets are booming this year",
+            "context": "For more details see polymarket.com/event/trump-2028-election results",
+        }
+        refs = extract_market_references(citation)
+        url_refs = [r for r in refs if r.get("match_method") == "url_extraction"]
+        assert len(url_refs) >= 1
+        assert url_refs[0]["platform_mentioned"] == "polymarket"
+        assert "trump-2028-election" in url_refs[0]["raw_text"]
+
+    def test_url_extraction_dedup(self):
+        """Same URL appearing in sentence + context doesn't produce duplicate refs."""
+        url = "polymarket.com/event/fed-rate-hike"
+        citation = {
+            "sentence": f"Check {url} for odds",
+            "context": f"As shown on {url} the market moved",
+        }
+        refs = extract_market_references(citation)
+        url_refs = [r for r in refs if r.get("match_method") == "url_extraction"]
+        # Should only have 1 URL ref despite URL appearing twice in search_text
+        assert len(url_refs) == 1
+
+    def test_url_extraction_priority(self):
+        """URL ref appears before probability-based refs in the list."""
+        citation = {
+            "sentence": "Polymarket gives 62% odds on this event",
+            "context": "See polymarket.com/event/some-market for details",
+        }
+        refs = extract_market_references(citation)
+        # First ref should be URL extraction
+        assert len(refs) >= 2
+        assert refs[0].get("match_method") == "url_extraction"
+
+    def test_url_extraction_multiple_urls(self):
+        """Article with 2 different platform URLs produces 2 URL refs."""
+        citation = {
+            "sentence": "Compare platforms",
+            "context": (
+                "polymarket.com/event/trump-win gives 55% while "
+                "kalshi.com/markets/CONTROLH-2026-D shows 52%"
+            ),
+        }
+        refs = extract_market_references(citation)
+        url_refs = [r for r in refs if r.get("match_method") == "url_extraction"]
+        assert len(url_refs) == 2
+        platforms = {r["platform_mentioned"] for r in url_refs}
+        assert platforms == {"polymarket", "kalshi"}
+
+    def test_url_extraction_coexists_with_probability(self):
+        """URL ref + probability ref for same citation both extracted."""
+        citation = {
+            "sentence": "Polymarket shows 73% chance of a Trump win",
+            "context": "Full details at polymarket.com/event/trump-2028",
+        }
+        refs = extract_market_references(citation)
+        url_refs = [r for r in refs if r.get("match_method") == "url_extraction"]
+        prob_refs = [r for r in refs if r.get("match_method") != "url_extraction" and r["probability_cited"] is not None]
+        assert len(url_refs) >= 1
+        assert len(prob_refs) >= 1
+        assert prob_refs[0]["probability_cited"] == 0.73
+
+    def test_url_extraction_kalshi(self):
+        """Kalshi URL is correctly extracted."""
+        citation = {
+            "sentence": "Traders are watching kalshi.com/markets/KXFEDRATE-25 closely",
+        }
+        refs = extract_market_references(citation)
+        url_refs = [r for r in refs if r.get("match_method") == "url_extraction"]
+        assert len(url_refs) == 1
+        assert url_refs[0]["platform_mentioned"] == "kalshi"
+        assert "KXFEDRATE-25" in url_refs[0]["raw_text"]
+
+    def test_url_extraction_polymarket_market_url(self):
+        """polymarket.com/market/{id} format is extracted."""
+        citation = {
+            "sentence": "See polymarket.com/market/abc-123-def for this contract",
+        }
+        refs = extract_market_references(citation)
+        url_refs = [r for r in refs if r.get("match_method") == "url_extraction"]
+        assert len(url_refs) >= 1
+        assert "abc-123-def" in url_refs[0]["raw_text"]
+
+    def test_url_extraction_subject_text_contains_url(self):
+        """subject_text of URL ref must contain the URL (for match_by_url to work)."""
+        citation = {
+            "sentence": "Markets are active",
+            "context": "Visit polymarket.com/event/some-slug for the latest",
+        }
+        refs = extract_market_references(citation)
+        url_refs = [r for r in refs if r.get("match_method") == "url_extraction"]
+        assert len(url_refs) == 1
+        assert "polymarket.com/event/some-slug" in url_refs[0]["subject_text"]
+
+    def test_url_extraction_match_pipeline(self):
+        """URL extraction ref feeds into match_by_url for score=100 match."""
+        markets = [
+            {"pm_market_slug": "trump-2028", "question": "Will Trump win 2028?"},
+        ]
+        slug_idx, ticker_idx, pm_id_idx = build_market_indices(markets)
+        citation = {
+            "sentence": "Markets are buzzing",
+            "context": "See polymarket.com/event/trump-2028 for details",
+        }
+        refs = extract_market_references(citation)
+        url_refs = [r for r in refs if r.get("match_method") == "url_extraction"]
+        assert len(url_refs) >= 1
+        result = match_by_url(url_refs[0], markets, slug_idx, ticker_idx, pm_id_idx)
+        assert result is not None
+        market, conf, score = result
+        assert market["question"] == "Will Trump win 2028?"
+        assert conf == "HIGH"
+        assert score == 100
+
+
+# ─── Match Threshold Sensitivity Analysis ───────────────────────────────────
+
+class TestThresholdSensitivity:
+    """Diagnostic tests evaluating fuzzy match quality at different thresholds.
+
+    These tests measure how threshold changes affect candidate selection.
+    The threshold (FUZZY_CANDIDATE_THRESHOLD) controls which candidates are
+    shortlisted for LLM selection — lower threshold = more candidates.
+    """
+
+    def setup_method(self):
+        self.markets = [
+            {"question": "Will Democrats win the House in 2026?", "platform": "Kalshi",
+             "k_ticker": "CONTROLH-2026-D"},
+            {"question": "Will there be a federal government shutdown in 2026?", "platform": "Kalshi",
+             "k_ticker": "KXGOVSHUT-26"},
+            {"question": "Will Trump win the 2028 presidential election?", "platform": "Polymarket",
+             "pm_market_slug": "trump-2028"},
+            {"question": "Will the Fed cut interest rates in January 2026?", "platform": "Kalshi",
+             "k_ticker": "KXFEDRATE-26JAN"},
+            {"question": "Will Bitcoin reach $100k in 2025?", "platform": "Polymarket",
+             "pm_market_slug": "bitcoin-100k-2025"},
+            {"question": "Will Ukraine and Russia reach a ceasefire by 2026?", "platform": "Polymarket",
+             "pm_market_slug": "ukraine-russia-ceasefire"},
+        ]
+        self.texts = [build_market_search_text(m) for m in self.markets]
+        self.keywords = [extract_keywords(t) for t in self.texts]
+
+    def _get_candidates_at_threshold(self, ref, threshold):
+        """Get fuzzy candidates using a specific threshold."""
+        import pipeline_media_extract_markets as mod
+        original = mod.FUZZY_CANDIDATE_THRESHOLD
+        try:
+            mod.FUZZY_CANDIDATE_THRESHOLD = threshold
+            return get_fuzzy_candidates(ref, self.markets, self.texts, self.keywords)
+        finally:
+            mod.FUZZY_CANDIDATE_THRESHOLD = original
+
+    def test_threshold_40_vs_65_candidate_count(self):
+        """Measure how many more candidates threshold=40 produces vs threshold=65."""
+        ref = {
+            "subject_text": "Democrats expected to win midterm House race according to traders",
+            "platform_mentioned": "kalshi",
+            "probability_cited": 0.81,
+        }
+        cands_40 = self._get_candidates_at_threshold(ref, 40)
+        cands_65 = self._get_candidates_at_threshold(ref, 65)
+
+        print(f"\n  Threshold 40: {len(cands_40)} candidates")
+        for idx, score in cands_40:
+            print(f"    [{idx}] score={score:.0f} — {self.markets[idx]['question']}")
+        print(f"  Threshold 65: {len(cands_65)} candidates")
+        for idx, score in cands_65:
+            print(f"    [{idx}] score={score:.0f} — {self.markets[idx]['question']}")
+        print(f"  Extra candidates at 40: {len(cands_40) - len(cands_65)}")
+
+        # At minimum, threshold=40 should have >= as many candidates as 65
+        assert len(cands_40) >= len(cands_65)
+
+    def test_low_threshold_false_positive_examples(self):
+        """Cases where low threshold matches wrong market, high threshold correctly rejects."""
+        ref = {
+            "subject_text": "The federal budget debate will reach a conclusion soon",
+            "platform_mentioned": "generic",
+            "probability_cited": 0.40,
+        }
+        cands_40 = self._get_candidates_at_threshold(ref, 40)
+        cands_65 = self._get_candidates_at_threshold(ref, 65)
+
+        print(f"\n  'federal budget debate' — expecting no good match:")
+        print(f"  Threshold 40: {len(cands_40)} candidates")
+        for idx, score in cands_40:
+            print(f"    [{idx}] score={score:.0f} — {self.markets[idx]['question']}")
+        print(f"  Threshold 65: {len(cands_65)} candidates (should be fewer/zero)")
+
+        # Higher threshold should produce fewer noisy candidates
+        assert len(cands_65) <= len(cands_40)
+
+    def test_high_threshold_miss_examples(self):
+        """Cases where correct match has moderate fuzzy score (45-60) — missed at threshold=65."""
+        ref = {
+            "subject_text": "Ceasefire talks between Kyiv and Moscow stall again",
+            "platform_mentioned": "polymarket",
+            "probability_cited": 0.15,
+        }
+        cands_40 = self._get_candidates_at_threshold(ref, 40)
+        cands_65 = self._get_candidates_at_threshold(ref, 65)
+
+        print(f"\n  'Kyiv/Moscow ceasefire' — correct market is Ukraine/Russia ceasefire:")
+        print(f"  Threshold 40: {len(cands_40)} candidates")
+        for idx, score in cands_40:
+            print(f"    [{idx}] score={score:.0f} — {self.markets[idx]['question']}")
+        print(f"  Threshold 65: {len(cands_65)} candidates")
+        for idx, score in cands_65:
+            print(f"    [{idx}] score={score:.0f} — {self.markets[idx]['question']}")
+
+        # The ceasefire market (idx=5) should appear at threshold 40
+        cand_indices_40 = {idx for idx, _ in cands_40}
+        if 5 in cand_indices_40:
+            print("  [OK] Ceasefire market found at threshold 40")
+        else:
+            print("  [MISS] Ceasefire market NOT found at threshold 40")
+
+    def test_top_candidate_stability(self):
+        """When threshold changes, does the #1 candidate stay the same?
+
+        If yes, threshold mainly affects noise level, not match quality,
+        because the LLM picks from the candidate list.
+        """
+        test_cases = [
+            {
+                "subject_text": "Trump leads in 2028 election prediction markets",
+                "platform_mentioned": "polymarket",
+                "probability_cited": 0.55,
+                "label": "Trump 2028 election",
+            },
+            {
+                "subject_text": "Fed expected to cut rates at next meeting",
+                "platform_mentioned": "kalshi",
+                "probability_cited": 0.70,
+                "label": "Fed rate cut",
+            },
+            {
+                "subject_text": "Government shutdown looms as budget talks stall",
+                "platform_mentioned": "kalshi",
+                "probability_cited": 0.35,
+                "label": "Government shutdown",
+            },
+        ]
+
+        stable_count = 0
+        for case in test_cases:
+            label = case.pop("label")
+            ref = case
+            cands_30 = self._get_candidates_at_threshold(ref, 30)
+            cands_40 = self._get_candidates_at_threshold(ref, 40)
+            cands_50 = self._get_candidates_at_threshold(ref, 50)
+            cands_65 = self._get_candidates_at_threshold(ref, 65)
+
+            top = {}
+            for name, cands in [("30", cands_30), ("40", cands_40), ("50", cands_50), ("65", cands_65)]:
+                if cands:
+                    top[name] = cands[0][0]
+                else:
+                    top[name] = None
+
+            all_same = len(set(v for v in top.values() if v is not None)) <= 1
+            if all_same:
+                stable_count += 1
+
+            print(f"\n  '{label}' — top candidate at each threshold:")
+            for name, cands in [("30", cands_30), ("40", cands_40), ("50", cands_50), ("65", cands_65)]:
+                if cands:
+                    idx, score = cands[0]
+                    print(f"    threshold={name}: [{idx}] score={score:.0f} — {self.markets[idx]['question']} ({len(cands)} total)")
+                else:
+                    print(f"    threshold={name}: no candidates")
+            print(f"    Stable: {'YES' if all_same else 'NO'}")
+
+        print(f"\n  Top-1 stability: {stable_count}/{len(test_cases)} cases stable across thresholds")
+        # This is diagnostic — we just want to observe stability

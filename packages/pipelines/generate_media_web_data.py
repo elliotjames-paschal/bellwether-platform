@@ -524,6 +524,7 @@ def prepare_web_citations(citations, limit=MAX_CITATIONS_WEB):
             "pm_token_id": _safe_str(matched.get("pm_token_id")),
             "pm_market_id": _safe_str(matched.get("pm_market_id")),
             "pm_slug": _safe_str(matched.get("pm_market_slug")),
+            "market_url": _safe_str(matched.get("market_url")),
             "price_at_citation": matched.get("price_at_citation"),
             "fragility_score": frag.get("fragility_score"),
             "price_tier": frag.get("price_tier"),

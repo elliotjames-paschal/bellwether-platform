@@ -532,7 +532,9 @@
 
   function buildPlatformUrl(c) {
     if (!c) return '';
-    // Build URL for whichever platform we have identifiers for
+    // Prefer pre-computed market_url from pipeline
+    if (c.market_url) return c.market_url;
+    // Fallback: build URL from identifiers
     if (c.pm_slug) return 'https://polymarket.com/event/' + encodeURIComponent(c.pm_slug);
     if (c.pm_market_id) return 'https://polymarket.com/market/' + encodeURIComponent(c.pm_market_id);
     if (c.k_ticker) return 'https://kalshi.com/markets/' + encodeURIComponent(c.k_ticker);
