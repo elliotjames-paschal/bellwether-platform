@@ -93,7 +93,10 @@ def load_master_csv():
 
     df = pd.read_csv(MASTER_CSV, low_memory=False)
     # Filter to active markets only
-    active = df[df['is_closed'] != True].copy()
+    # Kalshi: use k_status since is_closed is stale (all True due to historical bug)
+    pm_active = df[(df['platform'] == 'Polymarket') & (df['is_closed'] != True)]
+    k_active = df[(df['platform'] == 'Kalshi') & (df['k_status'].isin(['active', 'open']))]
+    active = pd.concat([pm_active, k_active]).copy()
     # Exclude non-political and non-standard categories
     VALID_CATEGORIES = {
         '1. ELECTORAL', '2. MONETARY_POLICY', '3. LEGISLATIVE', '4. APPOINTMENTS',
