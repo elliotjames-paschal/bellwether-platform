@@ -12,9 +12,7 @@
     let allMarkets = [];
     let filteredMarkets = [];
     let reportableMarkets = [];  // Robust + caution markets from reportable_markets.json
-    const validViews = ['biggest_moves', 'highest_volume', 'cross-platform', 'reportable'];
-    const hashView = location.hash.slice(1);
-    let currentView = validViews.includes(hashView) ? hashView : 'biggest_moves';
+    let currentView = 'reportable';
     let displayCount = 8;
     const CARDS_PER_PAGE = 8;
 
