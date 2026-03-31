@@ -1159,6 +1159,7 @@
         document.querySelectorAll('.market-card.clickable').forEach(card => {
             card.addEventListener('click', (e) => {
                 if (e.target.tagName === 'A') return;
+                if (e.target.closest('.ticker-copy-btn')) return;
                 const key = card.dataset.marketKey;
                 if (key) openModal(key);
             });
@@ -2351,8 +2352,11 @@
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('.ticker-copy-btn');
         if (!btn) return;
+        e.preventDefault();
         e.stopPropagation();
         navigator.clipboard.writeText(btn.dataset.ticker).then(() => {
+            btn.classList.add('copied');
+            setTimeout(() => btn.classList.remove('copied'), 1500);
             showToast('Ticker copied!');
         });
     });
