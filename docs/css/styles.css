@@ -2503,16 +2503,23 @@ a.price-box.clickable:hover {
     border: none;
     color: #666;
     cursor: pointer;
-    padding: 1px 2px;
+    padding: 4px 5px;
+    margin: -3px -3px -3px 0;
     line-height: 1;
+    border-radius: 3px;
     opacity: 0;
-    transition: opacity 0.15s;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
 }
-.card-ticker:hover .ticker-copy-btn {
+.market-card:hover .ticker-copy-btn {
     opacity: 1;
 }
 .ticker-copy-btn:hover {
     color: #fff;
+    background: rgba(255,255,255,0.1);
+}
+.ticker-copy-btn.copied {
+    color: #4ade80;
+    opacity: 1;
 }
 
 .card-market-img {
