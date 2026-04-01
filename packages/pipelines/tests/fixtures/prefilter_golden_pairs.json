@@ -1,0 +1,75 @@
+[
+    {
+        "description": "Identical election markets across platforms",
+        "kalshi_question": "Will Trump win the 2028 Presidential Election?",
+        "poly_question": "Trump to win 2028 US Presidential Election",
+        "kalshi_rules": "Resolves Yes if Trump wins the certified Electoral College vote.",
+        "poly_rules": "Resolves Yes if Trump wins the 2028 US Presidential Election.",
+        "expected_relation": "equivalent",
+        "min_confidence": 0.7
+    },
+    {
+        "description": "Same CPI event but different thresholds — heuristic sees numeric subset",
+        "kalshi_question": "Will CPI be above 3.0% in March 2026?",
+        "poly_question": "Will CPI be above 3.5% in March 2026?",
+        "kalshi_rules": "Resolves based on BLS CPI-U data for March 2026.",
+        "poly_rules": "Resolves based on BLS CPI data release.",
+        "expected_relation": "subset",
+        "notes": "3.0 < 3.5 so heuristic correctly sees a_subset_b or b_subset_a"
+    },
+    {
+        "description": "Core vs headline CPI (rule mismatch)",
+        "kalshi_question": "What will core CPI be for April 2026?",
+        "poly_question": "What will headline CPI be for April 2026?",
+        "kalshi_rules": "Resolves based on BLS core CPI-U data.",
+        "poly_rules": "Resolves based on BLS headline CPI data.",
+        "expected_relation": "aligned_rule_mismatch",
+        "notes": "Core vs headline is a known keyword mismatch"
+    },
+    {
+        "description": "Same Senate race, identical",
+        "kalshi_question": "Will the Republican win the Ohio Senate race in 2026?",
+        "poly_question": "Republican to win 2026 Ohio Senate election",
+        "kalshi_rules": "Resolves based on certified election results.",
+        "poly_rules": "Resolves based on official election results.",
+        "expected_relation": "equivalent",
+        "min_confidence": 0.7
+    },
+    {
+        "description": "Different states, same office type",
+        "kalshi_question": "Will the Democrat win the Ohio Senate race in 2026?",
+        "poly_question": "Will the Democrat win the Michigan Senate race in 2026?",
+        "kalshi_rules": "Resolves based on Ohio certified results.",
+        "poly_rules": "Resolves based on Michigan certified results.",
+        "expected_relation": "independent",
+        "notes": "Ohio vs Michigan are disjoint regions"
+    },
+    {
+        "description": "YoY vs QoQ GDP (rule mismatch)",
+        "kalshi_question": "Will GDP growth exceed 2% YoY in Q2 2026?",
+        "poly_question": "Will GDP growth exceed 2% QoQ in Q2 2026?",
+        "kalshi_rules": "Resolves based on BLS year-over-year GDP growth.",
+        "poly_rules": "Resolves based on BLS quarter-over-quarter GDP growth.",
+        "expected_relation": "aligned_rule_mismatch",
+        "notes": "YoY vs QoQ is a known keyword mismatch"
+    },
+    {
+        "description": "Completely different topics",
+        "kalshi_question": "Will CPI exceed 4% in 2026?",
+        "poly_question": "Will Lakers win NBA finals 2026?",
+        "kalshi_rules": "Resolves based on BLS CPI data.",
+        "poly_rules": "Resolves based on NBA finals results.",
+        "expected_relation": "independent",
+        "notes": "Zero entity overlap"
+    },
+    {
+        "description": "Identical FOMC rate decision",
+        "kalshi_question": "Will the Fed cut rates at the June 2026 FOMC meeting?",
+        "poly_question": "Will the Fed cut rates at the June 2026 FOMC meeting?",
+        "kalshi_rules": "Resolves based on FOMC announcement after June 2026 meeting.",
+        "poly_rules": "Resolves based on FOMC announcement after June 2026 meeting.",
+        "expected_relation": "equivalent",
+        "min_confidence": 0.7,
+        "notes": "Identical questions and rules"
+    }
+]

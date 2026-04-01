@@ -27,6 +27,12 @@ try:
 except ImportError:
     HAS_OPENAI = False
 
+try:
+    from semantic_match import build_profile_from_market, verify_pair
+    HAS_SEMANTIC_MATCH = True
+except ImportError:
+    HAS_SEMANTIC_MATCH = False
+
 # --- Paths ---
 CANDIDATES_FILE = DATA_DIR / "cross_platform_candidates.json"
 ENRICHED_FILE = DATA_DIR / "enriched_political_markets.json.gz"
@@ -151,6 +157,44 @@ Resolution Rules: {p_rules[:1500]}
 Do these markets resolve under the same conditions?"""
 
 
+def heuristic_prefilter(pair, resolution_lookup):
+    """Run heuristic pair verification. Returns (verdict, confidence, evidence) or None if uncertain."""
+    if not HAS_SEMANTIC_MATCH:
+        return None
+
+    k_mid = pair["kalshi_market_id"]
+    p_mid = pair["poly_market_id"]
+    k_rules = resolution_lookup.get(k_mid, "")
+    p_rules = resolution_lookup.get(p_mid, "")
+
+    profile_a = build_profile_from_market(
+        question=pair["kalshi_question"],
+        rules=k_rules,
+        ticker=pair.get("kalshi_ticker", ""),
+        market_id=k_mid,
+    )
+    profile_b = build_profile_from_market(
+        question=pair["poly_question"],
+        rules=p_rules,
+        ticker=pair.get("poly_ticker", ""),
+        market_id=p_mid,
+    )
+
+    result = verify_pair(profile_a, profile_b, use_llm=False)
+
+    # Map event-standardization relations to bellwether verdicts (conservative thresholds)
+    if result.relation == "equivalent" and result.confidence >= 0.85:
+        return "IDENTICAL", result.confidence, result.evidence
+    elif result.relation == "independent" and result.confidence >= 0.85:
+        return "DIFFERENT", result.confidence, result.evidence
+    elif result.relation == "mutually_exclusive" and result.confidence >= 0.85:
+        return "DIFFERENT", result.confidence, result.evidence
+    elif result.relation == "aligned_rule_mismatch" and result.confidence >= 0.80:
+        return "OVERLAPPING", result.confidence, result.evidence
+
+    return None  # Uncertain -- send to GPT
+
+
 async def compare_pair_async(client, pair, resolution_lookup, semaphore, model=GPT_MODEL):
     """Call GPT-4o to compare one pair's resolution criteria."""
     async with semaphore:
@@ -245,10 +289,14 @@ def main():
     parser.add_argument("--max-pairs", type=int, default=MAX_PAIRS_PER_RUN,
                         help=f"Maximum pairs to compare per run (default: {MAX_PAIRS_PER_RUN})")
     parser.add_argument("--model", default=GPT_MODEL, help=f"GPT model (default: {GPT_MODEL})")
+    parser.add_argument("--no-prefilter", action="store_true",
+                        help="Skip heuristic pre-filter, send all pairs to GPT")
+    parser.add_argument("--prefilter-only", action="store_true",
+                        help="Run heuristic pre-filter only, skip GPT (for testing)")
     args = parser.parse_args()
 
-    if not HAS_OPENAI:
-        print("WARNING: openai package not installed.")
+    if not HAS_OPENAI and not args.prefilter_only:
+        print("WARNING: openai package not installed and not in --prefilter-only mode.")
         sys.exit(0)
 
     if not CANDIDATES_FILE.exists():
@@ -288,14 +336,61 @@ def main():
         print(f"  Capping at {args.max_pairs} pairs (of {len(to_compare)} remaining)")
         to_compare = to_compare[:args.max_pairs]
 
-    print(f"  Comparing {len(to_compare)} pairs with {args.model}...")
-
     # Load resolution text
     resolution_lookup = load_resolution_lookup()
     print(f"  Resolution text available for {len(resolution_lookup)} markets")
 
-    # Run async comparisons
-    new_verdicts = asyncio.run(compare_all_pairs(to_compare, resolution_lookup, model=args.model))
+    # --- Heuristic pre-filter ---
+    new_verdicts = []
+    use_prefilter = HAS_SEMANTIC_MATCH and not args.no_prefilter
+
+    if use_prefilter:
+        gpt_needed = []
+        prefilter_count = 0
+        for pair in to_compare:
+            result = heuristic_prefilter(pair, resolution_lookup)
+            if result is not None:
+                verdict, confidence, evidence = result
+                new_verdicts.append({
+                    "pair_key": pair["pair_key"],
+                    "kalshi_market_id": pair["kalshi_market_id"],
+                    "poly_market_id": pair["poly_market_id"],
+                    "kalshi_ticker": pair["kalshi_ticker"],
+                    "poly_ticker": pair["poly_ticker"],
+                    "kalshi_question": pair["kalshi_question"],
+                    "poly_question": pair["poly_question"],
+                    "cosine_similarity": pair["cosine_similarity"],
+                    "diffs": pair.get("diffs", []),
+                    "verdict": verdict,
+                    "explanation": f"Heuristic pre-filter (confidence={confidence:.2f})",
+                    "heuristic_confidence": confidence,
+                    "reviewed_at": datetime.now().isoformat(),
+                    "method": "heuristic",
+                })
+                prefilter_count += 1
+            else:
+                gpt_needed.append(pair)
+
+        print(f"  Pre-filtered: {prefilter_count} pairs heuristically")
+        to_compare = gpt_needed
+    else:
+        if not HAS_SEMANTIC_MATCH:
+            print("  semantic_match not available, skipping pre-filter")
+
+    if args.prefilter_only:
+        print(f"  --prefilter-only mode: skipping GPT for remaining {len(to_compare)} pairs")
+        to_compare = []
+
+    # --- GPT comparison for remaining pairs ---
+    if to_compare:
+        if not HAS_OPENAI:
+            print("WARNING: openai package not installed, cannot compare remaining pairs.")
+        else:
+            print(f"  Comparing {len(to_compare)} pairs with {args.model}...")
+            gpt_verdicts = asyncio.run(compare_all_pairs(to_compare, resolution_lookup, model=args.model))
+            for v in gpt_verdicts:
+                v["method"] = "gpt"
+            new_verdicts.extend(gpt_verdicts)
 
     # Merge with existing verdicts
     all_verdicts = dict(existing_verdicts)
@@ -308,9 +403,19 @@ def main():
         vtype = v.get("verdict", "UNKNOWN")
         verdict_counts[vtype] = verdict_counts.get(vtype, 0) + 1
 
+    # Count by method
+    method_counts = {}
+    for v in all_verdicts.values():
+        method = v.get("method", "unknown")
+        method_counts[method] = method_counts.get(method, 0) + 1
+
     print(f"\n  Verdict summary:")
     for vtype, count in sorted(verdict_counts.items()):
         print(f"    {vtype}: {count}")
+    if method_counts:
+        print(f"  Method breakdown:")
+        for method, count in sorted(method_counts.items()):
+            print(f"    {method}: {count}")
 
     # Save
     output = {
