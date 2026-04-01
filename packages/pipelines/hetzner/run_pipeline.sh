@@ -120,7 +120,7 @@ fi
 check_previous_oom() {
     # Check dmesg for OOM kills of python3 in the last 48 hours
     local oom_lines
-    oom_lines=$(dmesg --time-format iso 2>/dev/null | grep -i "oom.*python3\|killed process.*python3" | tail -5)
+    oom_lines=$(dmesg --time-format iso 2>/dev/null | grep -i "oom.*python3\|killed process.*python3" | tail -5 || true)
     if [[ -n "$oom_lines" ]]; then
         log "WARNING: OOM kill detected from previous run:"
         log "$oom_lines"
