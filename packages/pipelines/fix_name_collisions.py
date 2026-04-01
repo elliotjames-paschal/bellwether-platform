@@ -210,7 +210,7 @@ async def process_batch_async(
     async with semaphore:
         try:
             response = await client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": TICKER_PROMPT},
                     {"role": "user", "content": user_prompt}

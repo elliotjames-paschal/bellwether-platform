@@ -1619,7 +1619,7 @@ def main():
     parser.add_argument(
         "--model", "-m",
         type=str,
-        default="gpt-4o",
+        default="gpt-4o-mini",
         help="OpenAI model for ticker classification"
     )
     parser.add_argument(

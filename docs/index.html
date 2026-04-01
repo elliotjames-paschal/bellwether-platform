@@ -1,11 +1,453 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4JTSRBJBY5"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-4JTSRBJBY5');
+</script>
 <meta charset="UTF-8">
-<meta http-equiv="refresh" content="0;url=monitor.html">
-<title>Bellwether — Redirecting</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bellwether — Prediction Market Infrastructure</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css?v=20260310a">
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<style>
+  :root {
+    --bw-blue: #4A90D9;
+    --bw-dark: #1A1A1A;
+    --bw-text: #2C2C2C;
+    --bw-text-secondary: #6B6B6B;
+    --bw-border: #E8E8E8;
+    --bw-bg: #FAFAFA;
+    --bw-white: #FFFFFF;
+    --bw-green: #3A8A5C;
+    --bw-blue-muted: #A8C8E8;
+    --font-serif: 'Source Serif 4', Georgia, serif;
+    --font-sans: 'DM Sans', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  /* V2 font overrides */
+  body { font-family: var(--font-sans) !important; background: var(--bw-bg); }
+
+  /* V2 Nav overrides — hide old nav styles, use V2 */
+  .nav { display: none !important; }
+  .v2-nav {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--bw-border);
+    transition: box-shadow 0.3s;
+  }
+  .v2-nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
+  .v2-nav-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 32px;
+    height: 60px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .v2-nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-serif); font-weight: 600; font-size: 18px;
+    color: var(--bw-dark); text-decoration: none;
+  }
+  .v2-nav-logo .dot { width: 10px; height: 10px; background: var(--bw-blue); border-radius: 50%; }
+  .v2-nav-links { display: flex; align-items: center; gap: 32px; }
+  .v2-nav-links a {
+    font-size: 14px; color: var(--bw-text-secondary); text-decoration: none;
+    font-weight: 400; transition: color 0.2s;
+  }
+  .v2-nav-links a:hover { color: var(--bw-dark); }
+  .v2-nav-links a.active { color: var(--bw-dark); font-weight: 500; }
+  .v2-nav-affil { font-size: 12px; color: var(--bw-text-secondary); opacity: 0.6; font-weight: 300; letter-spacing: 0.02em; }
+  .v2-nav-cta {
+    font-size: 13px !important; color: var(--bw-white) !important;
+    background: var(--bw-dark); padding: 8px 20px; border-radius: 6px;
+    transition: background 0.2s !important;
+  }
+  .v2-nav-cta:hover { background: #333 !important; }
+
+  /* V2 Page Header */
+  .page-header {
+    padding: 92px 32px 0;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .page-header-top {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    padding-bottom: 28px; border-bottom: 1px solid var(--bw-border);
+  }
+  .page-header-left { display: flex; align-items: center; gap: 16px; }
+  .page-header h1 {
+    font-family: var(--font-serif); font-size: 28px; font-weight: 600;
+    color: var(--bw-dark); letter-spacing: -0.01em;
+  }
+  .v2-live-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 500; color: var(--bw-green);
+    background: rgba(58,138,92,0.08);
+    padding: 4px 12px; border-radius: 20px;
+  }
+  .v2-live-badge .pulse {
+    width: 7px; height: 7px; background: var(--bw-green); border-radius: 50%;
+    animation: v2pulse 2s ease-in-out infinite;
+  }
+  @keyframes v2pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .page-header-meta {
+    display: flex; align-items: center; gap: 20px;
+    font-size: 13px; color: var(--bw-text-secondary);
+  }
+  .page-header-meta strong {
+    color: var(--bw-dark); font-weight: 600;
+    font-family: var(--font-mono); font-size: 14px;
+  }
+  .meta-divider { width: 1px; height: 16px; background: var(--bw-border); }
+
+  /* Hide old hero — this page is just the monitor */
+  .hero { display: none !important; }
+
+  /* V2 Footer */
+  .footer { display: none !important; }
+  .v2-footer {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 60px 32px; background: var(--bw-dark);
+  }
+  .v2-footer-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px;
+  }
+  .v2-footer-brand .logo {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-serif); font-weight: 600; font-size: 16px;
+    color: var(--bw-white); margin-bottom: 12px;
+  }
+  .v2-footer-brand .logo .dot { width: 8px; height: 8px; background: var(--bw-blue); border-radius: 50%; }
+  .v2-footer-brand p {
+    font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6;
+    max-width: 280px; margin-bottom: 16px;
+  }
+  .v2-footer-affil { font-size: 12px; color: rgba(255,255,255,0.25); }
+  .v2-footer-col h4 {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.35); margin-bottom: 16px;
+  }
+  .v2-footer-col a {
+    display: block; font-size: 14px; color: rgba(255,255,255,0.6);
+    text-decoration: none; padding: 4px 0; transition: color 0.2s;
+  }
+  .v2-footer-col a:hover { color: var(--bw-white); }
+
+  @media (max-width: 768px) {
+    .v2-nav-links a:not(.v2-nav-cta) { display: none; }
+    .page-header-top { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .v2-footer-inner { grid-template-columns: 1fr 1fr; }
+  }
+</style>
 </head>
 <body>
-<script>window.location.replace('monitor.html');</script>
+
+<!-- V2 NAV -->
+<nav class="v2-nav" id="v2-nav">
+  <div class="v2-nav-inner">
+    <a href="./" class="v2-nav-logo"><span class="dot"></span>Bellwether</a>
+    <div class="v2-nav-links">
+      <a href="about.html">About</a>
+      <a href="globe.html">Globe</a>
+      <a href="media.html">Media</a>
+      <a href="blueprints.html">Blueprints</a>
+      <a href="research.html">Research</a>
+      <a href="docs.html">Docs</a>
+      <span class="v2-nav-affil">Stanford &middot; Hoover Institution</span>
+      <a href="#contact" class="v2-nav-cta">Request Access</a>
+    </div>
+  </div>
+</nav>
+<script>
+  var v2nav = document.getElementById('v2-nav');
+  window.addEventListener('scroll', function() {
+    v2nav.classList.toggle('scrolled', window.scrollY > 10);
+  }, { passive: true });
+</script>
+
+<!-- V2 PAGE HEADER -->
+<div class="page-header">
+  <div class="page-header-top">
+    <div class="page-header-left">
+      <h1>Market Monitor</h1>
+      <span class="v2-live-badge"><span class="pulse"></span> Live</span>
+    </div>
+    <div class="page-header-meta">
+      <span><strong id="v2-market-count">0</strong> markets</span>
+      <span class="meta-divider"></span>
+      <span>Updated <span id="v2-last-update">just now</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- Market Monitor (existing structure — JS hooks into these IDs) -->
+<section id="monitor" class="monitor-section">
+    <div class="container">
+        <div class="monitor-header" style="display:none;">
+            <div class="monitor-header-left">
+                <h2>Market Monitor <span class="monitor-live-badge"><span class="monitor-live-dot"></span>LIVE</span></h2>
+            </div>
+            <div class="monitor-header-right">
+                <span class="monitor-status"><span id="monitor-market-count">0</span> live markets</span>
+                <span class="monitor-timestamp">Updated <span id="monitor-last-update">just now</span></span>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="monitor-filters">
+            <select id="filter-category" class="monitor-filter">
+                <option value="all">All Categories</option>
+            </select>
+            <select id="filter-platform" class="monitor-filter">
+                <option value="all">All Platforms</option>
+                <option value="polymarket">Polymarket</option>
+                <option value="kalshi">Kalshi</option>
+            </select>
+            <input type="text" id="filter-search" class="monitor-filter-search" placeholder="Search markets...">
+            <button id="export-monitor-btn" class="monitor-export-btn" title="Export as PNG">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="18" cy="5" r="3"/>
+                    <circle cx="6" cy="12" r="3"/>
+                    <circle cx="18" cy="19" r="3"/>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="monitor-tabs">
+            <button class="monitor-tab active" data-view="biggest_moves">
+                Moving Now <span class="monitor-tab-count" id="tab-count-moves">0</span>
+            </button>
+            <button class="monitor-tab" data-view="highest_volume">
+                Most Active <span class="monitor-tab-count" id="tab-count-volume">0</span>
+            </button>
+            <button class="monitor-tab" data-view="cross-platform">
+                Cross-Platform <span class="monitor-tab-count" id="tab-count-cross-platform">0</span>
+            </button>
+            <button class="monitor-tab" data-view="reportable">
+                Reportable <span class="monitor-tab-count" id="tab-count-reportable">0</span>
+            </button>
+        </div>
+
+        <!-- Election Filter Chip (hidden by default) -->
+        <div class="election-filter-chip" id="election-filter-chip" style="display: none;">
+            <span class="election-filter-text">Showing markets for: <strong id="election-filter-name"></strong></span>
+            <button class="election-filter-dismiss" id="election-filter-dismiss">&times;</button>
+        </div>
+
+        <!-- Grid: Timeline + Cards + Sidebar -->
+        <div class="monitor-grid">
+            <!-- Left: Election Timeline -->
+            <aside class="election-timeline-sidebar" id="election-timeline">
+                <div class="timeline-header">US ELECTION CALENDAR</div>
+                <div class="timeline-content" id="timeline-content">
+                    <div class="timeline-loading">Loading elections...</div>
+                </div>
+                <div class="timeline-footer">
+                    <span class="timeline-footer-text">Click to filter markets</span>
+                </div>
+            </aside>
+
+            <!-- Center: Cards -->
+            <div>
+                <div class="monitor-cards" id="monitor-cards">
+                    <div class="monitor-empty">Loading markets...</div>
+                </div>
+                <div class="monitor-load-more" id="monitor-load-more" style="display: none;">
+                    <button id="load-more-btn">Load more markets</button>
+                    <button id="show-less-btn" style="display: none;">Show less</button>
+                </div>
+            </div>
+
+            <!-- Right: Sidebar -->
+            <div class="monitor-sidebar">
+                <div class="sidebar-card data-helper-card" id="data-helper">
+                    <div class="sidebar-card-eyebrow">Help Bellwether Improve</div>
+                    <div class="sidebar-card-title">Help Us Match Markets</div>
+                    <p class="sidebar-card-desc">Select markets on Polymarket and Kalshi that cover the same event so we can compare them. You can also flag errors or mislabeled markets.</p>
+                    <button id="start-review-btn" class="data-helper-btn">
+                        <span class="btn-icon">✓</span>
+                        Start Reviewing
+                    </button>
+                    <div id="review-mode-controls" class="review-controls hidden">
+                        <div class="review-selected-count"><span id="selected-count">0</span> selected</div>
+                        <button id="submit-review-btn" class="review-submit-btn" disabled>Submit Feedback</button>
+                        <button id="cancel-review-btn" class="review-cancel-btn">Cancel</button>
+                    </div>
+                </div>
+
+                <div class="sidebar-card sidebar-card-featured">
+                    <div class="sidebar-card-eyebrow">Latest Research</div>
+                    <div class="sidebar-card-title">How We Built a Trustworthy Price</div>
+                    <p class="sidebar-card-desc">Volume-weighted averaging and manipulation resistance scoring for prediction market prices.</p>
+                    <a href="papers/liquidity-accuracy/" class="sidebar-card-link">Read →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Election Detail Modal -->
+<div id="election-modal" class="modal-overlay">
+    <div class="modal-content" id="election-modal-content"></div>
+</div>
+
+<!-- Data Feedback Modal -->
+<div id="feedback-modal" class="modal-overlay">
+    <div class="modal-content feedback-modal-content">
+        <button class="modal-close" id="feedback-modal-close">&times;</button>
+        <h3 class="feedback-modal-title">Is this match correct?</h3>
+        <p class="feedback-modal-subtitle">You've selected <span id="feedback-count">0</span> market(s). Review and label them.</p>
+        <div class="feedback-options">
+            <label class="feedback-option feedback-option-featured">
+                <input type="radio" name="feedback-type" value="same-event">
+                <span class="feedback-option-text">
+                    <strong>Same Event</strong>
+                    <span class="feedback-option-desc">Same event on both platforms</span>
+                </span>
+            </label>
+            <div class="feedback-sub-options" id="same-event-sub-options">
+                <label class="feedback-sub-option">
+                    <input type="radio" name="same-event-rules" value="same-rules">
+                    <span class="feedback-sub-option-text">
+                        <strong>Same Rules</strong>
+                        <span class="feedback-option-desc">Resolution criteria match</span>
+                    </span>
+                </label>
+                <label class="feedback-sub-option">
+                    <input type="radio" name="same-event-rules" value="different-rules">
+                    <span class="feedback-sub-option-text">
+                        <strong>Different Rules</strong>
+                        <span class="feedback-option-desc">Same event, different resolution</span>
+                    </span>
+                </label>
+            </div>
+            <label class="feedback-option">
+                <input type="radio" name="feedback-type" value="different-event">
+                <span class="feedback-option-text">
+                    <strong>Different Events</strong>
+                    <span class="feedback-option-desc">Incorrectly matched</span>
+                </span>
+            </label>
+            <div class="feedback-sub-options" id="different-event-sub-options">
+                <label class="feedback-sub-option">
+                    <input type="radio" name="different-event-reason" value="threshold-mismatch">
+                    <span class="feedback-sub-option-text">
+                        <strong>Different Threshold</strong>
+                        <span class="feedback-option-desc">Different cutoff or win condition</span>
+                    </span>
+                </label>
+                <label class="feedback-sub-option">
+                    <input type="radio" name="different-event-reason" value="timeframe-mismatch">
+                    <span class="feedback-sub-option-text">
+                        <strong>Different Timeframe</strong>
+                        <span class="feedback-option-desc">Different dates or election cycle</span>
+                    </span>
+                </label>
+                <label class="feedback-sub-option">
+                    <input type="radio" name="different-event-reason" value="agent-mismatch">
+                    <span class="feedback-sub-option-text">
+                        <strong>Different Person/Entity</strong>
+                        <span class="feedback-option-desc">Different candidate, party, or subject</span>
+                    </span>
+                </label>
+                <label class="feedback-sub-option selected">
+                    <input type="radio" name="different-event-reason" value="unspecified" checked>
+                    <span class="feedback-sub-option-text">
+                        <strong>Just Different</strong>
+                        <span class="feedback-option-desc">Not the same event (no specific reason)</span>
+                    </span>
+                </label>
+            </div>
+            <label class="feedback-option">
+                <input type="radio" name="feedback-type" value="not-political">
+                <span class="feedback-option-text">
+                    <strong>Not Political</strong>
+                </span>
+            </label>
+            <label class="feedback-option">
+                <input type="radio" name="feedback-type" value="wrong-category">
+                <span class="feedback-option-text">
+                    <strong>Wrong Category</strong>
+                </span>
+            </label>
+            <label class="feedback-option">
+                <input type="radio" name="feedback-type" value="other">
+                <span class="feedback-option-text">
+                    <strong>Other Issue</strong>
+                </span>
+            </label>
+        </div>
+        <div class="feedback-notes">
+            <label for="feedback-notes-input">Notes (optional)</label>
+            <textarea id="feedback-notes-input" placeholder="What's wrong or why should these match?" rows="3"></textarea>
+        </div>
+        <div class="feedback-actions">
+            <button id="feedback-cancel-btn" class="feedback-btn-secondary">Cancel</button>
+            <button id="feedback-submit-btn" class="feedback-btn-primary">Submit</button>
+        </div>
+    </div>
+</div>
+
+<!-- V2 FOOTER -->
+<footer class="v2-footer">
+  <div class="v2-footer-inner">
+    <div class="v2-footer-brand">
+      <div class="logo"><span class="dot"></span> Bellwether</div>
+      <p>Prediction market infrastructure for research, journalism, and intelligent systems.</p>
+      <div class="v2-footer-affil">Stanford GSB · Hall Lab · Hoover Institution</div>
+    </div>
+    <div class="v2-footer-col">
+      <h4>Platform</h4>
+      <a href="docs.html">Tape API</a>
+      <a href="docs.html">Documentation</a>
+      <a href="globe.html">Globe</a>
+      <a href="media.html">Media</a>
+    </div>
+    <div class="v2-footer-col">
+      <h4>Research</h4>
+      <a href="research.html">Dashboard</a>
+      <a href="papers/liquidity-accuracy/">Trustworthy Price</a>
+      <a href="papers/election-eve-methodology/">Measurement Timing</a>
+      <a href="papers/inside-the-markets/">Inside the Markets</a>
+    </div>
+    <div class="v2-footer-col">
+      <h4>About</h4>
+      <a href="about.html">Team</a>
+      <a href="mailto:paschal@stanford.edu">Contact</a>
+      <a href="https://github.com/elliotjames-paschal/bellwether-platform" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+<script src="js/monitor.js?v=20260310a"></script>
+<script>
+  // Sync V2 header with monitor.js data
+  var origCount = document.getElementById('monitor-market-count');
+  var origUpdate = document.getElementById('monitor-last-update');
+  var v2Count = document.getElementById('v2-market-count');
+  var v2Update = document.getElementById('v2-last-update');
+  if (origCount && v2Count) {
+    new MutationObserver(function() {
+      v2Count.textContent = origCount.textContent;
+    }).observe(origCount, { childList: true, characterData: true, subtree: true });
+  }
+  if (origUpdate && v2Update) {
+    new MutationObserver(function() {
+      v2Update.textContent = origUpdate.textContent;
+    }).observe(origUpdate, { childList: true, characterData: true, subtree: true });
+  }
+</script>
 </body>
 </html>
