@@ -182,8 +182,16 @@ def heuristic_prefilter(pair, resolution_lookup):
 
     result = verify_pair(profile_a, profile_b, use_llm=False)
 
+    # Bucket B pairs have known ticker diffs — if mechanism or threshold differs,
+    # don't auto-declare IDENTICAL even if question text looks the same
+    diffs = pair.get("diffs", [])
+    has_ticker_diffs = bool(diffs)
+
     # Map event-standardization relations to bellwether verdicts (conservative thresholds)
     if result.relation == "equivalent" and result.confidence >= 0.85:
+        if has_ticker_diffs:
+            # Ticker components differ — defer to GPT for nuanced comparison
+            return None
         return "IDENTICAL", result.confidence, result.evidence
     elif result.relation == "independent" and result.confidence >= 0.85:
         return "DIFFERENT", result.confidence, result.evidence
