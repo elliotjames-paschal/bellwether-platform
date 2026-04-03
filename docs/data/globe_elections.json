@@ -17,7 +17,7 @@
       "lng": -99.9,
       "label": "2026 \u2014 Texas \u2014 Senate (+50 more)",
       "elections": 51,
-      "markets": 667,
+      "markets": 668,
       "volume": 33260914.78,
       "search_query": "Senate Texas United States 2026",
       "has_pm": 1,
@@ -495,6 +495,18 @@
       "has_k": 0
     },
     {
+      "lat": 37.43,
+      "lng": -78.66,
+      "label": "2024 \u2014 Virginia \u2014 Senate (+14 more)",
+      "elections": 15,
+      "markets": 181,
+      "volume": 217331.95,
+      "search_query": "Senate Virginia United States 2024",
+      "has_pm": 1,
+      "has_k": 1,
+      "kalshi_event": "SENATEVA-26"
+    },
+    {
       "lat": -17.39,
       "lng": -66.16,
       "label": "2026 \u2014 Cochabamba \u2014 Mayor (+1 more)",
@@ -516,18 +528,6 @@
       "has_pm": 1,
       "has_k": 1,
       "kalshi_event": "KXSENATEMSR-26"
-    },
-    {
-      "lat": 37.43,
-      "lng": -78.66,
-      "label": "2024 \u2014 Virginia \u2014 Senate (+13 more)",
-      "elections": 14,
-      "markets": 170,
-      "volume": 194433.95,
-      "search_query": "Senate Virginia United States 2024",
-      "has_pm": 1,
-      "has_k": 1,
-      "kalshi_event": "SENATEVA-26"
     },
     {
       "lat": 11.86,
@@ -688,7 +688,7 @@
       "lng": 19.04,
       "label": "2026 \u2014 Hungary \u2014 Parliament (+1 more)",
       "elections": 2,
-      "markets": 43,
+      "markets": 50,
       "volume": 97633.65,
       "search_query": "Parliament Hungary 2026",
       "has_pm": 1,
@@ -710,13 +710,15 @@
     {
       "lat": 45.42,
       "lng": -75.69,
-      "label": "2024 \u2014 Canada \u2014 Other",
-      "elections": 1,
-      "markets": 12,
-      "volume": 88491.69,
+      "label": "2024 \u2014 Canada \u2014 Other (+1 more)",
+      "elections": 2,
+      "markets": 54,
+      "volume": 88560.69,
       "search_query": "Other Canada 2024",
       "has_pm": 1,
-      "has_k": 0
+      "has_k": 1,
+      "kalshi_event": "KXOTTAWAMAYOR-26OCT26",
+      "pm_event": "ottawa-mayoral-election-winner"
     },
     {
       "lat": 38.8,
@@ -1170,6 +1172,19 @@
       "kalshi_event": "KXBULGARIAPARLI-26APR19"
     },
     {
+      "lat": 49.28,
+      "lng": -123.12,
+      "label": "2026 \u2014 Vancouver \u2014 Mayor",
+      "elections": 1,
+      "markets": 46,
+      "volume": 807.0,
+      "search_query": "Mayor Vancouver Canada 2026",
+      "has_pm": 1,
+      "has_k": 1,
+      "kalshi_event": "KXVANCOUVERMAYOR-26OCT17",
+      "pm_event": "vancouver-mayoral-election-winner"
+    },
+    {
       "lat": 11.93,
       "lng": 79.83,
       "label": "2026 \u2014 Puducherry \u2014 Regional",
@@ -1410,10 +1425,10 @@
     {
       "lat": 37.43,
       "lng": -78.66,
-      "label": "2024 \u2014 Virginia \u2014 President (+26 more)",
-      "elections": 27,
-      "markets": 116,
-      "volume": 28560749.67,
+      "label": "2024 \u2014 Virginia \u2014 President (+25 more)",
+      "elections": 26,
+      "markets": 106,
+      "volume": 28537851.67,
       "search_query": "President Virginia United States 2024",
       "has_pm": 1,
       "has_k": 1,
@@ -1754,10 +1769,10 @@
     {
       "lat": 45.42,
       "lng": -75.69,
-      "label": "2024 \u2014 Canada \u2014 Parliament (+17 more)",
-      "elections": 18,
-      "markets": 137,
-      "volume": 3519985.05,
+      "label": "2024 \u2014 Canada \u2014 Parliament (+16 more)",
+      "elections": 17,
+      "markets": 134,
+      "volume": 3519956.05,
       "search_query": "Parliament Canada 2024",
       "has_pm": 1,
       "has_k": 1,
@@ -2194,14 +2209,13 @@
     {
       "lat": 49.28,
       "lng": -123.12,
-      "label": "2024 \u2014 British Columbia \u2014 Regional (+1 more)",
-      "elections": 2,
-      "markets": 11,
-      "volume": 558919.79,
+      "label": "2024 \u2014 British Columbia \u2014 Regional",
+      "elections": 1,
+      "markets": 4,
+      "volume": 558112.79,
       "search_query": "Regional British Columbia Canada 2024",
       "has_pm": 1,
-      "has_k": 1,
-      "kalshi_event": "KXVANCOUVERMAYOR-26OCT17"
+      "has_k": 0
     },
     {
       "lat": -13.97,
