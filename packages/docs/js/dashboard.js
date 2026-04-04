@@ -132,6 +132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadLiquidityPlatformComparison();
     await loadSpreadVsVolume();
     await loadLiquidityTimeseries();
+    await loadCrossPlatformDistribution();
 });
 
 
@@ -2583,3 +2584,377 @@ document.addEventListener('DOMContentLoaded', () => {
     // Delay to ensure charts are rendered
     setTimeout(initShareButtons, 500);
 });
+
+// ══════════════════════════════════════════════════════════════════════════
+// CROSS-PLATFORM DISTRIBUTION FIT
+// ══════════════════════════════════════════════════════════════════════════
+
+let _xplatData = null;
+let _xplatFitView = 'kalshi';
+let _xplatTsView = 'kalman';
+
+function switchXplatFitView(view, btn) {
+    _xplatFitView = view;
+    btn.closest('.chart-toggle-group').querySelectorAll('.chart-toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (_xplatData) renderXplatFitChart(_xplatData);
+}
+
+function switchXplatTsView(view, btn) {
+    _xplatTsView = view;
+    btn.closest('.chart-toggle-group').querySelectorAll('.chart-toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (_xplatData) renderXplatTimeseries(_xplatData);
+}
+
+// Make toggle functions global
+window.switchXplatFitView = switchXplatFitView;
+window.switchXplatTsView = switchXplatTsView;
+
+async function loadCrossPlatformDistribution() {
+    try {
+        const data = await fetchJSON('distribution_fit.json');
+        _xplatData = data;
+        renderXplatStats(data);
+        renderXplatPdfChart(data);
+        renderXplatFitChart(data);
+        renderXplatQueryTable(data);
+        renderXplatTimeseries(data);
+        renderXplatSigma(data);
+    } catch (e) {
+        console.warn('Could not load cross-platform distribution data:', e);
+    }
+}
+
+function renderXplatStats(data) {
+    const el = document.getElementById('xplat-stats');
+    if (!el) return;
+
+    const k = data.kalshi;
+    const pm = data.polymarket;
+    const gap = data.comparison.mu_gap;
+    const sig = data.comparison.gap_significant;
+    const jsd = data.comparison.jsd;
+
+    el.innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value" style="color: ${COLORS.kalshi};">${k.mu.toFixed(2)}%</div>
+            <div class="stat-label">Kalshi's Best Guess</div>
+            <div class="stat-detail">Expected GDP growth (95% CI: ${k.mu_ci[0].toFixed(2)}&ndash;${k.mu_ci[1].toFixed(2)}%)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: ${COLORS.pm};">${pm.mu.toFixed(2)}%</div>
+            <div class="stat-label">Polymarket's Best Guess</div>
+            <div class="stat-detail">Expected GDP growth (95% CI: ${pm.mu_ci[0].toFixed(2)}&ndash;${pm.mu_ci[1].toFixed(2)}%)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${Math.abs(gap).toFixed(2)}pp</div>
+            <div class="stat-label">Platform Disagreement</div>
+            <div class="stat-detail" style="color: ${sig ? '#D94A4A' : '#3A8A5C'};">${sig ? 'Statistically significant gap' : 'Within margin of error'}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${jsd.toFixed(3)}</div>
+            <div class="stat-label">Overall Divergence</div>
+            <div class="stat-detail">${jsd < 0.05 ? 'Near-consensus' : jsd < 0.15 ? 'Moderate disagreement' : 'Significant disagreement'} (Jensen-Shannon)</div>
+        </div>
+    `;
+}
+
+function renderXplatPdfChart(data) {
+    const pdf = data.pdf_curves;
+    const traces = [
+        // Kalshi CI band
+        {
+            x: pdf.x.concat([...pdf.x].reverse()),
+            y: pdf.kalshi_pdf_ci_hi.concat([...pdf.kalshi_pdf_ci_lo].reverse()),
+            fill: 'toself', fillcolor: 'rgba(16, 185, 129, 0.1)',
+            line: { color: 'transparent' }, showlegend: false, hoverinfo: 'skip',
+        },
+        // PM CI band
+        {
+            x: pdf.x.concat([...pdf.x].reverse()),
+            y: pdf.pm_pdf_ci_hi.concat([...pdf.pm_pdf_ci_lo].reverse()),
+            fill: 'toself', fillcolor: 'rgba(37, 99, 235, 0.1)',
+            line: { color: 'transparent' }, showlegend: false, hoverinfo: 'skip',
+        },
+        // Kalshi PDF
+        {
+            x: pdf.x, y: pdf.kalshi_pdf,
+            mode: 'lines', name: `Kalshi (${data.kalshi.model})`,
+            line: { color: COLORS.kalshi, width: 2.5 },
+        },
+        // PM PDF
+        {
+            x: pdf.x, y: pdf.pm_pdf,
+            mode: 'lines', name: `Polymarket (${data.polymarket.model})`,
+            line: { color: COLORS.pm, width: 2.5 },
+        },
+        // Kalshi mean line
+        {
+            x: [data.kalshi.mu, data.kalshi.mu], y: [0, Math.max(...pdf.kalshi_pdf) * 1.05],
+            mode: 'lines', name: `Kalshi E[GDP] = ${data.kalshi.mu.toFixed(2)}%`,
+            line: { color: COLORS.kalshi, width: 1.5, dash: 'dot' },
+        },
+        // PM mean line
+        {
+            x: [data.polymarket.mu, data.polymarket.mu], y: [0, Math.max(...pdf.pm_pdf) * 1.05],
+            mode: 'lines', name: `PM E[GDP] = ${data.polymarket.mu.toFixed(2)}%`,
+            line: { color: COLORS.pm, width: 1.5, dash: 'dot' },
+        },
+    ];
+
+    const layout = {
+        ...LAYOUT_DEFAULTS,
+        xaxis: {
+            title: { text: 'GDP Growth Rate (%)', font: { size: 12 } },
+            range: [-2, 7], showgrid: true, gridcolor: '#e5e7eb',
+            zeroline: true, zerolinecolor: '#d1d5db',
+        },
+        yaxis: {
+            title: { text: 'Probability Density', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        legend: { orientation: 'h', y: 1.15, x: 0, font: { size: 11 } },
+    };
+
+    Plotly.newPlot('chart-xplat-pdf', traces, layout, CONFIG);
+}
+
+function renderXplatFitChart(data) {
+    const traces = [];
+
+    if (_xplatFitView === 'kalshi') {
+        const contracts = data.kalshi.contracts;
+        const thresholds = contracts.map(c => c.threshold);
+        const prices = contracts.map(c => c.price);
+        const fitted = contracts.map(c => c.fitted);
+
+        // Fitted line (smooth)
+        const xSmooth = [];
+        const ySmooth = [];
+        for (let x = Math.min(...thresholds) - 0.5; x <= Math.max(...thresholds) + 0.5; x += 0.1) {
+            xSmooth.push(x);
+            // Interpolate fitted survival function from grid data
+            const gridPt = data.comparison.grid.find(g => Math.abs(g.x - x) < 0.26);
+            if (gridPt) ySmooth.push(gridPt.k_parametric);
+        }
+        traces.push({
+            x: xSmooth, y: ySmooth,
+            mode: 'lines', name: 'Fitted S(x)',
+            line: { color: COLORS.kalshi, width: 2 },
+        });
+
+        // Observed points
+        traces.push({
+            x: thresholds, y: prices,
+            mode: 'markers', name: 'Mid-price',
+            marker: { color: COLORS.kalshi, size: 10, symbol: 'circle',
+                line: { color: '#fff', width: 1.5 } },
+        });
+
+        // Residual lines
+        for (let i = 0; i < thresholds.length; i++) {
+            traces.push({
+                x: [thresholds[i], thresholds[i]],
+                y: [prices[i], fitted[i]],
+                mode: 'lines', showlegend: false,
+                line: { color: 'rgba(16, 185, 129, 0.4)', width: 1.5, dash: 'dash' },
+            });
+        }
+    } else {
+        const buckets = data.polymarket.buckets;
+        const midpoints = buckets.map(b => {
+            const lo = b.lower < -4 ? -1 : b.lower;
+            const hi = b.upper > 9 ? 5 : b.upper;
+            return (lo + hi) / 2;
+        });
+        const prices = buckets.map(b => b.price);
+        const fitted = buckets.map(b => b.fitted);
+
+        // Fitted bars (as area)
+        traces.push({
+            x: midpoints, y: fitted,
+            type: 'bar', name: 'Fitted P(bucket)',
+            marker: { color: 'rgba(37, 99, 235, 0.2)', line: { color: COLORS.pm, width: 1.5 } },
+            width: buckets.map(b => {
+                const lo = b.lower < -4 ? -1 : b.lower;
+                const hi = b.upper > 9 ? 5 : b.upper;
+                return (hi - lo) * 0.9;
+            }),
+        });
+
+        // Observed points
+        traces.push({
+            x: midpoints, y: prices,
+            mode: 'markers', name: 'Raw price',
+            marker: { color: COLORS.pm, size: 10, symbol: 'diamond',
+                line: { color: '#fff', width: 1.5 } },
+        });
+    }
+
+    const layout = {
+        ...LAYOUT_DEFAULTS,
+        xaxis: {
+            title: { text: _xplatFitView === 'kalshi' ? 'GDP Threshold (%)' : 'GDP Range Midpoint (%)', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        yaxis: {
+            title: { text: _xplatFitView === 'kalshi' ? 'P(GDP > threshold)' : 'Bucket Probability', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb', range: [0, 1],
+        },
+        legend: { orientation: 'h', y: 1.15, x: 0, font: { size: 11 } },
+        barmode: 'overlay',
+    };
+
+    Plotly.newPlot('chart-xplat-fit', traces, layout, CONFIG);
+}
+
+function renderXplatQueryTable(data) {
+    const el = document.getElementById('table-xplat-queries');
+    if (!el) return;
+
+    const queries = data.comparison.prob_queries;
+    let html = `<table class="platform-stats-table">
+        <thead><tr>
+            <th>Query</th>
+            <th style="text-align:right;">Kalshi</th>
+            <th style="text-align:right;">95% CI</th>
+            <th style="text-align:right;">Polymarket</th>
+            <th style="text-align:right;">95% CI</th>
+            <th style="text-align:right;">Difference</th>
+        </tr></thead><tbody>`;
+
+    for (const q of queries) {
+        const diffColor = Math.abs(q.diff) > 0.03 ? '#D94A4A' : 'inherit';
+        const fmt = (v) => v === null ? '—' : (Math.abs(v) < 0.01 ? v.toFixed(4) : v.toFixed(3));
+        html += `<tr>
+            <td><strong>${q.label}</strong></td>
+            <td style="text-align:right; font-family: var(--font-mono);">${fmt(q.kalshi)}</td>
+            <td style="text-align:right; font-family: var(--font-mono); color: var(--bw-text-secondary); font-size: 12px;">[${fmt(q.k_ci[0])}, ${fmt(q.k_ci[1])}]</td>
+            <td style="text-align:right; font-family: var(--font-mono);">${fmt(q.polymarket)}</td>
+            <td style="text-align:right; font-family: var(--font-mono); color: var(--bw-text-secondary); font-size: 12px;">[${fmt(q.pm_ci[0])}, ${fmt(q.pm_ci[1])}]</td>
+            <td style="text-align:right; font-family: var(--font-mono); color: ${diffColor};">${q.diff >= 0 ? '+' : ''}${fmt(q.diff)}</td>
+        </tr>`;
+    }
+
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+function renderXplatTimeseries(data) {
+    const ts = data.timeseries;
+    const traces = [];
+
+    const showRaw = _xplatTsView === 'raw' || _xplatTsView === 'both';
+    const showKalman = _xplatTsView === 'kalman' || _xplatTsView === 'both';
+
+    // Kalman CI bands
+    if (showKalman) {
+        const kCiLo = [], kCiHi = [], pmCiLo = [], pmCiHi = [];
+        const kDates = [], pmDates = [];
+        for (let i = 0; i < ts.dates.length; i++) {
+            if (ts.kalshi_mu_kalman_ci[i]) {
+                kDates.push(ts.dates[i]);
+                kCiLo.push(ts.kalshi_mu_kalman_ci[i][0]);
+                kCiHi.push(ts.kalshi_mu_kalman_ci[i][1]);
+            }
+            if (ts.pm_mu_kalman_ci[i]) {
+                pmDates.push(ts.dates[i]);
+                pmCiLo.push(ts.pm_mu_kalman_ci[i][0]);
+                pmCiHi.push(ts.pm_mu_kalman_ci[i][1]);
+            }
+        }
+        traces.push({
+            x: kDates.concat([...kDates].reverse()),
+            y: kCiHi.concat([...kCiLo].reverse()),
+            fill: 'toself', fillcolor: 'rgba(16, 185, 129, 0.08)',
+            line: { color: 'transparent' }, showlegend: false, hoverinfo: 'skip',
+        });
+        traces.push({
+            x: pmDates.concat([...pmDates].reverse()),
+            y: pmCiHi.concat([...pmCiLo].reverse()),
+            fill: 'toself', fillcolor: 'rgba(37, 99, 235, 0.08)',
+            line: { color: 'transparent' }, showlegend: false, hoverinfo: 'skip',
+        });
+    }
+
+    // Raw series
+    if (showRaw) {
+        traces.push({
+            x: ts.dates, y: ts.kalshi_mu,
+            mode: 'markers', name: 'Kalshi (raw)',
+            marker: { color: COLORS.kalshi, size: 4, opacity: _xplatTsView === 'both' ? 0.4 : 0.8 },
+            connectgaps: false,
+        });
+        traces.push({
+            x: ts.dates, y: ts.pm_mu,
+            mode: 'markers', name: 'PM (raw)',
+            marker: { color: COLORS.pm, size: 4, opacity: _xplatTsView === 'both' ? 0.4 : 0.8 },
+            connectgaps: false,
+        });
+    }
+
+    // Kalman lines
+    if (showKalman) {
+        traces.push({
+            x: ts.dates, y: ts.kalshi_mu_kalman,
+            mode: 'lines', name: 'Kalshi (Kalman)',
+            line: { color: COLORS.kalshi, width: 2.5 },
+            connectgaps: false,
+        });
+        traces.push({
+            x: ts.dates, y: ts.pm_mu_kalman,
+            mode: 'lines', name: 'PM (Kalman)',
+            line: { color: COLORS.pm, width: 2.5 },
+            connectgaps: false,
+        });
+    }
+
+    const layout = {
+        ...LAYOUT_DEFAULTS,
+        xaxis: {
+            title: { text: 'Date', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        yaxis: {
+            title: { text: 'E[GDP Growth] (%)', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        legend: { orientation: 'h', y: 1.15, x: 0, font: { size: 11 } },
+    };
+
+    Plotly.newPlot('chart-xplat-ts', traces, layout, CONFIG);
+}
+
+function renderXplatSigma(data) {
+    const ts = data.timeseries;
+    const traces = [
+        {
+            x: ts.dates, y: ts.kalshi_sigma,
+            mode: 'lines+markers', name: 'Kalshi SD',
+            line: { color: COLORS.kalshi, width: 2 },
+            marker: { size: 4 }, connectgaps: false,
+        },
+        {
+            x: ts.dates, y: ts.pm_sigma,
+            mode: 'lines+markers', name: 'PM SD',
+            line: { color: COLORS.pm, width: 2 },
+            marker: { size: 4 }, connectgaps: false,
+        },
+    ];
+
+    const layout = {
+        ...LAYOUT_DEFAULTS,
+        xaxis: {
+            title: { text: 'Date', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        yaxis: {
+            title: { text: 'Standard Deviation (%)', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        legend: { orientation: 'h', y: 1.15, x: 0, font: { size: 11 } },
+    };
+
+    Plotly.newPlot('chart-xplat-sigma', traces, layout, CONFIG);
+}
