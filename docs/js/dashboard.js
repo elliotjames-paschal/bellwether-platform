@@ -21,11 +21,10 @@ const COLORS_SOFT = {
 };
 
 // Cohort colors - blues matching website theme
-// Cohort colors - blues matching website theme
 const COHORT_COLORS = {
-    '5d': 'rgba(91, 141, 238, 0.4)',   // Blue - lightest
-    '15d': 'rgba(91, 141, 238, 0.6)',
-    '30d': 'rgba(91, 141, 238, 0.8)',
+    '7d': 'rgba(91, 141, 238, 0.4)',   // Blue - lightest
+    '14d': 'rgba(91, 141, 238, 0.6)',  // Blue - light
+    '30d': 'rgba(91, 141, 238, 0.8)',  // Blue - medium
     '60d': 'rgba(91, 141, 238, 1)'     // Blue - darkest (#5B8DEE)
 };
 
@@ -44,20 +43,19 @@ const CONFIG = { responsive: true, displayModeBar: false };
 const CATEGORY_DEFINITIONS = {
     'Electoral': 'Elections at all levels (federal, state, local, international) — who wins, vote shares, candidate performance, election outcomes',
     'Monetary Policy': 'Fed decisions, interest rates, inflation, central bank',
-    'Economic Data': 'GDP, jobs reports, CPI, economic indicators',
     'Legislative': 'Congressional actions, bills, votes, legislation',
     'Appointments': 'Government nominations, confirmations, cabinet picks',
     'Regulatory': 'Agency decisions (SEC, FDA, EPA), regulatory approvals',
     'International': 'Foreign policy, sanctions, trade, diplomacy, treaties',
     'Judicial': 'Court decisions, legal rulings, Supreme Court cases',
-    'Military & Security': 'Military actions, defense, conflicts, cybersecurity',
+    'Military Security': 'Military actions, defense, conflicts, cybersecurity',
+    'Crisis Emergency': 'Disaster response, emergencies, pandemic response',
     'Government Operations': 'Budget, shutdowns, debt ceiling, contracts',
-    'Leadership Changes': 'Internal party decisions, leadership changes, resignations',
-    'Candidacy': 'Candidacy announcements, who will run for office',
-    'Polling & Approval': 'Opinion polls, approval ratings, public opinion',
-    'Political Speech': 'What politicians will say, speech content',
-    'Crisis & Emergency': 'Disaster response, emergencies, pandemic response',
-    'Other': 'Markets that don\'t fit neatly into other categories'
+    'Party Politics': 'Internal party decisions, leadership, scandals (not elections)',
+    'State Local': 'State/local non-election matters only (laws, ordinances, policies)',
+    'Timing Events': 'Political timing, announcement scheduling',
+    'Polling Approval': 'Opinion polls, approval ratings, public opinion',
+    'Political Speech': 'What politicians will say, speech content'
 };
 
 function tooltipWrap(text, definitions) {
@@ -134,6 +132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadLiquidityPlatformComparison();
     await loadSpreadVsVolume();
     await loadLiquidityTimeseries();
+    await loadCrossPlatformDistribution();
 });
 
 
@@ -198,16 +197,14 @@ async function loadInsights() {
         const bannerAccuracy = document.getElementById('banner-accuracy');
         if (stats.shared_elections) {
             const src = stats.shared_elections.combined || stats.shared_elections.polymarket;
-            if (src && src.accuracy != null) {
-                const accStr = (src.accuracy * 100).toFixed(1) + '%';
-                if (insightAccuracy) insightAccuracy.textContent = accStr;
-                if (bannerAccuracy) bannerAccuracy.textContent = accStr;
-            }
+            const accStr = (src.accuracy * 100).toFixed(1) + '%';
+            if (insightAccuracy) insightAccuracy.textContent = accStr;
+            if (bannerAccuracy) bannerAccuracy.textContent = accStr;
         }
 
         const insightCorrelation = document.getElementById('insight-correlation');
         const bannerCorrelation = document.getElementById('banner-correlation');
-        if (stats.head_to_head && stats.head_to_head.correlation != null) {
+        if (stats.head_to_head) {
             const corrStr = (stats.head_to_head.correlation * 100).toFixed(1) + '%';
             if (insightCorrelation) insightCorrelation.textContent = corrStr;
             if (bannerCorrelation) bannerCorrelation.textContent = corrStr;
@@ -219,7 +216,7 @@ async function loadInsights() {
             if (volIndex >= 0) {
                 const pmVol = platformStats.polymarket[volIndex];
                 const kalshiVol = platformStats.kalshi[volIndex];
-                const parseVol = (s) => typeof s === 'string' ? parseFloat(s.replace(/[$,]/g, '')) : (Number(s) || 0);
+                const parseVol = (s) => parseFloat(s.replace(/[$,]/g, ''));
                 const total = parseVol(pmVol) + parseVol(kalshiVol);
                 const billions = (total / 1e9).toFixed(1);
 
@@ -240,8 +237,8 @@ async function loadAggregateStatistics() {
         if (!el) return;
 
         // Find max values for bar scaling
-        const maxMarkets = data.total_markets && data.total_markets.length > 0 ? Math.max(...data.total_markets) : 1;
-        const maxVolume = data.total_volume_m && data.total_volume_m.length > 0 ? Math.max(...data.total_volume_m) : 1;
+        const maxMarkets = Math.max(...data.total_markets);
+        const maxVolume = Math.max(...data.total_volume_m);
 
         let html = `
             <table class="platform-stats-table">
@@ -313,7 +310,7 @@ async function loadElectionTypes() {
         if (!el) return;
 
         // Find max for bar scaling
-        const maxTotal = data.total && data.total.length > 0 ? Math.max(...data.total) : 1;
+        const maxTotal = Math.max(...data.total);
 
         let html = `
             <table class="platform-stats-table">
@@ -514,12 +511,48 @@ async function loadBrierByElectionType() {
     }
 }
 
+async function loadBrierByMargin() {
+    try {
+        const data = await fetchJSON('brier_by_margin.json');
+
+        const pm = {
+            x: data.margins,
+            y: data.polymarket.brier,
+            name: 'Polymarket',
+            type: 'bar',
+            marker: { color: COLORS_SOFT.pm }
+        };
+
+        const kalshi = {
+            x: data.margins,
+            y: data.kalshi.brier,
+            name: 'Kalshi',
+            type: 'bar',
+            marker: { color: COLORS_SOFT.kalshi }
+        };
+
+        const layout = {
+            ...LAYOUT_DEFAULTS,
+            barmode: 'group',
+            bargap: 0.3,
+            xaxis: { title: 'Election Margin (Vote Difference)', gridcolor: COLORS.line },
+            yaxis: { title: 'Brier Score', gridcolor: COLORS.line, zeroline: false },
+            margin: { l: 60, r: 20, t: 30, b: 60 }
+        };
+
+        Plotly.newPlot('chart-margin', [pm, kalshi], layout, CONFIG);
+    } catch (e) {
+        console.warn('Could not load margin chart:', e);
+        showError('chart-margin');
+    }
+}
+
 async function loadBrierConvergence() {
     try {
         const data = await fetchJSON('brier_convergence.json');
 
         const traces = [];
-        const cohortOrder = ['60d', '30d', '15d', '5d'];
+        const cohortOrder = ['60d', '30d', '14d', '7d'];
 
         for (const cohort of cohortOrder) {
             if (data.cohorts[cohort]) {
@@ -582,7 +615,6 @@ async function loadCalibration() {
 
         // Quantile bins scatter plot (like paper)
         // Each point is a bin of ~160 predictions, not individual predictions
-        if (!data.quantile_bins) { showError('chart-calibration'); return; }
         const points = {
             x: data.quantile_bins.predicted,
             y: data.quantile_bins.actual,
@@ -620,7 +652,7 @@ async function loadCalibration() {
             annotations: [{
                 x: 0.98, y: 0.02,
                 xref: 'paper', yref: 'paper',
-                text: `Total: ${(data.total_predictions || 0).toLocaleString()} predictions`,
+                text: `Total: ${data.total_predictions.toLocaleString()} predictions`,
                 showarrow: false,
                 font: { size: 11, color: COLORS.text }
             }]
@@ -638,7 +670,6 @@ async function loadCalibrationDistribution() {
         const data = await fetchJSON('calibration.json');
 
         // Combine both platforms for a cleaner view
-        if (!data.distribution || !data.distribution.x) { showError('chart-calibration-dist'); return; }
         const combined = data.distribution.x.map((x, i) =>
             (data.distribution.polymarket[i] || 0) + (data.distribution.kalshi[i] || 0)
         );
@@ -738,7 +769,7 @@ async function loadPlatformComparison() {
             annotations: [{
                 x: 0.98, y: 0.02,
                 xref: 'paper', yref: 'paper',
-                text: `n = ${(data.labels || []).length} shared elections`,
+                text: `n = ${data.labels.length} shared elections`,
                 showarrow: false,
                 font: { size: 11, color: COLORS.text }
             }]
@@ -893,22 +924,21 @@ const MAX_VOLUME_CATEGORIES = 8;
 
 // Category colors for volume chart
 const VOLUME_CATEGORY_COLORS = {
-    'Electoral': '#3b82f6',
-    'Monetary Policy': '#10b981',
-    'Economic Data': '#22c55e',
-    'Legislative': '#8b5cf6',
-    'Appointments': '#f59e0b',
-    'Regulatory': '#ef4444',
-    'International': '#06b6d4',
-    'Judicial': '#ec4899',
-    'Military & Security': '#64748b',
-    'Government Operations': '#0ea5e9',
-    'Leadership Changes': '#a855f7',
-    'Candidacy': '#84cc16',
-    'Polling & Approval': '#14b8a6',
-    'Political Speech': '#f97316',
-    'Crisis & Emergency': '#dc2626',
-    'Other': '#6b7280'
+    'Electoral': '#5B8DEE',           // Polymarket blue
+    'Monetary Policy': '#E85D75',     // Muted red
+    'Party Politics': '#2CB67D',      // Kalshi green
+    'Military Security': '#F6A96C',   // Muted orange
+    'International': '#9B72CB',       // Muted purple
+    'Appointments': '#4ECDC4',        // Muted turquoise
+    'Political Speech': '#E89F5B',    // Muted gold
+    'Regulatory': '#36B3A8',          // Muted teal
+    'Government Operations': '#7C8BA1', // Gray blue
+    'Judicial': '#D4A373',            // Tan
+    'Legislative': '#90BE6D',         // Light green
+    'Crisis Emergency': '#F94144',    // Red
+    'Timing Events': '#277DA1',       // Steel blue
+    'Polling Approval': '#F8961E',    // Orange
+    'State Local': '#43AA8B'          // Teal
 };
 
 async function loadVolumeTimeseries() {
@@ -1073,9 +1103,10 @@ function renderVolumeChart() {
     }
 
     // Find July 2023 index for initial view (users can zoom out to see earlier data)
-    let startMonthIndex = volumeData.months.indexOf('2023-07');
-    if (startMonthIndex === -1) startMonthIndex = 0;
-    const initialRange = [volumeData.months[startMonthIndex], volumeData.months[volumeData.months.length - 1]];
+    const startMonthIndex = volumeData.months.indexOf('2023-07');
+    const initialRange = startMonthIndex >= 0
+        ? [volumeData.months[startMonthIndex], volumeData.months[volumeData.months.length - 1]]
+        : [volumeData.months[0], volumeData.months[volumeData.months.length - 1]];
 
     const layout = {
         ...LAYOUT_DEFAULTS,
@@ -1213,7 +1244,6 @@ async function loadPartisanRegression() {
         if (!el) return;
 
         const models = data.models;
-        if (!models || !Array.isArray(models)) { showError('table-partisan-regression'); return; }
 
         // Collect all variable names across models
         const allVars = [];
@@ -1542,7 +1572,6 @@ async function loadCalibrationByCloseness() {
     try {
         const data = await fetchJSON('calibration_by_closeness.json');
         const buckets = data.buckets;
-        if (!buckets || !Array.isArray(buckets)) { showError('chart-closeness'); return; }
 
         const labels = buckets.map(b => b.label);
         const pmBrier = buckets.map(b => b.pm_brier);
@@ -1668,7 +1697,7 @@ function renderPredVolumeChart() {
         annotations: [{
             x: 0.98, y: 0.98,
             xref: 'paper', yref: 'paper',
-            text: `r = ${(plat.correlation ?? 0).toFixed(3)} (n=${(plat.n ?? 0).toLocaleString()})`,
+            text: `r = ${plat.correlation.toFixed(3)} (n=${plat.n.toLocaleString()})`,
             showarrow: false,
             font: { size: 12, color: COLORS.dark },
             bgcolor: 'rgba(255,255,255,0.8)',
@@ -1700,9 +1729,9 @@ function resizeChartsInContainer(container) {
     if (!container) return;
     setTimeout(() => {
         container.querySelectorAll('.chart, .chart-stats').forEach(chart => {
-            if (chart.id) { const el = document.getElementById(chart.id); if (el && el._fullLayout) {
+            if (chart.id && document.getElementById(chart.id)._fullLayout) {
                 Plotly.Plots.resize(chart.id);
-            } }
+            }
         });
     }, 100);
 }
@@ -1716,7 +1745,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         this.classList.add('active');
         const tabId = 'tab-' + this.dataset.tab;
         const tab = document.getElementById(tabId);
-        if (!tab) return;
         tab.classList.add('active');
 
         // Resize all Plotly charts in the newly visible tab
@@ -1736,7 +1764,6 @@ function switchSubtab(subtabName, btn) {
     // Add active to clicked button and corresponding content
     btn.classList.add('active');
     const subtab = document.getElementById('subtab-' + subtabName);
-    if (!subtab) return;
     subtab.classList.add('active');
 
     // Resize charts in the newly visible subtab
@@ -1904,13 +1931,13 @@ async function downloadChartPNG(chartId) {
         return;
     }
 
-    const shareContainer = chartCard ? chartCard.querySelector('.share-container') : null;
     try {
         let dataUrl;
 
         // Use html2canvas to capture the full card with title
         if (typeof html2canvas !== 'undefined' && chartCard) {
             // Temporarily hide the share button during capture
+            const shareContainer = chartCard.querySelector('.share-container');
             if (shareContainer) shareContainer.style.visibility = 'hidden';
 
             const canvas = await html2canvas(chartCard, {
@@ -1949,9 +1976,6 @@ async function downloadChartPNG(chartId) {
     } catch (e) {
         console.error('Export error:', e);
         showToast('Could not export chart');
-    } finally {
-        // Restore share button visibility even if html2canvas throws
-        if (shareContainer) shareContainer.style.visibility = '';
     }
 
     // Close dropdown
@@ -2077,11 +2101,13 @@ function initShareButtons() {
 // ============================================================================
 
 let liquidityCategoryData = null;
+let brierCategoryData = null;
 let currentLiquidityCategoryMetric = 'spread';
 
 async function loadLiquidityByCategory() {
     try {
         liquidityCategoryData = await fetchJSON('liquidity_by_category.json');
+        brierCategoryData = await fetchJSON('brier_by_category.json');
 
         renderLiquidityCategory('spread');
     } catch (e) {
@@ -2150,7 +2176,7 @@ function renderLiquidityCategory(metric) {
         annotations: [{
             x: 0.98, y: 0.02,
             xref: 'paper', yref: 'paper',
-            text: `n = ${(data.total_markets || 0).toLocaleString()} markets`,
+            text: `n = ${data.total_markets.toLocaleString()} markets`,
             showarrow: false,
             font: { size: 11, color: COLORS.text }
         }]
@@ -2215,16 +2241,12 @@ function renderLiquidityAccuracy() {
             displayName = 'All Markets';
             totalMarkets = sourceData.total_markets;
         } else {
-            // Look up display name from the dropdown option text
-            const selectEl = document.getElementById('liquidity-category-select');
-            const selectedOption = selectEl ? selectEl.options[selectEl.selectedIndex] : null;
-            displayName = selectedOption ? selectedOption.text : selectedLiquidityCategory;
+            displayName = selectedLiquidityCategory.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
             totalMarkets = sourceData.total_markets;
         }
     }
 
     // Get valid data points (non-null brier scores)
-    if (!sourceData.brier || !Array.isArray(sourceData.brier)) return;
     const validIndices = sourceData.brier.map((b, i) => b !== null ? i : null).filter(i => i !== null);
     const counts = validIndices.map(i => sourceData.n[i]);
 
@@ -2241,7 +2263,7 @@ function renderLiquidityAccuracy() {
 
     // Determine y-axis range based on data
     const brierValues = validIndices.map(i => sourceData.brier[i]).filter(v => v !== null);
-    const maxBrier = brierValues.length > 0 ? Math.max(...brierValues) : 0.25;
+    const maxBrier = Math.max(...brierValues);
     const yMax = Math.min(Math.ceil(maxBrier * 10) / 10 + 0.05, 0.5);
 
     const metricLabel = selectedLiquidityMetric === 'spread' ? 'Tighter Spread' : 'Greater Depth';
@@ -2275,7 +2297,7 @@ function renderLiquidityAccuracy() {
             {
                 x: 0.02, y: 0.98,
                 xref: 'paper', yref: 'paper',
-                text: `r = ${(metricData.correlation ?? 0).toFixed(3)}`,
+                text: `r = ${metricData.correlation.toFixed(3)}`,
                 showarrow: false,
                 font: { size: 12, color: '#6b7280' },
                 bgcolor: 'rgba(255,255,255,0.8)',
@@ -2419,8 +2441,8 @@ function renderLiquidityScatter(platform) {
     };
 
     const trend = {
-        x: plat.trend ? plat.trend.volume : [],
-        y: plat.trend ? plat.trend.spread : [],
+        x: plat.trend.volume,
+        y: plat.trend.spread,
         mode: 'lines+markers',
         name: 'Median Trend',
         line: { color: COLORS.dark, width: 2.5 },
@@ -2430,13 +2452,13 @@ function renderLiquidityScatter(platform) {
     const layout = {
         ...LAYOUT_DEFAULTS,
         xaxis: { title: 'Volume (USD)', type: 'log', gridcolor: COLORS.line, zeroline: false },
-        yaxis: { title: 'Relative Spread (%)', gridcolor: COLORS.line, zeroline: false, rangemode: 'tozero' },
+        yaxis: { title: 'Relative Spread (%)', gridcolor: COLORS.line, zeroline: false, range: [0, Math.min(50, Math.max(...plat.points.map(p => p.spread)) * 1.1)] },
         margin: { l: 60, r: 20, t: 30, b: 50 },
         showlegend: false,
         annotations: [{
             x: 0.98, y: 0.98,
             xref: 'paper', yref: 'paper',
-            text: `r = ${(plat.correlation ?? 0).toFixed(3)} (n=${(plat.n ?? 0).toLocaleString()})`,
+            text: `r = ${plat.correlation.toFixed(3)} (n=${plat.n.toLocaleString()})`,
             showarrow: false,
             font: { size: 12, color: COLORS.dark },
             bgcolor: 'rgba(255,255,255,0.8)',
@@ -2466,11 +2488,11 @@ function renderLiquidityTimeseries(metric) {
     const kX = [], kY = [];
 
     data.dates.forEach((date, i) => {
-        if (data.polymarket[metric] && data.polymarket[metric][i] !== null) {
+        if (data.polymarket[metric][i] !== null) {
             pmX.push(date);
             pmY.push(data.polymarket[metric][i]);
         }
-        if (data.kalshi[metric] && data.kalshi[metric][i] !== null) {
+        if (data.kalshi[metric][i] !== null) {
             kX.push(date);
             kY.push(data.kalshi[metric][i]);
         }
@@ -2535,13 +2557,13 @@ function switchLiquidityPlatformMetric(metric, btn) {
     const descEl = document.getElementById('liquidity-platform-desc');
 
     if (metric === 'spread') {
-        if (spreadChart) spreadChart.style.display = '';
-        if (depthChart) depthChart.style.display = 'none';
+        spreadChart.style.display = '';
+        depthChart.style.display = 'none';
         if (titleEl) titleEl.textContent = 'Spread Distribution by Platform';
         if (descEl) descEl.textContent = 'Distribution of relative spreads across platforms. Which platform offers tighter markets?';
     } else {
-        if (spreadChart) spreadChart.style.display = 'none';
-        if (depthChart) depthChart.style.display = '';
+        spreadChart.style.display = 'none';
+        depthChart.style.display = '';
         if (titleEl) titleEl.textContent = 'Depth Distribution by Platform';
         if (descEl) descEl.textContent = 'Distribution of order book depth across platforms (log scale).';
     }
@@ -2562,3 +2584,377 @@ document.addEventListener('DOMContentLoaded', () => {
     // Delay to ensure charts are rendered
     setTimeout(initShareButtons, 500);
 });
+
+// ══════════════════════════════════════════════════════════════════════════
+// CROSS-PLATFORM DISTRIBUTION FIT
+// ══════════════════════════════════════════════════════════════════════════
+
+let _xplatData = null;
+let _xplatFitView = 'kalshi';
+let _xplatTsView = 'kalman';
+
+function switchXplatFitView(view, btn) {
+    _xplatFitView = view;
+    btn.closest('.chart-toggle-group').querySelectorAll('.chart-toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (_xplatData) renderXplatFitChart(_xplatData);
+}
+
+function switchXplatTsView(view, btn) {
+    _xplatTsView = view;
+    btn.closest('.chart-toggle-group').querySelectorAll('.chart-toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (_xplatData) renderXplatTimeseries(_xplatData);
+}
+
+// Make toggle functions global
+window.switchXplatFitView = switchXplatFitView;
+window.switchXplatTsView = switchXplatTsView;
+
+async function loadCrossPlatformDistribution() {
+    try {
+        const data = await fetchJSON('distribution_fit.json');
+        _xplatData = data;
+        renderXplatStats(data);
+        renderXplatPdfChart(data);
+        renderXplatFitChart(data);
+        renderXplatQueryTable(data);
+        renderXplatTimeseries(data);
+        renderXplatSigma(data);
+    } catch (e) {
+        console.warn('Could not load cross-platform distribution data:', e);
+    }
+}
+
+function renderXplatStats(data) {
+    const el = document.getElementById('xplat-stats');
+    if (!el) return;
+
+    const k = data.kalshi;
+    const pm = data.polymarket;
+    const gap = data.comparison.mu_gap;
+    const sig = data.comparison.gap_significant;
+    const jsd = data.comparison.jsd;
+
+    el.innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value" style="color: ${COLORS.kalshi};">${k.mu.toFixed(2)}%</div>
+            <div class="stat-label">Kalshi's Best Guess</div>
+            <div class="stat-detail">Expected GDP growth (95% CI: ${k.mu_ci[0].toFixed(2)}&ndash;${k.mu_ci[1].toFixed(2)}%)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: ${COLORS.pm};">${pm.mu.toFixed(2)}%</div>
+            <div class="stat-label">Polymarket's Best Guess</div>
+            <div class="stat-detail">Expected GDP growth (95% CI: ${pm.mu_ci[0].toFixed(2)}&ndash;${pm.mu_ci[1].toFixed(2)}%)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${Math.abs(gap).toFixed(2)}pp</div>
+            <div class="stat-label">Platform Disagreement</div>
+            <div class="stat-detail" style="color: ${sig ? '#D94A4A' : '#3A8A5C'};">${sig ? 'Statistically significant gap' : 'Within margin of error'}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${jsd.toFixed(3)}</div>
+            <div class="stat-label">Overall Divergence</div>
+            <div class="stat-detail">${jsd < 0.05 ? 'Near-consensus' : jsd < 0.15 ? 'Moderate disagreement' : 'Significant disagreement'} (Jensen-Shannon)</div>
+        </div>
+    `;
+}
+
+function renderXplatPdfChart(data) {
+    const pdf = data.pdf_curves;
+    const traces = [
+        // Kalshi CI band
+        {
+            x: pdf.x.concat([...pdf.x].reverse()),
+            y: pdf.kalshi_pdf_ci_hi.concat([...pdf.kalshi_pdf_ci_lo].reverse()),
+            fill: 'toself', fillcolor: 'rgba(16, 185, 129, 0.1)',
+            line: { color: 'transparent' }, showlegend: false, hoverinfo: 'skip',
+        },
+        // PM CI band
+        {
+            x: pdf.x.concat([...pdf.x].reverse()),
+            y: pdf.pm_pdf_ci_hi.concat([...pdf.pm_pdf_ci_lo].reverse()),
+            fill: 'toself', fillcolor: 'rgba(37, 99, 235, 0.1)',
+            line: { color: 'transparent' }, showlegend: false, hoverinfo: 'skip',
+        },
+        // Kalshi PDF
+        {
+            x: pdf.x, y: pdf.kalshi_pdf,
+            mode: 'lines', name: `Kalshi (${data.kalshi.model})`,
+            line: { color: COLORS.kalshi, width: 2.5 },
+        },
+        // PM PDF
+        {
+            x: pdf.x, y: pdf.pm_pdf,
+            mode: 'lines', name: `Polymarket (${data.polymarket.model})`,
+            line: { color: COLORS.pm, width: 2.5 },
+        },
+        // Kalshi mean line
+        {
+            x: [data.kalshi.mu, data.kalshi.mu], y: [0, Math.max(...pdf.kalshi_pdf) * 1.05],
+            mode: 'lines', name: `Kalshi E[GDP] = ${data.kalshi.mu.toFixed(2)}%`,
+            line: { color: COLORS.kalshi, width: 1.5, dash: 'dot' },
+        },
+        // PM mean line
+        {
+            x: [data.polymarket.mu, data.polymarket.mu], y: [0, Math.max(...pdf.pm_pdf) * 1.05],
+            mode: 'lines', name: `PM E[GDP] = ${data.polymarket.mu.toFixed(2)}%`,
+            line: { color: COLORS.pm, width: 1.5, dash: 'dot' },
+        },
+    ];
+
+    const layout = {
+        ...LAYOUT_DEFAULTS,
+        xaxis: {
+            title: { text: 'GDP Growth Rate (%)', font: { size: 12 } },
+            range: [-2, 7], showgrid: true, gridcolor: '#e5e7eb',
+            zeroline: true, zerolinecolor: '#d1d5db',
+        },
+        yaxis: {
+            title: { text: 'Probability Density', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        legend: { orientation: 'h', y: 1.15, x: 0, font: { size: 11 } },
+    };
+
+    Plotly.newPlot('chart-xplat-pdf', traces, layout, CONFIG);
+}
+
+function renderXplatFitChart(data) {
+    const traces = [];
+
+    if (_xplatFitView === 'kalshi') {
+        const contracts = data.kalshi.contracts;
+        const thresholds = contracts.map(c => c.threshold);
+        const prices = contracts.map(c => c.price);
+        const fitted = contracts.map(c => c.fitted);
+
+        // Fitted line (smooth)
+        const xSmooth = [];
+        const ySmooth = [];
+        for (let x = Math.min(...thresholds) - 0.5; x <= Math.max(...thresholds) + 0.5; x += 0.1) {
+            xSmooth.push(x);
+            // Interpolate fitted survival function from grid data
+            const gridPt = data.comparison.grid.find(g => Math.abs(g.x - x) < 0.26);
+            if (gridPt) ySmooth.push(gridPt.k_parametric);
+        }
+        traces.push({
+            x: xSmooth, y: ySmooth,
+            mode: 'lines', name: 'Fitted S(x)',
+            line: { color: COLORS.kalshi, width: 2 },
+        });
+
+        // Observed points
+        traces.push({
+            x: thresholds, y: prices,
+            mode: 'markers', name: 'Mid-price',
+            marker: { color: COLORS.kalshi, size: 10, symbol: 'circle',
+                line: { color: '#fff', width: 1.5 } },
+        });
+
+        // Residual lines
+        for (let i = 0; i < thresholds.length; i++) {
+            traces.push({
+                x: [thresholds[i], thresholds[i]],
+                y: [prices[i], fitted[i]],
+                mode: 'lines', showlegend: false,
+                line: { color: 'rgba(16, 185, 129, 0.4)', width: 1.5, dash: 'dash' },
+            });
+        }
+    } else {
+        const buckets = data.polymarket.buckets;
+        const midpoints = buckets.map(b => {
+            const lo = b.lower < -4 ? -1 : b.lower;
+            const hi = b.upper > 9 ? 5 : b.upper;
+            return (lo + hi) / 2;
+        });
+        const prices = buckets.map(b => b.price);
+        const fitted = buckets.map(b => b.fitted);
+
+        // Fitted bars (as area)
+        traces.push({
+            x: midpoints, y: fitted,
+            type: 'bar', name: 'Fitted P(bucket)',
+            marker: { color: 'rgba(37, 99, 235, 0.2)', line: { color: COLORS.pm, width: 1.5 } },
+            width: buckets.map(b => {
+                const lo = b.lower < -4 ? -1 : b.lower;
+                const hi = b.upper > 9 ? 5 : b.upper;
+                return (hi - lo) * 0.9;
+            }),
+        });
+
+        // Observed points
+        traces.push({
+            x: midpoints, y: prices,
+            mode: 'markers', name: 'Raw price',
+            marker: { color: COLORS.pm, size: 10, symbol: 'diamond',
+                line: { color: '#fff', width: 1.5 } },
+        });
+    }
+
+    const layout = {
+        ...LAYOUT_DEFAULTS,
+        xaxis: {
+            title: { text: _xplatFitView === 'kalshi' ? 'GDP Threshold (%)' : 'GDP Range Midpoint (%)', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        yaxis: {
+            title: { text: _xplatFitView === 'kalshi' ? 'P(GDP > threshold)' : 'Bucket Probability', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb', range: [0, 1],
+        },
+        legend: { orientation: 'h', y: 1.15, x: 0, font: { size: 11 } },
+        barmode: 'overlay',
+    };
+
+    Plotly.newPlot('chart-xplat-fit', traces, layout, CONFIG);
+}
+
+function renderXplatQueryTable(data) {
+    const el = document.getElementById('table-xplat-queries');
+    if (!el) return;
+
+    const queries = data.comparison.prob_queries;
+    let html = `<table class="platform-stats-table">
+        <thead><tr>
+            <th>Query</th>
+            <th style="text-align:right;">Kalshi</th>
+            <th style="text-align:right;">95% CI</th>
+            <th style="text-align:right;">Polymarket</th>
+            <th style="text-align:right;">95% CI</th>
+            <th style="text-align:right;">Difference</th>
+        </tr></thead><tbody>`;
+
+    for (const q of queries) {
+        const diffColor = Math.abs(q.diff) > 0.03 ? '#D94A4A' : 'inherit';
+        const fmt = (v) => v === null ? '—' : (Math.abs(v) < 0.01 ? v.toFixed(4) : v.toFixed(3));
+        html += `<tr>
+            <td><strong>${q.label}</strong></td>
+            <td style="text-align:right; font-family: var(--font-mono);">${fmt(q.kalshi)}</td>
+            <td style="text-align:right; font-family: var(--font-mono); color: var(--bw-text-secondary); font-size: 12px;">[${fmt(q.k_ci[0])}, ${fmt(q.k_ci[1])}]</td>
+            <td style="text-align:right; font-family: var(--font-mono);">${fmt(q.polymarket)}</td>
+            <td style="text-align:right; font-family: var(--font-mono); color: var(--bw-text-secondary); font-size: 12px;">[${fmt(q.pm_ci[0])}, ${fmt(q.pm_ci[1])}]</td>
+            <td style="text-align:right; font-family: var(--font-mono); color: ${diffColor};">${q.diff >= 0 ? '+' : ''}${fmt(q.diff)}</td>
+        </tr>`;
+    }
+
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+function renderXplatTimeseries(data) {
+    const ts = data.timeseries;
+    const traces = [];
+
+    const showRaw = _xplatTsView === 'raw' || _xplatTsView === 'both';
+    const showKalman = _xplatTsView === 'kalman' || _xplatTsView === 'both';
+
+    // Kalman CI bands
+    if (showKalman) {
+        const kCiLo = [], kCiHi = [], pmCiLo = [], pmCiHi = [];
+        const kDates = [], pmDates = [];
+        for (let i = 0; i < ts.dates.length; i++) {
+            if (ts.kalshi_mu_kalman_ci[i]) {
+                kDates.push(ts.dates[i]);
+                kCiLo.push(ts.kalshi_mu_kalman_ci[i][0]);
+                kCiHi.push(ts.kalshi_mu_kalman_ci[i][1]);
+            }
+            if (ts.pm_mu_kalman_ci[i]) {
+                pmDates.push(ts.dates[i]);
+                pmCiLo.push(ts.pm_mu_kalman_ci[i][0]);
+                pmCiHi.push(ts.pm_mu_kalman_ci[i][1]);
+            }
+        }
+        traces.push({
+            x: kDates.concat([...kDates].reverse()),
+            y: kCiHi.concat([...kCiLo].reverse()),
+            fill: 'toself', fillcolor: 'rgba(16, 185, 129, 0.08)',
+            line: { color: 'transparent' }, showlegend: false, hoverinfo: 'skip',
+        });
+        traces.push({
+            x: pmDates.concat([...pmDates].reverse()),
+            y: pmCiHi.concat([...pmCiLo].reverse()),
+            fill: 'toself', fillcolor: 'rgba(37, 99, 235, 0.08)',
+            line: { color: 'transparent' }, showlegend: false, hoverinfo: 'skip',
+        });
+    }
+
+    // Raw series
+    if (showRaw) {
+        traces.push({
+            x: ts.dates, y: ts.kalshi_mu,
+            mode: 'markers', name: 'Kalshi (raw)',
+            marker: { color: COLORS.kalshi, size: 4, opacity: _xplatTsView === 'both' ? 0.4 : 0.8 },
+            connectgaps: false,
+        });
+        traces.push({
+            x: ts.dates, y: ts.pm_mu,
+            mode: 'markers', name: 'PM (raw)',
+            marker: { color: COLORS.pm, size: 4, opacity: _xplatTsView === 'both' ? 0.4 : 0.8 },
+            connectgaps: false,
+        });
+    }
+
+    // Kalman lines
+    if (showKalman) {
+        traces.push({
+            x: ts.dates, y: ts.kalshi_mu_kalman,
+            mode: 'lines', name: 'Kalshi (Kalman)',
+            line: { color: COLORS.kalshi, width: 2.5 },
+            connectgaps: false,
+        });
+        traces.push({
+            x: ts.dates, y: ts.pm_mu_kalman,
+            mode: 'lines', name: 'PM (Kalman)',
+            line: { color: COLORS.pm, width: 2.5 },
+            connectgaps: false,
+        });
+    }
+
+    const layout = {
+        ...LAYOUT_DEFAULTS,
+        xaxis: {
+            title: { text: 'Date', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        yaxis: {
+            title: { text: 'E[GDP Growth] (%)', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        legend: { orientation: 'h', y: 1.15, x: 0, font: { size: 11 } },
+    };
+
+    Plotly.newPlot('chart-xplat-ts', traces, layout, CONFIG);
+}
+
+function renderXplatSigma(data) {
+    const ts = data.timeseries;
+    const traces = [
+        {
+            x: ts.dates, y: ts.kalshi_sigma,
+            mode: 'lines+markers', name: 'Kalshi SD',
+            line: { color: COLORS.kalshi, width: 2 },
+            marker: { size: 4 }, connectgaps: false,
+        },
+        {
+            x: ts.dates, y: ts.pm_sigma,
+            mode: 'lines+markers', name: 'PM SD',
+            line: { color: COLORS.pm, width: 2 },
+            marker: { size: 4 }, connectgaps: false,
+        },
+    ];
+
+    const layout = {
+        ...LAYOUT_DEFAULTS,
+        xaxis: {
+            title: { text: 'Date', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        yaxis: {
+            title: { text: 'Standard Deviation (%)', font: { size: 12 } },
+            showgrid: true, gridcolor: '#e5e7eb',
+        },
+        legend: { orientation: 'h', y: 1.15, x: 0, font: { size: 11 } },
+    };
+
+    Plotly.newPlot('chart-xplat-sigma', traces, layout, CONFIG);
+}
