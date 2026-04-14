@@ -147,6 +147,40 @@
   }
   .intro-text p:last-child { margin-bottom: 0; }
 
+  /* Prototype callout */
+  .prototype-callout {
+    margin-top: 24px;
+    padding: 20px 24px;
+    background: var(--bw-blue-light);
+    border: 1px solid var(--bw-blue-muted);
+    border-radius: 10px;
+  }
+  .prototype-callout p {
+    font-size: 14px;
+    color: var(--bw-text);
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+  .prototype-callout .btn-prototype {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: var(--bw-blue);
+    color: var(--bw-white);
+    border: none;
+    border-radius: 7px;
+    font-size: 14px;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .prototype-callout .btn-prototype:hover {
+    background: #3A7BC8;
+    transform: translateY(-1px);
+  }
+
   /* Spec preview card */
   .spec-preview {
     background: var(--bw-bg);
@@ -681,6 +715,11 @@
       <p>The same event appears on multiple platforms with different resolution criteria, making markets that look identical actually incomparable. When resolution rules are ambiguous, disputes erode trust in the entire category.</p>
       <p>The Venezuela invasion dispute. The Lebanon incursion oracle failure. The government shutdown rule change. Each was caused by the same thing: a contract that wasn't specified precisely enough before trading began.</p>
       <p>Blueprints fix this. Each one is a complete, immutable specification for a prediction market: what's being predicted, how the outcome is verified, and what happens in every edge case. Any platform can list them. Every platform resolves them the same way.</p>
+
+      <div class="prototype-callout">
+        <p>We're building a resolution oracle that automatically evaluates blueprint contracts against real-world source data — no human discretion required.</p>
+        <a href="https://resolution-oracle.vercel.app/" target="_blank" rel="noopener" class="btn-prototype">Resolution Oracle Prototype &rarr;</a>
+      </div>
     </div>
 
     <div class="spec-preview">
