@@ -270,11 +270,9 @@
         // Update reportability - but don't downgrade if we have static cost from reportable_markets.json
         const reportabilityContainer = card.querySelector('.card-reportability');
         if (reportabilityContainer) {
-            // Use static cost_to_move_5c if available (from reportable_markets.json), else live data
             const staticCost = market?.cost_to_move_5c;
             const liveCost = data.robustness?.cost_to_move_5c;
-            // Prefer static cost (orderbook-based) over live if static is higher or live is null
-            const cost = (staticCost && (!liveCost || staticCost > liveCost)) ? staticCost : liveCost;
+            const cost = liveCost != null ? liveCost : staticCost;
             const label = cost !== null ? getReportabilityFromCost(cost) : 'fragile';
             let html = `<span class="report-badge ${label}">${label.charAt(0).toUpperCase() + label.slice(1)}</span>`;
             if (cost !== null) {
@@ -298,10 +296,9 @@
             }
         }
 
-        // Add/remove fragile class - use same logic as reportability above
         const staticCostForClass = market?.cost_to_move_5c;
         const liveCostForClass = data.robustness?.cost_to_move_5c;
-        const effectiveCost = (staticCostForClass && (!liveCostForClass || staticCostForClass > liveCostForClass)) ? staticCostForClass : liveCostForClass;
+        const effectiveCost = liveCostForClass != null ? liveCostForClass : staticCostForClass;
         if (!effectiveCost || effectiveCost < 10000) {
             card.classList.add('fragile');
         } else {
@@ -475,7 +472,7 @@
         const tier = liveData?.price_tier || 0;
         const staticCostF = e?.cost_to_move_5c;
         const liveCostF = liveData?.robustness?.cost_to_move_5c;
-        const effectiveCostF = (staticCostF && (!liveCostF || staticCostF > liveCostF)) ? staticCostF : liveCostF;
+        const effectiveCostF = liveCostF != null ? liveCostF : staticCostF;
         const isFragile = !effectiveCostF || effectiveCostF < 10000;
         let cardClass = 'market-card clickable';
         if (isFragile) cardClass += ' fragile';
@@ -536,7 +533,7 @@
         let reportDetailHtml = '';
         const staticCostR = e?.cost_to_move_5c;
         const liveCostR = liveData?.robustness?.cost_to_move_5c;
-        const costR = (staticCostR && (!liveCostR || staticCostR > liveCostR)) ? staticCostR : liveCostR;
+        const costR = liveCostR != null ? liveCostR : staticCostR;
         if (costR !== null && costR !== undefined) {
             const labelR = getReportabilityFromCost(costR);
             reportBadgeHtml = `<span class="report-badge ${labelR}">${labelR.charAt(0).toUpperCase() + labelR.slice(1)}</span>`;
@@ -618,7 +615,7 @@
         const tier = liveData?.price_tier || 0;
         const staticCostF = m?.cost_to_move_5c;
         const liveCostF = liveData?.robustness?.cost_to_move_5c;
-        const effectiveCostF = (staticCostF && (!liveCostF || staticCostF > liveCostF)) ? staticCostF : liveCostF;
+        const effectiveCostF = liveCostF != null ? liveCostF : staticCostF;
         const isFragile = !effectiveCostF || effectiveCostF < 10000;
         let cardClass = 'market-card clickable';
         if (isFragile) cardClass += ' fragile';
@@ -658,7 +655,7 @@
         let reportDetailHtml = '';
         const staticCostR = m?.cost_to_move_5c;
         const liveCostR = liveData?.robustness?.cost_to_move_5c;
-        const costR = (staticCostR && (!liveCostR || staticCostR > liveCostR)) ? staticCostR : liveCostR;
+        const costR = liveCostR != null ? liveCostR : staticCostR;
         if (costR !== null && costR !== undefined) {
             const labelR = getReportabilityFromCost(costR);
             reportBadgeHtml = `<span class="report-badge ${labelR}">${labelR.charAt(0).toUpperCase() + labelR.slice(1)}</span>`;
