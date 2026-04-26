@@ -28,9 +28,9 @@
     {
       "lat": -23.55,
       "lng": -46.64,
-      "label": "2026 \u2014 Brazil \u2014 President (+1 more)",
-      "elections": 2,
-      "markets": 67,
+      "label": "2026 \u2014 Brazil \u2014 President",
+      "elections": 1,
+      "markets": 61,
       "volume": 25785066.78,
       "search_query": "President Brazil 2026",
       "has_pm": 1,
@@ -330,18 +330,6 @@
       "kalshi_event": "SENATEAK-26"
     },
     {
-      "lat": 32.68,
-      "lng": -83.22,
-      "label": "2026 \u2014 Georgia \u2014 Governor (+25 more)",
-      "elections": 26,
-      "markets": 450,
-      "volume": 686272.2,
-      "search_query": "Governor Georgia United States 2026",
-      "has_pm": 1,
-      "has_k": 1,
-      "kalshi_event": "KXGOVGANOMR-26"
-    },
-    {
       "lat": 34.05,
       "lng": -118.24,
       "label": "2026 \u2014 Los Angeles \u2014 Mayor",
@@ -363,6 +351,18 @@
       "search_query": "President Ivory Coast 2025",
       "has_pm": 1,
       "has_k": 0
+    },
+    {
+      "lat": 32.68,
+      "lng": -83.22,
+      "label": "2026 \u2014 Georgia \u2014 Governor (+23 more)",
+      "elections": 24,
+      "markets": 428,
+      "volume": 569077.2,
+      "search_query": "Governor Georgia United States 2026",
+      "has_pm": 1,
+      "has_k": 1,
+      "kalshi_event": "KXGOVGANOMR-26"
     },
     {
       "lat": 43.71,
@@ -1304,30 +1304,6 @@
       "has_pm": 1,
       "has_k": 0,
       "pm_event": "sejong-mayoral-election-winner"
-    },
-    {
-      "lat": -19.92,
-      "lng": -43.94,
-      "label": "2026 \u2014 Minas Gerais \u2014 Governor",
-      "elections": 1,
-      "markets": 6,
-      "volume": 0.0,
-      "search_query": "Governor Minas Gerais Brazil 2026",
-      "has_pm": 0,
-      "has_k": 1,
-      "kalshi_event": "KXMINASGOV-26OCT04"
-    },
-    {
-      "lat": -22.91,
-      "lng": -43.17,
-      "label": "2026 \u2014 Rio de Janeiro \u2014 Governor",
-      "elections": 1,
-      "markets": 4,
-      "volume": 0.0,
-      "search_query": "Governor Rio de Janeiro Brazil 2026",
-      "has_pm": 0,
-      "has_k": 1,
-      "kalshi_event": "KXRIOGOV-26OCT04"
     }
   ],
   "completed": [
@@ -1490,9 +1466,9 @@
     {
       "lat": -23.55,
       "lng": -46.64,
-      "label": "2024 \u2014 S\u00e3o Paulo \u2014 Mayor (+1 more)",
-      "elections": 2,
-      "markets": 31,
+      "label": "2024 \u2014 S\u00e3o Paulo \u2014 Mayor (+2 more)",
+      "elections": 3,
+      "markets": 37,
       "volume": 41575390.39,
       "search_query": "Mayor S\u00e3o Paulo Brazil 2024",
       "has_pm": 1,
@@ -1562,10 +1538,10 @@
     {
       "lat": 32.68,
       "lng": -83.22,
-      "label": "2024 \u2014 Georgia \u2014 President (+32 more)",
-      "elections": 33,
-      "markets": 107,
-      "volume": 21633022.77,
+      "label": "2024 \u2014 Georgia \u2014 President (+34 more)",
+      "elections": 35,
+      "markets": 129,
+      "volume": 21750217.77,
       "search_query": "President Georgia United States 2024",
       "has_pm": 1,
       "has_k": 1,
@@ -2976,13 +2952,14 @@
     {
       "lat": -19.92,
       "lng": -43.94,
-      "label": "2024 \u2014 Belo Horizonte \u2014 Mayor",
-      "elections": 1,
-      "markets": 3,
+      "label": "2024 \u2014 Belo Horizonte \u2014 Mayor (+1 more)",
+      "elections": 2,
+      "markets": 9,
       "volume": 17422.91,
       "search_query": "Mayor Belo Horizonte Brazil 2024",
       "has_pm": 1,
-      "has_k": 0
+      "has_k": 1,
+      "kalshi_event": "KXMINASGOV-26OCT04"
     },
     {
       "lat": 46.81,
@@ -3691,6 +3668,18 @@
       "has_pm": 0,
       "has_k": 1,
       "kalshi_event": "KXLAMAYORMATCHUP-26JUN"
+    },
+    {
+      "lat": -22.91,
+      "lng": -43.17,
+      "label": "2026 \u2014 Rio de Janeiro \u2014 Governor",
+      "elections": 1,
+      "markets": 4,
+      "volume": 0.0,
+      "search_query": "Governor Rio de Janeiro Brazil 2026",
+      "has_pm": 0,
+      "has_k": 1,
+      "kalshi_event": "KXRIOGOV-26OCT04"
     }
   ]
 }
