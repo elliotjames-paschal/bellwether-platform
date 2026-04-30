@@ -22,11 +22,33 @@ import json
 import logging
 import math
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from config import DATA_DIR, atomic_write_json
+
+# ─── Import shared logic from media_pipeline.core ───────────────────────────
+from media_pipeline.core import (
+    # Fragility constants
+    WEIGHT_VOLUME,
+    WEIGHT_DEPTH,
+    WEIGHT_SPREAD,
+    WEIGHT_VOLATILITY,
+    VOLUME_SATURATION,
+    DEPTH_SATURATION,
+    TIER1_THRESHOLD,
+    TIER2_THRESHOLD,
+    VOLATILITY_WINDOWS,
+    DEFAULT_FRAGILITY_MISSING,
+    # Fragility functions
+    parse_price_timestamp,
+    find_price_at_time,
+    calculate_price_volatility,
+    compute_fragility_score,
+    estimate_depth_from_volume,
+    assign_tier,
+)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -43,28 +65,8 @@ PM_PRICES_FILE = DATA_DIR / "polymarket_all_political_prices_CORRECTED.json"
 # Orderbook summary
 ORDERBOOK_FILE = DATA_DIR / "orderbook_summary.json"
 
-# Fragility score weights
-WEIGHT_VOLUME = 0.30
-WEIGHT_DEPTH = 0.30
-WEIGHT_SPREAD = 0.20
-WEIGHT_VOLATILITY = 0.20
 
-# Saturation points for log scaling
-VOLUME_SATURATION = 10_000_000  # $10M
-DEPTH_SATURATION = 500_000      # $500K cost_to_move_5c
-
-# Tier thresholds (same as generate_monitor_data.py)
-TIER1_THRESHOLD = 100_000  # $100K = Reportable
-TIER2_THRESHOLD = 10_000   # $10K  = Caution
-
-# Volatility windows (hours)
-VOLATILITY_WINDOWS = [1, 6, 24]
-
-# Default fragility for missing data
-DEFAULT_FRAGILITY_MISSING = 75
-
-
-# ─── Price History Helpers ────────────────────────────────────────────────────
+# ─── I/O Functions (stay in this script) ─────────────────────────────────────
 
 def load_price_history():
     """Load price history files. Returns (kalshi_prices, pm_prices)."""
@@ -154,24 +156,6 @@ def load_orderbook_summary():
         return {}
 
 
-def parse_price_timestamp(ts):
-    """Parse a price timestamp to datetime. Handles epoch seconds and ISO strings."""
-    if isinstance(ts, (int, float)):
-        return datetime.fromtimestamp(ts, tz=timezone.utc)
-    if isinstance(ts, str):
-        try:
-            # Try ISO format
-            return datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        except ValueError:
-            pass
-        try:
-            # Try epoch string
-            return datetime.fromtimestamp(float(ts), tz=timezone.utc)
-        except (ValueError, OSError):
-            pass
-    return None
-
-
 def get_price_series(market_id, platform, kalshi_prices, pm_prices):
     """
     Get the price time series for a market.
@@ -212,154 +196,6 @@ def get_price_series(market_id, platform, kalshi_prices, pm_prices):
 
     parsed.sort(key=lambda x: x[0])
     return parsed
-
-
-def find_price_at_time(series, target_dt):
-    """Find the closest price to target_dt. Returns (price, time_delta_hours)."""
-    if not series:
-        return None, None
-
-    best_price = None
-    best_delta = float("inf")
-
-    for dt, price in series:
-        delta = abs((dt - target_dt).total_seconds()) / 3600.0
-        if delta < best_delta:
-            best_delta = delta
-            best_price = price
-
-    return best_price, best_delta
-
-
-# ─── Fragility Calculations ──────────────────────────────────────────────────
-
-def calculate_price_volatility(series, citation_dt, windows=VOLATILITY_WINDOWS):
-    """
-    Calculate price movement in windows around citation time.
-
-    Returns dict of {window_hours: {delta_before, delta_after, max_swing, price_at_citation}}.
-    """
-    if not series:
-        return None
-
-    price_at_citation, _ = find_price_at_time(series, citation_dt)
-    if price_at_citation is None:
-        return None
-
-    result = {}
-    for window_h in windows:
-        window_td = timedelta(hours=window_h)
-        before_dt = citation_dt - window_td
-        after_dt = citation_dt + window_td
-
-        price_before, _ = find_price_at_time(series, before_dt)
-        price_after, _ = find_price_at_time(series, after_dt)
-
-        # Calculate deltas
-        delta_before = None
-        delta_after = None
-        if price_before is not None:
-            delta_before = round(price_at_citation - price_before, 4)
-        if price_after is not None:
-            delta_after = round(price_after - price_at_citation, 4)
-
-        # Max swing: find max price range in the window
-        prices_in_window = [
-            p for dt, p in series
-            if before_dt <= dt <= after_dt
-        ]
-        max_swing = None
-        if prices_in_window:
-            max_swing = round(max(prices_in_window) - min(prices_in_window), 4)
-
-        result[f"{window_h}h"] = {
-            "price_before": price_before,
-            "price_after": price_after,
-            "delta_before": delta_before,
-            "delta_after": delta_after,
-            "max_swing": max_swing,
-        }
-
-    result["price_at_citation"] = price_at_citation
-    return result
-
-
-def compute_fragility_score(volume_usd, cost_to_move_5c, spread, volatility_24h):
-    """
-    Compute composite fragility score (0-100).
-    Higher = more fragile.
-
-    Components (each 0-100, then weighted):
-      - Volume: log-scaled, saturates at VOLUME_SATURATION
-      - Depth: log-scaled cost_to_move_5c, saturates at DEPTH_SATURATION
-      - Spread: linear, 0% = 0, 10%+ = 100
-      - Volatility: 24h max_swing, 0% = 0, 20%+ = 100
-    """
-    # Volume component (inverted: low volume = high fragility)
-    if volume_usd is not None and volume_usd > 0:
-        vol_ratio = math.log10(volume_usd + 1) / math.log10(VOLUME_SATURATION)
-        volume_score = max(0, min(100, 100 - vol_ratio * 100))
-    else:
-        volume_score = 100  # No volume = maximally fragile
-
-    # Depth component (inverted: low depth = high fragility)
-    if cost_to_move_5c is not None and cost_to_move_5c > 0:
-        depth_ratio = math.log10(cost_to_move_5c + 1) / math.log10(DEPTH_SATURATION)
-        depth_score = max(0, min(100, 100 - depth_ratio * 100))
-    else:
-        depth_score = 100  # No orderbook = maximally fragile
-
-    # Spread component
-    if spread is not None:
-        spread_score = min(100, abs(spread) * 1000)
-    else:
-        spread_score = 50  # Unknown spread = moderate
-
-    # Volatility component
-    if volatility_24h is not None:
-        volatility_score = min(100, abs(volatility_24h) * 500)
-    else:
-        volatility_score = 50  # Unknown volatility = moderate
-
-    # Weighted composite
-    composite = (
-        WEIGHT_VOLUME * volume_score +
-        WEIGHT_DEPTH * depth_score +
-        WEIGHT_SPREAD * spread_score +
-        WEIGHT_VOLATILITY * volatility_score
-    )
-
-    return {
-        "fragility_score": round(composite),
-        "components": {
-            "volume_score": round(volume_score, 1),
-            "depth_score": round(depth_score, 1),
-            "spread_score": round(spread_score, 1),
-            "volatility_score": round(volatility_score, 1),
-        },
-    }
-
-
-def estimate_depth_from_volume(volume_usd):
-    """Estimate orderbook depth from total volume when no orderbook data is available.
-
-    Empirical heuristic: liquid markets typically have depth ~5-15% of total volume.
-    We use a conservative 5% estimate to avoid overstating depth.
-    Returns None if volume is missing/zero.
-    """
-    if volume_usd is None or volume_usd <= 0:
-        return None
-    return volume_usd * 0.05
-
-
-def assign_tier(cost_to_move_5c):
-    """Assign reportability tier based on orderbook depth."""
-    if cost_to_move_5c is not None and cost_to_move_5c >= TIER1_THRESHOLD:
-        return 1, "Reportable"
-    elif cost_to_move_5c is not None and cost_to_move_5c >= TIER2_THRESHOLD:
-        return 2, "Caution"
-    else:
-        return 3, "Fragile"
 
 
 # ─── Main Pipeline ───────────────────────────────────────────────────────────

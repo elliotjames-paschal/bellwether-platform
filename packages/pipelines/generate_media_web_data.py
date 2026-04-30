@@ -15,8 +15,6 @@ Output: docs/data/media_citations.json  (~200KB - 500 most recent citations)
 
 import json
 import logging
-import math
-import re
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -25,17 +23,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from config import DATA_DIR, WEBSITE_DIR, atomic_write_json
 
+# ─── Import shared logic from media_pipeline ────────────────────────────────
+from media_pipeline.core import (
+    PROMO_PATTERNS,
+    TOPIC_PATTERNS,
+    _safe_str,
+    is_promotional,
+    classify_topic,
+    compute_outlet_grade,
+    domain_to_name,
+)
+from media_pipeline.schema import is_duplicate
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-
-
-def _safe_str(val, default=""):
-    """Return val as a string, converting NaN/None to default."""
-    if val is None:
-        return default
-    if isinstance(val, float) and math.isnan(val):
-        return default
-    return str(val) if not isinstance(val, str) else val
 
 
 # ─── Configuration ───────────────────────────────────────────────────────────
@@ -45,85 +46,6 @@ OUTPUT_DIR = WEBSITE_DIR / "data"
 
 MAX_CITATIONS_WEB = 500  # Cap individual citations in web JSON
 MAX_TOPICS = 5  # Top N topics to include
-
-# ─── Promotional / Affiliate Detection ───────────────────────────────────────
-# Citations matching these patterns are filtered out entirely — they're ads,
-# not journalism citing market data.
-PROMO_PATTERNS = [
-    re.compile(r'\bpromo\s*code\b', re.I),
-    re.compile(r'\breferral\s*(code|link|bonus)\b', re.I),
-    re.compile(r'\bsign[\s-]*up\s+bonus\b', re.I),
-    re.compile(r'\buse\s+code\b', re.I),
-    re.compile(r'\bbonus\s+(offer|deal|credit)\b', re.I),
-    re.compile(r'\btrade\s+\$?\d+[,.]?\d*\s*,?\s*get\s+\$?\d+', re.I),
-    re.compile(r'\bfree\s+(?:bet|trade|credit|bonus)\b', re.I),
-    re.compile(r'\baffiliate\b', re.I),
-    re.compile(r'\bsponsored\s+(?:content|post|article)\b', re.I),
-]
-
-def is_promotional(citation):
-    """Return True if a citation is promotional/affiliate content, not journalism."""
-    text = " ".join(filter(None, [
-        citation.get("title", ""),
-        citation.get("sentence", ""),
-        citation.get("context", ""),
-    ]))
-    return any(p.search(text) for p in PROMO_PATTERNS)
-
-
-# ─── Topic Patterns ──────────────────────────────────────────────────────────
-# Ordered by specificity: first match wins.
-# classify_topic() tries title first, then falls back to sentence/context,
-# so broader patterns won't misfire on passing mentions in article body.
-TOPIC_PATTERNS = [
-    # Specific topics first (highest priority)
-    (re.compile(r'\b(iran|tehran|khamenei|hormuz|kharg|ayatollah)\b', re.I), 'Iran Conflict'),
-    (re.compile(r'\b(fed\b|rate cut|interest rate|federal reserve|no rate cut)\b', re.I), 'Fed & Rates'),
-    (re.compile(r'\b(march madness|ncaa|final four)\b', re.I), 'March Madness'),
-    (re.compile(r'\b(spacex|starlink)\b', re.I), 'SpaceX IPO'),
-    (re.compile(r'\b(peace prize|nobel)\b', re.I), 'Nobel Prize'),
-    (re.compile(r'\b(insider trading|regulation|sec\b|cftc)\b', re.I), 'Regulation'),
-    # Broader topics
-    (re.compile(r'\b(election|trump|president|senate|governor|democrat|republican|congress)\b', re.I), 'US Politics'),
-    (re.compile(r'\b(crypto|bitcoin|btc|ethereum|blockchain)\b', re.I), 'Crypto'),
-    (re.compile(r'\b(war|military|troops|ceasefire|strike|bombing|invasion)\b', re.I), 'Military & Defense'),
-    (re.compile(r'\b(tariff|trade war|import|export|trade policy)\b', re.I), 'Trade & Tariffs'),
-    # Catch-all last (only if nothing else matched)
-    (re.compile(r'\b(prediction market|betting market|event contract)\b', re.I), 'Industry News'),
-]
-
-
-# ─── Grading ─────────────────────────────────────────────────────────────────
-
-def compute_outlet_grade(pct_reportable, avg_fragility, total_citations):
-    """
-    Assign A-F grade to an outlet based on citation quality.
-
-    Factors:
-      - pct_reportable: % of citations that were Tier 1 (higher = better)
-      - avg_fragility: average fragility score (lower = better)
-      - total_citations: minimum threshold for meaningful grade
-
-    Returns grade string (A, B, C, D, F) and numeric score (0-100).
-    """
-    if total_citations < 3:
-        return "N/A", None  # Not enough data
-
-    # Score: weighted blend (0-100, higher = better)
-    reportable_score = pct_reportable  # 0-100
-    fragility_score = max(0, 100 - avg_fragility)  # Invert: low fragility = high score
-    combined = 0.6 * reportable_score + 0.4 * fragility_score
-
-    if combined >= 80:
-        return "A", combined
-    elif combined >= 60:
-        return "B", combined
-    elif combined >= 40:
-        return "C", combined
-    elif combined >= 20:
-        return "D", combined
-    else:
-        return "F", combined
 
 
 # ─── Aggregation Functions ────────────────────────────────────────────────────
@@ -302,35 +224,6 @@ def generate_timeline(citations):
     return result
 
 
-def classify_topic(citation):
-    """Classify a citation into a topic using keyword patterns.
-
-    Uses a title-first strategy: if the title alone matches a topic, use that.
-    Falls back to sentence/context only if the title doesn't match.
-    This prevents misclassification from passing mentions in article body
-    (e.g., an article about Wealthsimple that mentions 'military' in passing).
-    """
-    title = citation.get("title", "")
-
-    # First pass: try title only (most topically focused)
-    if title:
-        for pattern, topic_name in TOPIC_PATTERNS:
-            if pattern.search(title):
-                return topic_name
-
-    # Second pass: try sentence + context
-    body = " ".join(filter(None, [
-        citation.get("sentence", ""),
-        citation.get("context", ""),
-    ]))
-    if body:
-        for pattern, topic_name in TOPIC_PATTERNS:
-            if pattern.search(body):
-                return topic_name
-
-    return "Other"
-
-
 def generate_topics(citations):
     """Cluster citations by topic and return top N."""
     topics = defaultdict(lambda: {
@@ -417,71 +310,6 @@ def generate_hero_stats(citations, outlets):
     }
 
 
-def domain_to_name(domain):
-    """Convert a domain like 'finance.yahoo.com' to a display name like 'Yahoo Finance'."""
-    DOMAIN_NAMES = {
-        "finance.yahoo.com": "Yahoo Finance",
-        "yahoo.com": "Yahoo",
-        "nypost.com": "New York Post",
-        "bloomberg.com": "Bloomberg",
-        "coindesk.com": "CoinDesk",
-        "arstechnica.com": "Ars Technica",
-        "businessday.co.za": "BusinessDay",
-        "cp24.com": "CP24",
-        "dailyforex.com": "DailyForex",
-        "benzinga.com": "Benzinga",
-        "banklesstimes.com": "Bankless Times",
-        "theglobeandmail.com": "The Globe and Mail",
-        "investinglive.com": "Investing Live",
-        "freemalaysiatoday.com": "Free Malaysia Today",
-        "rotowire.com": "RotoWire",
-        "ibtimes.com.au": "IB Times",
-        "lowellsun.com": "Lowell Sun",
-        "townhall.com": "Townhall",
-        "el-balad.com": "El Balad",
-        "thestreet.com": "TheStreet",
-        "barrons.com": "Barron's",
-        "washingtonpost.com": "Washington Post",
-        "nytimes.com": "New York Times",
-        "wsj.com": "Wall Street Journal",
-        "reuters.com": "Reuters",
-        "apnews.com": "AP News",
-        "cnn.com": "CNN",
-        "foxnews.com": "Fox News",
-        "nbcnews.com": "NBC News",
-        "cbsnews.com": "CBS News",
-        "abcnews.go.com": "ABC News",
-        "bbc.com": "BBC",
-        "cnbc.com": "CNBC",
-        "politico.com": "Politico",
-        "thehill.com": "The Hill",
-        "axios.com": "Axios",
-        "tnp.no": "TNP",
-        "kgou.org": "KGOU",
-        "fortune.com": "Fortune",
-        "marketwatch.com": "MarketWatch",
-        # TV stations (from IA TV News integration)
-        "cnn": "CNN (TV)",
-        "msnbc": "MSNBC (TV)",
-        "foxnews": "Fox News (TV)",
-        "foxbusiness": "Fox Business (TV)",
-        "bbcnews": "BBC News (TV)",
-        "cnbc": "CNBC (TV)",
-        "bloomberg": "Bloomberg (TV)",
-        "cbs(kpix)": "CBS (TV)",
-        "abc(kgo)": "ABC (TV)",
-    }
-    if domain in DOMAIN_NAMES:
-        return DOMAIN_NAMES[domain]
-    # Auto-generate: strip TLD, capitalize
-    parts = domain.replace("www.", "").split(".")
-    if len(parts) >= 2:
-        name = parts[0]
-        # Capitalize first letter, keep rest
-        return name[0].upper() + name[1:] if name else domain
-    return domain
-
-
 def prepare_web_citations(citations, limit=MAX_CITATIONS_WEB):
     """
     Flatten citations for web display. Keep only essential fields.
@@ -554,9 +382,16 @@ def main():
     all_citations = data.get("citations", [])
     logger.info(f"Loaded {len(all_citations)} raw citations")
 
+    # Step 0: Deduplicate by URL hash (catches cross-source duplicates)
+    seen = set()
+    deduped = [c for c in all_citations if not is_duplicate(c, seen)]
+    dedup_removed = len(all_citations) - len(deduped)
+    if dedup_removed:
+        logger.info(f"Removed {dedup_removed} duplicate citations by URL")
+
     # Step 1: Remove promotional/affiliate content (ads, promo codes, sign-up bonuses)
-    non_promo = [c for c in all_citations if not is_promotional(c)]
-    promo_removed = len(all_citations) - len(non_promo)
+    non_promo = [c for c in deduped if not is_promotional(c)]
+    promo_removed = len(deduped) - len(non_promo)
     if promo_removed:
         logger.info(f"Filtered {promo_removed} promotional/affiliate citations")
 
@@ -566,7 +401,7 @@ def main():
     EXCLUDED_TOPICS = {"Industry News", "Other"}
     citations = [c for c in non_promo if classify_topic(c) not in EXCLUDED_TOPICS]
     topic_removed = len(non_promo) - len(citations)
-    logger.info(f"After filtering: {len(citations)} citations ({promo_removed} promo + {topic_removed} non-event removed)")
+    logger.info(f"After filtering: {len(citations)} citations ({dedup_removed} dedup + {promo_removed} promo + {topic_removed} non-event removed)")
 
     # Ensure output directory exists
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

@@ -33,6 +33,7 @@ import os
 
 sys.path.insert(0, str(Path(__file__).parent))
 from config import DATA_DIR, BASE_DIR, atomic_write_json
+from media_pipeline.schema import compute_url_hash
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -297,6 +298,7 @@ def search_context_api(keyword, timespan="3months"):
             "is_quote": art.get("isquote", 0),
             "source_type": "article",
             "search_keyword": keyword,
+            "discovery_source": "gdelt_context",
         })
 
     return articles
@@ -332,6 +334,7 @@ def search_doc_api(keyword, timespan="3months"):
             "socialimage": art.get("socialimage", ""),
             "source_type": "article",
             "search_keyword": keyword,
+            "discovery_source": "gdelt_doc",
         })
 
     return articles
@@ -767,6 +770,7 @@ def search_ia_tv(keyword, days_back=90):
             "source_type": "tv",
             "search_keyword": keyword,
             "domain": station.lower().replace(" ", ""),
+            "discovery_source": "ia_tv",
         })
 
     return clips
@@ -984,10 +988,15 @@ def main():
         elif lang in ("ENGLISH", "ENGLISH ", "") or "english" in lang.lower():
             filtered.append(c)
 
-    # Assign stable IDs
+    # Assign stable IDs, url_hash, and discovered_at
+    discovered_at = run_start.isoformat()
     for c in filtered:
         if "id" not in c:
             c["id"] = make_citation_id(c["url"], c["source_type"], c.get("discovery_source", "gdelt"))
+        if "url_hash" not in c:
+            c["url_hash"] = compute_url_hash(c.get("url", ""))
+        if "discovered_at" not in c:
+            c["discovered_at"] = discovered_at
 
     # Parse and normalize dates
     for c in filtered:
