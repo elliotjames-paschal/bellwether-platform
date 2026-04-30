@@ -289,10 +289,23 @@ def main():
         except Exception as e:
             logger.warning(f"OpenAI client init failed, falling back to fuzzy-only: {e}")
 
+    # Load previous matched results to skip already-processed citations
+    prior_by_url = {}
+    if OUTPUT_FILE.exists():
+        try:
+            prev = json.loads(OUTPUT_FILE.read_text(encoding="utf-8"))
+            for c in prev.get("citations", []):
+                if c.get("match_status") and c.get("url"):
+                    prior_by_url[c["url"]] = c
+            logger.info(f"Loaded {len(prior_by_url)} previously matched citations (will skip)")
+        except (json.JSONDecodeError, IOError):
+            pass
+
     # Process each citation
     matched_count = 0
     unmatched_count = 0
     no_reference_count = 0
+    skipped_prior = 0
 
     output_citations = []
 
@@ -302,6 +315,21 @@ def main():
     for i, citation in enumerate(citations):
         if i % 100 == 0 and i > 0:
             logger.info(f"Progress: {i}/{len(citations)} citations processed")
+
+        # Skip citations already matched in a prior run
+        url = citation.get("url", "")
+        if url and url in prior_by_url:
+            prior = prior_by_url[url]
+            output_citations.append(prior)
+            if prior.get("match_status") == "MATCHED":
+                matched_count += 1
+            elif prior.get("match_status") == "NO_REFERENCE":
+                no_reference_count += 1
+            else:
+                unmatched_count += 1
+            skipped_prior += 1
+            primary_outputs[i] = prior
+            continue
 
         # Syndicated copies inherit match from primary
         if i in syndication_map:
@@ -404,7 +432,7 @@ def main():
         primary_outputs[i] = out_entry
 
     # Summary
-    logger.info(f"Results: {matched_count} matched, {unmatched_count} unmatched, {no_reference_count} no reference")
+    logger.info(f"Results: {matched_count} matched, {unmatched_count} unmatched, {no_reference_count} no reference, {skipped_prior} reused from prior run")
 
     # Save output
     output = {

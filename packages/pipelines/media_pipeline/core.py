@@ -408,6 +408,69 @@ def normalize_title(title):
 
 
 # =============================================================================
+# Keyword Sentence Extraction (for sources without built-in context, e.g. Media Cloud)
+# =============================================================================
+
+def extract_keyword_sentences(text, keywords, context_n=2):
+    """Find sentences containing any keyword and return them with surrounding context.
+
+    Media Cloud (and trafilatura-fetched article text) gives us raw article body
+    but no sentence-level context like GDELT Context API does.  This function
+    splits the text into sentences, finds those containing a keyword, and returns
+    the matched sentence plus *context_n* sentences before and after.
+
+    Args:
+        text: Full article body text.
+        keywords: Iterable of keyword strings to search for (case-insensitive).
+        context_n: Number of sentences of context to include before/after the match.
+
+    Returns:
+        List of dicts with keys:
+            sentence  — the matched sentence
+            before    — up to *context_n* preceding sentences joined by space
+            after     — up to *context_n* following sentences joined by space
+            keyword   — which keyword triggered the match
+    """
+    if not text or not keywords:
+        return []
+
+    # Sentence splitting: split on period/exclamation/question followed by
+    # whitespace and an uppercase letter, or on newlines that look like
+    # paragraph breaks.  Good enough for news prose.
+    sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
+    # Also split on double-newlines (paragraph breaks)
+    expanded = []
+    for s in sentences:
+        parts = re.split(r'\n{2,}', s)
+        expanded.extend(p.strip() for p in parts if p.strip())
+    sentences = expanded
+
+    if not sentences:
+        return []
+
+    results = []
+    seen_indices = set()
+
+    for kw in keywords:
+        kw_lower = kw.lower()
+        for i, sent in enumerate(sentences):
+            if i in seen_indices:
+                continue
+            if kw_lower in sent.lower():
+                before = " ".join(sentences[max(0, i - context_n):i])
+                after = " ".join(sentences[i + 1:i + 1 + context_n])
+                results.append({
+                    "sentence": sent,
+                    "before": before,
+                    "after": after,
+                    "keyword": kw,
+                })
+                seen_indices.add(i)
+
+    return results
+
+
+# =============================================================================
 # Market Reference Extraction (from pipeline_media_extract_markets.py)
 # =============================================================================
 

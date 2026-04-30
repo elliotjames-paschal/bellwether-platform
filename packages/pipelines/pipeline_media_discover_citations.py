@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
+from urllib.parse import urlparse
 
 import os
 
@@ -85,6 +86,40 @@ GUARDIAN_QUERIES = [
 ]
 
 
+# ─── Media Cloud Configuration ───────────────────────────────────────────────
+# Academic search API indexing US national online news.
+# API key: https://search.mediacloud.org/  (free academic registration)
+# Uses collection_ids=[34412234] (US mainstream national sources).
+MEDIACLOUD_COLLECTION_IDS = [34412234]
+
+# Tier 1 — broad mentions (metadata only, no text fetch)
+MEDIACLOUD_MENTION_QUERY = (
+    "(Polymarket OR Kalshi)"
+    " NOT (promo OR code OR bonus OR picks"
+    " OR NBA OR NFL OR NHL OR MLB OR PGA"
+    " OR fantasy OR DraftKings OR FanDuel"
+    ' OR "betting lines")'
+)
+
+# Tier 2 — probability-language citations (text fetch + sentence extraction)
+MEDIACLOUD_CITATION_QUERY = (
+    "(Polymarket OR Kalshi) AND (chance OR probability OR odds)"
+    " NOT (promo OR code OR bonus OR picks"
+    " OR NBA OR NFL OR NHL OR MLB OR PGA"
+    " OR fantasy OR DraftKings OR FanDuel"
+    ' OR "betting lines")'
+)
+
+# Max articles per Media Cloud query page
+MEDIACLOUD_PAGE_SIZE = 100
+
+# Keywords for sentence extraction from fetched article text
+MEDIACLOUD_SENTENCE_KEYWORDS = [
+    "Polymarket", "Kalshi", "prediction market", "prediction markets",
+    "betting market", "betting odds", "event contract",
+    "percent", "%", "probability", "odds", "chance",
+]
+
 def _get_newsapi_key():
     """Get NewsAPI key from environment or .env file. Returns None if not configured."""
     key = os.environ.get("NEWSAPI_KEY")
@@ -109,6 +144,20 @@ def _get_guardian_key():
         for line in env_file.read_text().splitlines():
             line = line.strip()
             if line.startswith("GUARDIAN_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return None
+
+
+def _get_mediacloud_key():
+    """Get Media Cloud API key from environment or .env file. Returns None if not configured."""
+    key = os.environ.get("MEDIACLOUD_API_KEY")
+    if key:
+        return key
+    env_file = BASE_DIR / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("MEDIACLOUD_API_KEY="):
                 return line.split("=", 1)[1].strip().strip('"').strip("'")
     return None
 
@@ -604,6 +653,219 @@ def search_guardian(query, from_date, to_date, api_key):
     return articles
 
 
+# ─── Media Cloud Search ──────────────────────────────────────────────────────
+
+MEDIACLOUD_API_URL = "https://search.mediacloud.org/api/search/story-list"
+
+
+def _mediacloud_search(query, from_date, to_date, api_key, collection_ids=None):
+    """Run a single Media Cloud search query, paginating to completion.
+
+    Calls the Media Cloud REST API directly (no SDK dependency).
+    Returns raw list of story dicts from the API.
+    """
+    all_stories = []
+    pagination_token = None
+
+    while True:
+        params = {
+            "q": query,
+            "start_date": from_date,
+            "end_date": to_date,
+            "page_size": MEDIACLOUD_PAGE_SIZE,
+            "collection_ids[]": collection_ids or MEDIACLOUD_COLLECTION_IDS,
+        }
+        if pagination_token:
+            params["pagination_token"] = pagination_token
+
+        try:
+            resp = requests.get(
+                MEDIACLOUD_API_URL,
+                params=params,
+                headers={"Authorization": f"Token {api_key}"},
+                timeout=60,
+            )
+            if resp.status_code == 401:
+                logger.warning("Media Cloud API: invalid API key")
+                break
+            if resp.status_code == 429:
+                logger.warning("Media Cloud API: rate limited, waiting 60s...")
+                time.sleep(60)
+                continue
+            if resp.status_code != 200:
+                logger.warning(f"Media Cloud API returned {resp.status_code}: {resp.text[:200]}")
+                break
+
+            try:
+                data = resp.json()
+            except ValueError:
+                logger.warning("Media Cloud API returned non-JSON response")
+                break
+        except requests.RequestException as e:
+            logger.warning(f"Media Cloud API error: {e}")
+            break
+
+        stories = data.get("stories", [])
+        if not stories:
+            break
+
+        all_stories.extend(stories)
+
+        pagination_token = data.get("pagination_token")
+        if not pagination_token:
+            break
+
+        # Rate limit: API allows 2 requests/minute on some endpoints
+        time.sleep(31)
+
+    return all_stories
+
+
+def _fetch_article_text(url, timeout=20):
+    """Fetch and extract article body text using trafilatura.
+
+    Returns extracted text or empty string on failure.
+    """
+    try:
+        import trafilatura
+    except ImportError:
+        logger.error("trafilatura package not installed — run: pip install trafilatura>=1.6.0")
+        return ""
+
+    try:
+        downloaded = trafilatura.fetch_url(url)
+        if not downloaded:
+            return ""
+        text = trafilatura.extract(downloaded, include_comments=False, include_tables=False)
+        return text or ""
+    except Exception as e:
+        logger.debug(f"trafilatura failed for {url}: {e}")
+        return ""
+
+
+def search_mediacloud_mentions(query, from_date, to_date, api_key):
+    """Tier 1 — broad mention search.  Metadata only, no text fetch.
+
+    Returns list of citation dicts (same shape as other sources).
+    """
+    stories = _mediacloud_search(query, from_date, to_date, api_key)
+    if not stories:
+        return []
+
+    articles = []
+    for story in stories:
+        url = story.get("url", "")
+        if not url:
+            continue
+
+        title = (story.get("title") or "").strip()
+        pub_date = story.get("publish_date", "")
+
+        # Derive domain from URL
+        try:
+            domain = urlparse(url).netloc.replace("www.", "")
+        except Exception:
+            domain = ""
+
+        # Convert publish_date to GDELT-compatible seendate format
+        seendate = pub_date.replace("-", "").replace(":", "").replace("T", "").replace("Z", "").replace(" ", "")
+
+        articles.append({
+            "url": url,
+            "title": title,
+            "seendate": seendate[:14] if seendate else "",
+            "domain": domain,
+            "language": story.get("language", "en"),
+            "sourcecountry": "",
+            "socialimage": "",
+            "sentence": "",
+            "context": "",
+            "source_type": "article",
+            "search_keyword": "mediacloud_mention",
+            "discovery_source": "mediacloud_mention",
+        })
+
+    return articles
+
+
+def search_mediacloud_citations(query, from_date, to_date, api_key,
+                                existing_urls=None):
+    """Tier 2 — probability-language citations with text fetch.
+
+    Fetches full article text via trafilatura and extracts keyword sentences
+    for downstream market matching.
+
+    Args:
+        existing_urls: Set of URLs already discovered by other sources (for dedup).
+
+    Returns list of citation dicts with sentence/context populated.
+    """
+    from media_pipeline.core import extract_keyword_sentences
+
+    stories = _mediacloud_search(query, from_date, to_date, api_key)
+    if not stories:
+        return []
+
+    existing_urls = existing_urls or set()
+    articles = []
+    fetch_count = 0
+
+    for story in stories:
+        url = story.get("url", "")
+        if not url or url in existing_urls:
+            continue
+
+        title = (story.get("title") or "").strip()
+        pub_date = story.get("publish_date", "")
+
+        try:
+            domain = urlparse(url).netloc.replace("www.", "")
+        except Exception:
+            domain = ""
+
+        seendate = pub_date.replace("-", "").replace(":", "").replace("T", "").replace("Z", "").replace(" ", "")
+
+        sentence = ""
+        context = ""
+
+        # Fetch full text and extract keyword sentences
+        text = _fetch_article_text(url)
+        if text:
+            fetch_count += 1
+            matches = extract_keyword_sentences(
+                text, MEDIACLOUD_SENTENCE_KEYWORDS, context_n=2
+            )
+            if matches:
+                # Use the first match that contains a probability keyword
+                prob_match = None
+                for m in matches:
+                    sent_lower = m["sentence"].lower()
+                    if any(k in sent_lower for k in ("%", "percent", "probability", "odds", "chance")):
+                        prob_match = m
+                        break
+                best = prob_match or matches[0]
+                sentence = best["sentence"][:500]
+                context = (best["before"] + " " + best["sentence"] + " " + best["after"]).strip()[:1000]
+
+        articles.append({
+            "url": url,
+            "title": title,
+            "seendate": seendate[:14] if seendate else "",
+            "domain": domain,
+            "language": story.get("language", "en"),
+            "sourcecountry": "",
+            "socialimage": "",
+            "sentence": sentence,
+            "context": context,
+            "source_type": "article",
+            "search_keyword": "mediacloud_citation",
+            "discovery_source": "mediacloud_citation",
+        })
+
+    logger.info(f"  Fetched text for {fetch_count}/{len(stories)} Tier 2 articles")
+    return articles
+
+
 # ─── Internet Archive TV News Search ─────────────────────────────────────────
 
 # Map IA identifier prefixes to station names
@@ -970,6 +1232,41 @@ def main():
         else:
             logger.info(f"  '{kw}': 0 chyron clips")
 
+    # 9. Media Cloud — US national online news (academic index)
+    mc_key = _get_mediacloud_key()
+    if mc_key:
+        mc_from = (run_start - timedelta(days=backfill_days)).strftime("%Y-%m-%d")
+        mc_to = run_start.strftime("%Y-%m-%d")
+
+        # Tier 1: broad mentions (metadata only)
+        logger.info("--- Media Cloud (Tier 1: broad mentions) ---")
+        mc_mentions = search_mediacloud_mentions(
+            MEDIACLOUD_MENTION_QUERY, mc_from, mc_to, mc_key
+        )
+        if mc_mentions:
+            logger.info(f"  Tier 1 mentions: {len(mc_mentions)} articles")
+            all_new.extend(mc_mentions)
+        else:
+            logger.info("  Tier 1 mentions: 0 articles")
+
+        # Tier 2: probability-language citations (text fetch + sentence extraction)
+        # Dedupe against URLs already collected from other sources
+        existing_urls = {c["url"] for c in all_new if c.get("url")}
+        existing_urls.update(c["url"] for c in existing if c.get("url"))
+
+        logger.info("--- Media Cloud (Tier 2: probability citations) ---")
+        mc_citations = search_mediacloud_citations(
+            MEDIACLOUD_CITATION_QUERY, mc_from, mc_to, mc_key,
+            existing_urls=existing_urls,
+        )
+        if mc_citations:
+            logger.info(f"  Tier 2 citations: {len(mc_citations)} articles")
+            all_new.extend(mc_citations)
+        else:
+            logger.info("  Tier 2 citations: 0 articles")
+    else:
+        logger.info("--- Media Cloud: SKIPPED (no MEDIACLOUD_API_KEY configured) ---")
+
     logger.info(f"Total raw results: {len(all_new)} (API errors: {api_errors})")
 
     if len(all_new) == 0 and api_errors > 0:
@@ -982,10 +1279,10 @@ def main():
     # Filter: English only for articles (TV clips don't have language field)
     filtered = []
     for c in merged:
-        lang = c.get("language", "").upper()
+        lang = c.get("language", "").strip().upper()
         if c["source_type"] == "tv":
             filtered.append(c)
-        elif lang in ("ENGLISH", "ENGLISH ", "") or "english" in lang.lower():
+        elif lang in ("ENGLISH", "EN", "") or "english" in lang.lower():
             filtered.append(c)
 
     # Assign stable IDs, url_hash, and discovered_at

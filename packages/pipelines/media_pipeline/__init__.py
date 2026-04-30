@@ -38,6 +38,7 @@ from media_pipeline.core import (  # noqa: F401
     _safe_str,
     flatten_market,
     extract_keywords,
+    extract_keyword_sentences,
     build_market_search_text,
     build_market_indices,
     filter_markets_by_platform,
