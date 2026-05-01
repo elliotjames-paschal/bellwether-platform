@@ -1262,16 +1262,22 @@ def main():
             logger.info("  Tier 1 mentions: 0 articles")
 
         # Tier 2: probability-language citations (text fetch + sentence extraction)
-        # Dedupe against URLs already collected from other sources
-        existing_urls = {c["url"] for c in all_new if c.get("url")}
-        existing_urls.update(c["url"] for c in existing if c.get("url"))
+        # Only dedupe against non-Media Cloud sources (GDELT, Guardian, etc.)
+        # Tier 2 should UPGRADE Tier 1 mentions with sentence/context data
+        non_mc_urls = {c["url"] for c in all_new if c.get("url") and c.get("discovery_source") not in ("mediacloud_mention", "mediacloud_citation")}
+        non_mc_urls.update(c["url"] for c in existing if c.get("url") and c.get("discovery_source") not in ("mediacloud_mention", "mediacloud_citation"))
 
         logger.info("--- Media Cloud (Tier 2: probability citations) ---")
         mc_citations = search_mediacloud_citations(
             MEDIACLOUD_CITATION_QUERY, mc_from, mc_to, mc_key,
-            existing_urls=existing_urls,
+            existing_urls=non_mc_urls,
         )
         if mc_citations:
+            # Upgrade: replace Tier 1 mentions with Tier 2 citations that have sentence data
+            tier2_urls = {c["url"] for c in mc_citations if c.get("url") and c.get("sentence")}
+            if tier2_urls:
+                all_new = [c for c in all_new if c.get("url") not in tier2_urls]
+                logger.info(f"  Upgraded {len(tier2_urls)} Tier 1 mentions → Tier 2 citations")
             logger.info(f"  Tier 2 citations: {len(mc_citations)} articles")
             all_new.extend(mc_citations)
         else:
