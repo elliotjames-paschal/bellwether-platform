@@ -2472,10 +2472,15 @@ a.price-box.clickable:hover {
     border: none;
     color: #666;
     cursor: pointer;
-    padding: 1px 2px;
+    padding: 6px 8px;
+    margin: -5px -5px -5px 0;
     line-height: 1;
+    border-radius: 3px;
     opacity: 0;
-    transition: opacity 0.15s;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+.market-card:hover .ticker-copy-btn {
+    opacity: 1;
 }
 .card-ticker:hover .ticker-copy-btn {
     opacity: 1;
