@@ -537,6 +537,8 @@
       <a href="#events-get" class="sidebar-link nested">Get event</a>
       <a href="#markets" class="sidebar-link">Markets</a>
       <a href="#markets-ticker" class="sidebar-link nested">Get by ticker</a>
+      <a href="#markets-search" class="sidebar-link nested">Search</a>
+      <a href="#markets-top" class="sidebar-link nested">Top markets</a>
       <a href="#markets-platform" class="sidebar-link nested">Platform data</a>
       <a href="#markets-combined" class="sidebar-link nested">Combined data</a>
       <a href="#reportability" class="sidebar-link">Reportability</a>
@@ -706,9 +708,89 @@
               <tr><td><span class="param-name">volume_usd</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Total trading volume in USD.</span></td></tr>
               <tr><td><span class="param-name">bellwether_price</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Volume-weighted price (VWAP). Null if insufficient data.</span></td></tr>
               <tr><td><span class="param-name">price_tier</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Data quality tier: 1, 2, or 3.</span></td></tr>
-              <tr><td><span class="param-name">robustness</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>cost_to_move_5c</code>, <code>cost_to_move_up_5c</code>, <code>cost_to_move_down_5c</code>, <code>reportability</code>, <code>weakest_platform</code>.</span></td></tr>
+              <tr><td><span class="param-name">price_label</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Human-readable description of the price source. E.g. <code>6h VWAP</code>, <code>6h VWAP across platforms</code>.</span></td></tr>
+              <tr><td><span class="param-name">price_source</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Machine-readable source: <code>6h_vwap</code>, <code>12h_vwap</code>, <code>24h_vwap</code>, <code>stale_vwap</code>, or <code>no_data</code>.</span></td></tr>
+              <tr><td><span class="param-name">robustness</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>cost_to_move_5c</code>, <code>cost_to_move_up_5c</code>, <code>cost_to_move_down_5c</code>, <code>reportability</code>, <code>raw_reportability</code>, <code>weakest_platform</code>.</span></td></tr>
+              <tr><td><span class="param-name">vwap_details</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>window_hours</code>, <code>trade_count</code>, and <code>total_volume</code>.</span></td></tr>
+              <tr><td><span class="param-name">orderbook_midpoint</span></td><td><span class="param-type">float</span></td><td><span class="param-desc">Best bid/ask midpoint from current order book.</span></td></tr>
               <tr><td><span class="param-name">orderbook_summary</span></td><td><span class="param-type">object</span></td><td><span class="param-desc">Contains <code>bid_levels</code>, <code>ask_levels</code>, <code>best_bid</code>, <code>best_ask</code>, <code>top_5_bids</code>, <code>top_5_asks</code>. For cross-platform markets, entries include <code>platform</code>.</span></td></tr>
               <tr><td><span class="param-name">fetched_at</span></td><td><span class="param-type">datetime</span></td><td><span class="param-desc">When upstream data was last fetched.</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint-card" id="markets-search">
+        <div class="endpoint-header">
+          <span class="endpoint-method">GET</span>
+          <span class="endpoint-path">/api/markets/search</span>
+          <span class="endpoint-desc">Search markets by keyword</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="muted" style="margin-bottom:16px">Search active political prediction markets by topic or keyword. Each word in the query is matched independently across market titles and tickers, ranked by match count and volume.</p>
+          <table class="param-table">
+            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">q</span><span class="param-required">required</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Search query. E.g. <code>senate</code>, <code>federal reserve</code></span></td>
+              </tr>
+              <tr>
+                <td><span class="param-name">category</span><span class="param-optional">optional</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Filter by category. E.g. <code>ELECTORAL</code>, <code>MONETARY_POLICY</code></span></td>
+              </tr>
+              <tr>
+                <td><span class="param-name">limit</span><span class="param-optional">optional</span></td>
+                <td><span class="param-type">int</span></td>
+                <td><span class="param-desc">Max results. Default 10, max 50.</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <h3 style="margin-top:20px; font-size:14px">Response fields</h3>
+          <table class="param-table">
+            <thead><tr><th style="width:180px">Field</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="param-name">results</span></td><td><span class="param-type">array</span></td><td><span class="param-desc">Array of matching markets. Each contains <code>slug</code>, <code>ticker</code>, <code>title</code>, <code>category</code>, <code>volume_usd</code>, <code>is_matched</code>, <code>platforms</code>.</span></td></tr>
+              <tr><td><span class="param-name">total</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Total number of matching markets.</span></td></tr>
+              <tr><td><span class="param-name">query</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">The query that was searched.</span></td></tr>
+              <tr><td><span class="param-name">category</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Category filter applied, or null.</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="endpoint-card" id="markets-top">
+        <div class="endpoint-header">
+          <span class="endpoint-method">GET</span>
+          <span class="endpoint-path">/api/markets/top</span>
+          <span class="endpoint-desc">Most actively traded markets</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="muted" style="margin-bottom:16px">Returns the most actively traded prediction markets right now, sorted by volume. Optionally filter by category.</p>
+          <table class="param-table">
+            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">category</span><span class="param-optional">optional</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-desc">Filter by category. E.g. <code>ELECTORAL</code></span></td>
+              </tr>
+              <tr>
+                <td><span class="param-name">limit</span><span class="param-optional">optional</span></td>
+                <td><span class="param-type">int</span></td>
+                <td><span class="param-desc">Max results. Default 10, max 50.</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <h3 style="margin-top:20px; font-size:14px">Response fields</h3>
+          <table class="param-table">
+            <thead><tr><th style="width:180px">Field</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="param-name">results</span></td><td><span class="param-type">array</span></td><td><span class="param-desc">Array of top markets. Each contains <code>slug</code>, <code>ticker</code>, <code>title</code>, <code>category</code>, <code>volume_usd</code>, <code>is_matched</code>, <code>platforms</code>.</span></td></tr>
+              <tr><td><span class="param-name">category</span></td><td><span class="param-type">string</span></td><td><span class="param-desc">Category filter applied, or null.</span></td></tr>
+              <tr><td><span class="param-name">total_active</span></td><td><span class="param-type">int</span></td><td><span class="param-desc">Total number of active markets.</span></td></tr>
             </tbody>
           </table>
         </div>
