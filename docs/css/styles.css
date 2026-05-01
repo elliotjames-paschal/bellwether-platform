@@ -4068,13 +4068,13 @@ body.review-mode .market-card.selected {
 }
 
 .timeline-election:hover::before {
-    background: var(--pm-color);
-    border-color: var(--pm-color);
+    background: #4A90D9;
+    border-color: #4A90D9;
 }
 
 .timeline-election.active::before {
-    background: var(--pm-color);
-    border-color: var(--pm-color);
+    background: #4A90D9;
+    border-color: #4A90D9;
 }
 
 .timeline-election-date {
@@ -4093,7 +4093,7 @@ body.review-mode .market-card.selected {
 }
 
 .timeline-election:hover .timeline-election-name {
-    color: var(--pm-color);
+    color: #4A90D9;
 }
 
 .timeline-election-markets {
@@ -4127,8 +4127,8 @@ body.review-mode .market-card.selected {
     gap: 12px;
     padding: 10px 14px;
     margin-bottom: 12px;
-    background: rgba(37, 99, 235, 0.06);
-    border: 1px solid rgba(37, 99, 235, 0.2);
+    background: rgba(74, 144, 217, 0.06);
+    border: 1px solid rgba(74, 144, 217, 0.2);
     border-radius: 6px;
 }
 
@@ -4138,7 +4138,7 @@ body.review-mode .market-card.selected {
 }
 
 .election-filter-text strong {
-    color: var(--pm-color);
+    color: #4A90D9;
     font-weight: 600;
 }
 
@@ -4158,8 +4158,8 @@ body.review-mode .market-card.selected {
 }
 
 .election-filter-dismiss:hover {
-    background: rgba(37, 99, 235, 0.1);
-    color: var(--pm-color);
+    background: rgba(74, 144, 217, 0.1);
+    color: #4A90D9;
 }
 
 /* =============================================================================
@@ -4309,13 +4309,13 @@ body.review-mode .market-card.selected {
     }
 
     .timeline-strip-item:hover {
-        border-color: var(--pm-color);
-        background: rgba(37, 99, 235, 0.04);
+        border-color: #4A90D9;
+        background: rgba(74, 144, 217, 0.04);
     }
 
     .timeline-strip-item.active {
-        border-color: var(--pm-color);
-        background: rgba(37, 99, 235, 0.06);
+        border-color: #4A90D9;
+        background: rgba(74, 144, 217, 0.06);
     }
 
     .timeline-strip-date {
