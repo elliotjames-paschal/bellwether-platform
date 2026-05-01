@@ -830,10 +830,41 @@
 
       <h3 id="mcp-setup">Setup</h3>
 
-      <p>Run directly with npx:</p>
+      <h4 style="margin-top:20px">Remote (recommended)</h4>
+
+      <p>Connect directly to the hosted MCP server &mdash; no installation required:</p>
+      <div class="code-block"><pre>https://mcp.bellwethermetrics.com/mcp</pre></div>
+
+      <p style="margin-top:24px"><strong>Claude.ai (Connectors)</strong></p>
+      <p>Add Bellwether as a connector on <a href="https://claude.ai" target="_blank" rel="noopener">claude.ai</a> to use it directly in your browser:</p>
+      <ol style="font-size:14px; line-height:1.8; margin:12px 0 12px 20px; color:var(--bw-text)">
+        <li>Open <a href="https://claude.ai/settings/connectors" target="_blank" rel="noopener">Settings &rarr; Connectors</a></li>
+        <li>Click the <strong>+</strong> button, then select <strong>Add custom connector</strong></li>
+        <li>Enter a name (e.g. <code>Bellwether</code>) and paste the URL: <code>https://mcp.bellwethermetrics.com/mcp</code></li>
+        <li>Click <strong>Add</strong> &mdash; no authentication is required</li>
+        <li>In any chat, click the <strong>+</strong> button in the message input, hover over <strong>Connectors</strong>, and toggle <strong>Bellwether</strong> on</li>
+      </ol>
+      <p class="muted" style="font-size:13px">Free-plan users can add one custom connector. Pro, Max, Team, and Enterprise users can add multiple.</p>
+
+      <p style="margin-top:24px"><strong>Claude Desktop</strong> &mdash; add to <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>:</p>
+      <div class="code-block"><pre>{
+  <span class="str">"mcpServers"</span>: {
+    <span class="str">"bellwether"</span>: {
+      <span class="str">"type"</span>: <span class="str">"streamable-http"</span>,
+      <span class="str">"url"</span>: <span class="str">"https://mcp.bellwethermetrics.com/mcp"</span>
+    }
+  }
+}</pre></div>
+
+      <p style="margin-top:20px"><strong>Claude Code</strong> &mdash; add via the CLI:</p>
+      <div class="code-block"><pre>claude mcp add bellwether --transport http https://mcp.bellwethermetrics.com/mcp</pre></div>
+
+      <h4 style="margin-top:30px">Local (alternative)</h4>
+
+      <p>Run locally with npx:</p>
       <div class="code-block"><pre>npx bellwether-mcp</pre></div>
 
-      <p style="margin-top:20px"><strong>Claude Desktop</strong> &mdash; add to <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>:</p>
+      <p style="margin-top:20px"><strong>Claude Desktop</strong> &mdash; local config:</p>
       <div class="code-block"><pre>{
   <span class="str">"mcpServers"</span>: {
     <span class="str">"bellwether"</span>: {
@@ -843,7 +874,7 @@
   }
 }</pre></div>
 
-      <p style="margin-top:20px"><strong>Claude Code</strong> &mdash; add via the CLI:</p>
+      <p style="margin-top:20px"><strong>Claude Code</strong> &mdash; local:</p>
       <div class="code-block"><pre>claude mcp add bellwether -- npx bellwether-mcp</pre></div>
 
       <h3 id="mcp-tools">Tools</h3>
@@ -926,57 +957,18 @@
         </div>
       </div>
 
-      <div class="endpoint-card">
-        <div class="endpoint-header">
-          <span class="endpoint-method">TOOL</span>
-          <span class="endpoint-path">get_platform_spread</span>
-          <span class="endpoint-desc">Cross-platform price comparison</span>
-        </div>
-        <div class="endpoint-body">
-          <p class="muted" style="margin-bottom:16px">Compare prices between Kalshi and Polymarket for cross-platform matched markets. Returns spread in cents and direction.</p>
-          <table class="param-table">
-            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="param-name">ticker</span><span class="param-required">required</span></td>
-                <td><span class="param-type">string</span></td>
-                <td><span class="param-desc">Bellwether ticker for a matched market (<code>is_matched: true</code>)</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="endpoint-card">
-        <div class="endpoint-header">
-          <span class="endpoint-method">TOOL</span>
-          <span class="endpoint-path">get_reportability</span>
-          <span class="endpoint-desc">Editorial safety check</span>
-        </div>
-        <div class="endpoint-body">
-          <p class="muted" style="margin-bottom:16px">Check whether a market is safe to cite in published content. Returns reportability tier, cost to move price 5 cents, and editorial guidance.</p>
-          <table class="param-table">
-            <thead><tr><th style="width:140px">Parameter</th><th style="width:80px">Type</th><th>Description</th></tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="param-name">ticker</span><span class="param-required">required</span></td>
-                <td><span class="param-type">string</span></td>
-                <td><span class="param-desc">Bellwether ticker</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <h3>Example Workflow</h3>
       <div class="code-block"><pre><span class="comment">// Step 1: Find markets</span>
 search_markets(<span class="str">"2026 midterms"</span>)
 
-<span class="comment">// Step 2: Get live price</span>
+<span class="comment">// Step 2: Get live price + reportability</span>
 get_market(<span class="str">"BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-2026"</span>)
+<span class="comment">// → returns bellwether_price, reportability, guidance, cost_to_move_5c</span>
+<span class="comment">// → always surface the reportability tier and guidance to users</span></pre></div>
 
-<span class="comment">// Step 3: Check if safe to cite</span>
-get_reportability(<span class="str">"BWR-DEM-CONTROL-HOUSE-CERTIFIED-ANY-2026"</span>)</pre></div>
+      <div class="callout">
+        <p><strong>Note:</strong> <code>get_market</code> returns reportability, editorial guidance, and cost-to-move data alongside the price — no separate reportability check is needed.</p>
+      </div>
     </div>
 
     <!-- DATA GLOSSARY -->
