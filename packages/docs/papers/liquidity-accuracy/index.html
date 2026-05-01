@@ -14,8 +14,66 @@
     <title>How We Built a Trustworthy Price - Bellwether</title>
     <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../../css/styles.css?v=20260430b">
     <style>
+        :root {
+            --bw-blue: #4A90D9;
+            --bw-dark: #1A1A1A;
+            --bw-text-secondary: #6B6B6B;
+            --font-sans: 'DM Sans', -apple-system, sans-serif;
+        }
+        .nav, .hero, .footer { display: none !important; }
+
+        .v2-nav {
+            position: fixed; top: 0; width: 100%; z-index: 100;
+            background: rgba(255,255,255,0.72);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            backdrop-filter: blur(24px) saturate(180%);
+            border-bottom: 1px solid rgba(255,255,255,0.35);
+            transition: box-shadow 0.3s;
+        }
+        .v2-nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
+        .v2-nav .v2-nav-inner {
+            max-width: 1200px; margin: 0 auto; padding: 0 32px;
+            height: 60px; display: flex; align-items: center; justify-content: space-between;
+        }
+        .v2-nav .v2-nav-logo {
+            display: flex !important; align-items: center !important; gap: 10px !important;
+            font-family: 'Source Serif 4', Georgia, serif !important; font-weight: 600 !important; font-size: 18px !important;
+            color: var(--bw-dark) !important; text-decoration: none !important; letter-spacing: 0 !important;
+        }
+        .v2-nav .v2-nav-logo::before { display: none !important; content: none !important; }
+        .v2-nav .v2-nav-logo .dot {
+            width: 10px; height: 10px; background: var(--bw-blue); border-radius: 50%; flex-shrink: 0;
+        }
+        .v2-nav .v2-nav-links {
+            display: flex; align-items: center; gap: 32px;
+        }
+        .v2-nav .v2-nav-links a {
+            font-family: var(--font-sans) !important; font-size: 14px !important; font-weight: 400 !important;
+            color: var(--bw-text-secondary) !important; text-decoration: none !important; transition: color 0.2s;
+        }
+        .v2-nav .v2-nav-links a:hover { color: var(--bw-dark) !important; }
+        .v2-nav .v2-nav-links a.active { color: var(--bw-dark) !important; font-weight: 500 !important; }
+        .v2-nav .v2-nav-affil {
+            font-family: var(--font-sans); font-size: 12px; color: var(--bw-text-secondary);
+            opacity: 0.6; font-weight: 300; letter-spacing: 0.02em;
+        }
+        .v2-nav .v2-nav-cta {
+            all: unset !important;
+            font-size: 13px !important; color: #FFFFFF !important;
+            background: #1A1A1A !important; padding: 8px 20px !important; border-radius: 6px !important;
+            cursor: pointer !important; transition: background 0.2s !important;
+            font-family: var(--font-sans) !important; text-decoration: none !important;
+            display: inline-block !important; box-sizing: border-box !important;
+        }
+        .v2-nav .v2-nav-cta:hover { background: #333 !important; }
+        @media (max-width: 900px) {
+            .v2-nav .v2-nav-links a:not(.v2-nav-cta) { display: none; }
+            .v2-nav .v2-nav-affil { display: none; }
+        }
+
         .article-header {
             max-width: 720px;
             margin: 0 auto;
@@ -193,31 +251,25 @@
     </style>
 </head>
 <body>
-    <nav class="nav">
-        <div class="nav-inner">
-            <div class="nav-left">
-                <a href="../../" class="nav-logo"><span class="nav-logo-text">Bel<span class="nav-logo-bounce">l</span><span class="nav-logo-rest">wether</span></span></a>
-                <div class="nav-links">
-                    <a href="../../">Home</a>
-                    <a href="../../globe.html">Globe</a>
-                    <a href="../../research.html">Research</a>
-                    <a href="../../data.html">Data</a>
-                    <a href="../../about.html">About</a>
-                </div>
+    <nav class="v2-nav" id="v2-nav">
+        <div class="v2-nav-inner">
+            <a href="../../home.html" class="v2-nav-logo"><span class="dot"></span>Bellwether</a>
+            <div class="v2-nav-links">
+                <a href="../../monitor.html">Markets</a>
+                <a href="../../media.html">Media</a>
+                <a href="../../blueprints.html">Blueprints</a>
+                <a href="../../research.html" class="active">Research</a>
+                <a href="../../docs.html">Docs</a>
+                <span class="v2-nav-affil">Stanford &middot; Hoover Institution</span>
+                <a href="mailto:paschal@stanford.edu" class="v2-nav-cta">Contact</a>
             </div>
-            <a href="https://www.hoover.org" target="_blank" rel="noopener" class="nav-affiliation">
-                <img src="../../assets/hoover-tower.svg" alt="" class="nav-affiliation-icon">
-                <span>Hoover Institution</span>
-            </a>
         </div>
     </nav>
     <script>
     (function() {
-        var nav = document.querySelector('.nav');
-        var scrolled = false;
+        var nav = document.getElementById('v2-nav');
         window.addEventListener('scroll', function() {
-            var s = window.scrollY > 20;
-            if (s !== scrolled) { scrolled = s; nav.classList.toggle('scrolled', s); }
+            nav.classList.toggle('scrolled', window.scrollY > 10);
         }, { passive: true });
     })();
     </script>
