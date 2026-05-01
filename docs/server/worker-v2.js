@@ -887,7 +887,33 @@ export default {
     if (slugMatch) {
       const slug = slugMatch[1];
       const markets = await loadMarketMap(kv);
-      const market = getMarketBySlug(markets, slug);
+      let market = getMarketBySlug(markets, slug);
+
+      // Fallback or supplement from active_markets
+      const activeMarkets = market ? null : await loadActiveMarkets(kv);
+      if (!market && activeMarkets) {
+        const normalSlug = slug;
+        market = activeMarkets.find(m => {
+          const t = m.ticker || m.key || "";
+          return t.toLowerCase().replace(/_/g, "-") === normalSlug;
+        });
+        if (market) {
+          market.ticker = market.ticker || market.key;
+          market.title = market.label || market.ticker;
+        }
+      }
+      // Supplement missing platform IDs from active_markets
+      if (market && (!market.k_ticker || !(market.pm_token_id || market.pm_token))) {
+        const ams = activeMarkets || await loadActiveMarkets(kv);
+        if (ams) {
+          const t = market.ticker;
+          const am = ams.find(m => (m.ticker || m.key) === t);
+          if (am) {
+            if (!market.k_ticker && am.k_ticker) market.k_ticker = am.k_ticker;
+            if (!market.pm_token_id && !market.pm_token && am.pm_token_id) market.pm_token_id = am.pm_token_id;
+          }
+        }
+      }
 
       if (!market) {
         return new Response(
@@ -926,7 +952,28 @@ export default {
     if (tickerMatch) {
       const tickerParam = tickerMatch[1];
       const markets = await loadMarketMap(kv);
-      const market = markets.find(m => m.ticker === tickerParam);
+      let market = markets.find(m => m.ticker === tickerParam);
+
+      // Fallback from active_markets if not in market_map
+      const activeMarkets2 = market ? null : await loadActiveMarkets(kv);
+      if (!market && activeMarkets2) {
+        market = activeMarkets2.find(m => (m.ticker || m.key) === tickerParam);
+        if (market) {
+          market.ticker = market.ticker || market.key;
+          market.title = market.label || market.ticker;
+        }
+      }
+      // Supplement missing platform IDs from active_markets
+      if (market && (!market.k_ticker || !(market.pm_token_id || market.pm_token))) {
+        const ams2 = activeMarkets2 || await loadActiveMarkets(kv);
+        if (ams2) {
+          const am = ams2.find(m => (m.ticker || m.key) === tickerParam);
+          if (am) {
+            if (!market.k_ticker && am.k_ticker) market.k_ticker = am.k_ticker;
+            if (!market.pm_token_id && !market.pm_token && am.pm_token_id) market.pm_token_id = am.pm_token_id;
+          }
+        }
+      }
 
       if (!market) {
         return new Response(
@@ -1197,14 +1244,15 @@ export default {
           );
         }
 
-        const queryLower = q.toLowerCase();
-        filtered = filtered.filter(m => {
-          const ticker = (m.ticker || "").toLowerCase();
-          const label = (m.label || "").toLowerCase();
-          return ticker.includes(queryLower) || label.includes(queryLower);
-        });
-
-        filtered.sort((a, b) => (b.total_volume || 0) - (a.total_volume || 0));
+        const tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
+        const scored = [];
+        for (const m of filtered) {
+          const searchable = ((m.ticker || "") + " " + (m.label || "")).toLowerCase();
+          const hits = tokens.filter(t => searchable.includes(t)).length;
+          if (hits > 0) scored.push({ m, hits });
+        }
+        scored.sort((a, b) => b.hits - a.hits || (b.m.total_volume || 0) - (a.m.total_volume || 0));
+        filtered = scored.map(s => s.m);
         const total = filtered.length;
         const results = filtered.slice(0, limit).map(formatMarketResult);
 
