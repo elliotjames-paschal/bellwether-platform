@@ -1747,6 +1747,8 @@
         }
     }
 
+    let viewBeforeElection = null;  // Tracks the tab to restore when election filter is cleared
+
     function filterByElection(electionId) {
         if (!civicData) return;
 
@@ -1768,8 +1770,12 @@
             node.classList.toggle('active', node.dataset.electionId === electionId);
         });
 
-        // Filter markets
+        // Auto-switch to "Most Active" tab so filtered results are visible
+        if (!viewBeforeElection) {
+            viewBeforeElection = currentView;
+        }
         applyElectionFilter(election);
+        switchView('highest_volume');
     }
 
     // State abbreviation to full name mapping
@@ -1875,10 +1881,18 @@
             node.classList.remove('active');
         });
 
+        // Restore previous tab if we auto-switched
+        const restoreView = viewBeforeElection;
+        viewBeforeElection = null;
+
         // Reset to all markets
         applyFilters();
         updateMarketCount();
-        renderCards();
+        if (restoreView) {
+            switchView(restoreView);
+        } else {
+            renderCards();
+        }
     }
 
     // =============================================================================
