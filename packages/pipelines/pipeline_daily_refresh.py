@@ -77,7 +77,7 @@ except ImportError:
 from config import BASE_DIR, DATA_DIR, WEBSITE_DIR, SCRIPTS_DIR
 
 
-def run_script(script_name, description, args=None, required=True, script_dir=None):
+def run_script(script_name, description, args=None, required=True, script_dir=None, timeout=2700):
     """
     Run a Python script and return success status.
 
@@ -89,6 +89,7 @@ def run_script(script_name, description, args=None, required=True, script_dir=No
         args: Optional list of command-line arguments
         required: If True, missing script is an error; if False, it's skipped
         script_dir: Optional directory to look for script (defaults to SCRIPTS_DIR)
+        timeout: Max seconds before killing the subprocess (default 2700 = 45 minutes)
     """
     logger = get_logger("orchestrator")
     base_dir = script_dir if script_dir else SCRIPTS_DIR
@@ -110,7 +111,7 @@ def run_script(script_name, description, args=None, required=True, script_dir=No
             cmd,
             capture_output=True,
             text=True,
-            timeout=2700  # 45 minutes (some steps like Kalshi classification need >30m on full refresh)
+            timeout=timeout,
         )
 
         duration = time.time() - start_time
@@ -135,7 +136,7 @@ def run_script(script_name, description, args=None, required=True, script_dir=No
 
     except subprocess.TimeoutExpired:
         duration = time.time() - start_time
-        logger.error(f"{description} timed out after 30 minutes")
+        logger.error(f"{description} timed out after {timeout // 60} minutes")
         log_step_done(description, duration, success=False)
         return False
 
@@ -679,10 +680,14 @@ def main():
         step_results["generate_worker_index"] = "OK" if success else ("FAIL" if success is False else "SKIP")
 
         # Step 5: Generate web data and monitor (AFTER tickers so active_markets.json has BWR IDs)
+        # Longer timeout: this step fetches live prices for ~22k markets (~40min)
+        # TODO: eliminate live price fetch by using --skip-prices and moving
+        # Kalshi daily snapshot save to pull_kalshi_prices.py (Phase 3)
         success = run_script(
             "generate_web_data.py",
             "Generate JSON data for dashboard",
-            required=False
+            required=False,
+            timeout=5400,  # 90 minutes
         )
         results["web_data"] = success
         step_results["generate_web_data"] = "OK" if success else ("FAIL" if success is False else "SKIP")
