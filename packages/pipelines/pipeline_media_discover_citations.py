@@ -111,7 +111,7 @@ MEDIACLOUD_CITATION_QUERY = (
 )
 
 # Max articles per Media Cloud query page
-MEDIACLOUD_PAGE_SIZE = 100
+MEDIACLOUD_PAGE_SIZE = 1000
 
 # Keywords for sentence extraction from fetched article text
 MEDIACLOUD_SENTENCE_KEYWORDS = [
