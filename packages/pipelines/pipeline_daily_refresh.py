@@ -388,11 +388,11 @@ def main():
         kalshi_proc = subprocess.Popen(kalshi_cmd, cwd=str(scripts_dir), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         try:
-            pm_output, _ = pm_proc.communicate(timeout=3600)
+            pm_output, _ = pm_proc.communicate(timeout=5400)
         except subprocess.TimeoutExpired:
             pm_proc.kill()
             pm_output, _ = pm_proc.communicate()
-            logger.warning("Polymarket price fetch timed out after 60 minutes")
+            logger.warning("Polymarket price fetch timed out after 90 minutes")
 
         try:
             kalshi_output, _ = kalshi_proc.communicate(timeout=2700)
