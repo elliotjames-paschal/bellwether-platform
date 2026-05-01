@@ -73,42 +73,6 @@
   }
   .v2-nav-cta:hover { background: #333 !important; }
 
-  /* V2 Page Header */
-  .page-header {
-    padding: 92px 32px 0;
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-  .page-header-top {
-    display: flex; align-items: flex-end; justify-content: space-between;
-    padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,0.35);
-  }
-  .page-header-left { display: flex; align-items: center; gap: 16px; }
-  .page-header h1 {
-    font-family: var(--font-serif); font-size: 28px; font-weight: 600;
-    color: var(--bw-dark); letter-spacing: -0.01em;
-  }
-  .v2-live-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 12px; font-weight: 500; color: var(--bw-green);
-    background: rgba(58,138,92,0.08);
-    padding: 4px 12px; border-radius: 20px;
-  }
-  .v2-live-badge .pulse {
-    width: 7px; height: 7px; background: var(--bw-green); border-radius: 50%;
-    animation: v2pulse 2s ease-in-out infinite;
-  }
-  @keyframes v2pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
-  .page-header-meta {
-    display: flex; align-items: center; gap: 20px;
-    font-size: 13px; color: var(--bw-text-secondary);
-  }
-  .page-header-meta strong {
-    color: var(--bw-dark); font-weight: 600;
-    font-family: var(--font-mono); font-size: 14px;
-  }
-  .meta-divider { width: 1px; height: 16px; background: var(--bw-border); }
-
   /* Hide old hero — this page is just the monitor */
   .hero { display: none !important; }
 
@@ -145,7 +109,7 @@
 
   @media (max-width: 768px) {
     .v2-nav-links a:not(.v2-nav-cta) { display: none; }
-    .page-header-top { flex-direction: column; align-items: flex-start; gap: 16px; }
+
     .v2-footer-inner { grid-template-columns: 1fr 1fr; }
   }
 </style>
@@ -174,32 +138,13 @@
   }, { passive: true });
 </script>
 
-<!-- V2 PAGE HEADER -->
-<div class="page-header">
-  <div class="page-header-top">
-    <div class="page-header-left">
-      <h1>Market Monitor</h1>
-      <span class="v2-live-badge"><span class="pulse"></span> Live</span>
-    </div>
-    <div class="page-header-meta">
-      <span><strong id="v2-market-count">0</strong> markets</span>
-      <span class="meta-divider"></span>
-      <span>Updated <span id="v2-last-update">just now</span></span>
-    </div>
-  </div>
-</div>
-
-<!-- Market Monitor (existing structure — JS hooks into these IDs) -->
+<!-- Market Monitor -->
 <section id="monitor" class="monitor-section">
     <div class="container">
-        <div class="monitor-header" style="display:none;">
-            <div class="monitor-header-left">
-                <h2>Market Monitor <span class="monitor-live-badge"><span class="monitor-live-dot"></span>LIVE</span></h2>
-            </div>
-            <div class="monitor-header-right">
-                <span class="monitor-status"><span id="monitor-market-count">0</span> live markets</span>
-                <span class="monitor-timestamp">Updated <span id="monitor-last-update">just now</span></span>
-            </div>
+        <div class="monitor-meta" style="display:flex; align-items:center; gap:12px; padding:18px 0 0; font-size:0.85rem; color:var(--bw-text-secondary, #6b7280);">
+            <span><strong id="monitor-market-count" style="color:var(--bw-text, #111827);">0</strong> markets</span>
+            <span style="opacity:0.4;">·</span>
+            <span>Updated <span id="monitor-last-update">just now</span></span>
         </div>
 
         <!-- Filters -->
