@@ -1664,14 +1664,8 @@ def generate_monitor_data(skip_prices=False):
         k_url = build_kalshi_url(k_best) if has_k else None
         pm_embed_url = build_pm_embed_url(pm_best) if has_pm else None
 
-        # Image: prefer PM image, fallback to category image
+        # Image: disabled — stock fallbacks added no value, PM cache not populated
         image = None
-        if has_pm:
-            pm_cid = pm_best.get('pm_condition_id')
-            if pd.notna(pm_cid) and str(pm_cid) in pm_images:
-                image = pm_images[str(pm_cid)]
-        if image is None and has_k:
-            image = CATEGORY_IMAGES.get(category, CATEGORY_IMAGES.get('15. OTHER'))
 
         # Location for globe display
         loc_data = extract_location(ref_row)
@@ -1784,14 +1778,8 @@ def generate_monitor_data(skip_prices=False):
             url = build_kalshi_url(row)
             embed_url = None
 
-        # Image
+        # Image: disabled — stock fallbacks added no value, PM cache not populated
         image = None
-        if platform == 'Polymarket':
-            pm_cid = row.get('pm_condition_id')
-            if pd.notna(pm_cid) and str(pm_cid) in pm_images:
-                image = pm_images[str(pm_cid)]
-        elif platform == 'Kalshi':
-            image = CATEGORY_IMAGES.get(category, CATEGORY_IMAGES.get('15. OTHER'))
 
         # Location for globe display
         loc_data = extract_location(row)
