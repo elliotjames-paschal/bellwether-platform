@@ -311,7 +311,8 @@
         const staticCostForClass = market?.cost_to_move_5c;
         const liveCostForClass = data.robustness?.cost_to_move_5c;
         const effectiveCost = liveCostForClass != null ? liveCostForClass : staticCostForClass;
-        if (!effectiveCost || effectiveCost < 10000) {
+        const rawReportForClass = getReportabilityFromCost(effectiveCost);
+        if (applyTierDowngrade(rawReportForClass, tier) === 'fragile') {
             card.classList.add('fragile');
         } else {
             card.classList.remove('fragile');
@@ -480,12 +481,13 @@
         // Use question as title, fall back to label
         const title = e.pm_event_title || e.k_event_title || e.pm_question || e.k_question || e.label || 'Unknown market';
 
-        // Determine tier and fragility - use static cost if available
+        // Determine tier and fragility - apply tier downgrade
         const tier = liveData?.price_tier || 0;
         const staticCostF = e?.cost_to_move_5c;
         const liveCostF = liveData?.robustness?.cost_to_move_5c;
         const effectiveCostF = liveCostF != null ? liveCostF : staticCostF;
-        const isFragile = !effectiveCostF || effectiveCostF < 10000;
+        const rawReportF = getReportabilityFromCost(effectiveCostF);
+        const isFragile = applyTierDowngrade(rawReportF, tier) === 'fragile';
         let cardClass = 'market-card clickable';
         if (isFragile) cardClass += ' fragile';
         if (tier > 0) cardClass += ` tier-${tier}`;
@@ -619,12 +621,13 @@
             }
         }
 
-        // Determine tier and fragility - use static cost if available
+        // Determine tier and fragility - apply tier downgrade
         const tier = liveData?.price_tier || 0;
         const staticCostF = m?.cost_to_move_5c;
         const liveCostF = liveData?.robustness?.cost_to_move_5c;
         const effectiveCostF = liveCostF != null ? liveCostF : staticCostF;
-        const isFragile = !effectiveCostF || effectiveCostF < 10000;
+        const rawReportF = getReportabilityFromCost(effectiveCostF);
+        const isFragile = applyTierDowngrade(rawReportF, tier) === 'fragile';
         let cardClass = 'market-card clickable';
         if (isFragile) cardClass += ' fragile';
         if (tier > 0) cardClass += ` tier-${tier}`;
