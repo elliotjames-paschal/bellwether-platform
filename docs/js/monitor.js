@@ -13,6 +13,7 @@
     let filteredMarkets = [];
     let reportableMarkets = [];  // Robust + caution markets from reportable_markets.json
     let currentView = 'reportable';
+    let viewBeforeSearch = null;  // Tracks the tab to restore when search is cleared
     let displayCount = 8;
     const CARDS_PER_PAGE = 8;
 
@@ -1274,7 +1275,19 @@
             case 'reportable':
                 // Use the pre-loaded reportable markets (robust + caution)
                 // Already sorted by cost descending from the server
-                sorted = reportableMarkets;
+                // Apply search/category/platform filters so search works on this tab too
+                if (filters.search || filters.category !== 'all' || filters.platform !== 'all') {
+                    const reportableKeys = new Set(reportableMarkets.map(m => m.key));
+                    sorted = filteredMarkets
+                        .filter(m => reportableKeys.has(m.key))
+                        .map(m => {
+                            const rm = reportableMarkets.find(r => r.key === m.key);
+                            return rm ? { ...m, cost_to_move_5c: rm.cost_to_move_5c } : m;
+                        })
+                        .sort((a, b) => (b.cost_to_move_5c || 0) - (a.cost_to_move_5c || 0));
+                } else {
+                    sorted = reportableMarkets;
+                }
                 break;
         }
 
@@ -1333,10 +1346,14 @@
             return isCrossPlatform && m.has_both;
         });
 
+        const reportable = (filters.search || filters.category !== 'all' || filters.platform !== 'all')
+            ? filteredMarkets.filter(m => reportableMarkets.some(r => r.key === m.key))
+            : reportableMarkets;
+
         if (movesCount) movesCount.textContent = withChange.length;
         if (volumeCount) volumeCount.textContent = withVolume.length;
         if (crossPlatformCount) crossPlatformCount.textContent = crossPlatform.length;
-        if (reportableCount) reportableCount.textContent = reportableMarkets.length;
+        if (reportableCount) reportableCount.textContent = reportable.length;
     }
 
     function updateMarketCount() {
@@ -1395,8 +1412,32 @@
 
         filters.category = categorySelect ? categorySelect.value : 'all';
         filters.platform = platformSelect ? platformSelect.value : 'all';
-        filters.search = searchInput ? searchInput.value.trim() : '';
+        const newSearch = searchInput ? searchInput.value.trim() : '';
 
+        // Auto-switch to "Most Active" when user starts searching,
+        // restore previous tab when search is cleared
+        if (newSearch && !filters.search) {
+            // Search just became active — save current tab and switch
+            viewBeforeSearch = currentView;
+            filters.search = newSearch;
+            displayCount = CARDS_PER_PAGE;
+            applyFilters();
+            updateMarketCount();
+            switchView('highest_volume');
+            return;
+        } else if (!newSearch && filters.search && viewBeforeSearch) {
+            // Search was cleared — restore previous tab
+            const restoreView = viewBeforeSearch;
+            viewBeforeSearch = null;
+            filters.search = '';
+            displayCount = CARDS_PER_PAGE;
+            applyFilters();
+            updateMarketCount();
+            switchView(restoreView);
+            return;
+        }
+
+        filters.search = newSearch;
         displayCount = CARDS_PER_PAGE;
 
         applyFilters();
