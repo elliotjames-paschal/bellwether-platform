@@ -666,6 +666,9 @@ def _mediacloud_search(query, from_date, to_date, api_key, collection_ids=None):
     """
     all_stories = []
     pagination_token = None
+    page_num = 0
+    rate_limit_retries = 0
+    MAX_RATE_LIMIT_RETRIES = 5
 
     while True:
         params = {
@@ -689,7 +692,11 @@ def _mediacloud_search(query, from_date, to_date, api_key, collection_ids=None):
                 logger.warning("Media Cloud API: invalid API key")
                 break
             if resp.status_code == 429:
-                logger.warning("Media Cloud API: rate limited, waiting 60s...")
+                rate_limit_retries += 1
+                if rate_limit_retries > MAX_RATE_LIMIT_RETRIES:
+                    logger.warning(f"Media Cloud API: rate limited {MAX_RATE_LIMIT_RETRIES} times, stopping pagination with {len(all_stories)} stories collected")
+                    break
+                logger.warning(f"Media Cloud API: rate limited (attempt {rate_limit_retries}/{MAX_RATE_LIMIT_RETRIES}), waiting 60s...")
                 time.sleep(60)
                 continue
             if resp.status_code != 200:
@@ -705,11 +712,16 @@ def _mediacloud_search(query, from_date, to_date, api_key, collection_ids=None):
             logger.warning(f"Media Cloud API error: {e}")
             break
 
+        # Reset rate limit counter on successful request
+        rate_limit_retries = 0
+
         stories = data.get("stories", [])
         if not stories:
             break
 
         all_stories.extend(stories)
+        page_num += 1
+        logger.info(f"  Media Cloud page {page_num}: +{len(stories)} stories (total: {len(all_stories)})")
 
         pagination_token = data.get("pagination_token")
         if not pagination_token:
