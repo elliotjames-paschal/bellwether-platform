@@ -183,6 +183,16 @@
         return 'reportable';
     }
 
+    // Apply tier-based downgrade to reportability (mirrors worker-v2.js logic)
+    // Tier 1: no change, Tier 2: downgrade one level, Tier 3+: always fragile
+    function applyTierDowngrade(reportability, tier) {
+        if (!tier || tier <= 1) return reportability;
+        if (tier >= 3) return 'fragile';
+        // Tier 2: downgrade one level
+        if (reportability === 'reportable') return 'caution';
+        return 'fragile';
+    }
+
     // Small delay helper
     function delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
@@ -268,13 +278,14 @@
         card.classList.remove('tier-1', 'tier-2', 'tier-3', 'tier-4');
         card.classList.add(`tier-${tier}`);
 
-        // Update reportability - but don't downgrade if we have static cost from reportable_markets.json
+        // Update reportability with tier-based downgrade
         const reportabilityContainer = card.querySelector('.card-reportability');
         if (reportabilityContainer) {
             const staticCost = market?.cost_to_move_5c;
             const liveCost = data.robustness?.cost_to_move_5c;
             const cost = liveCost != null ? liveCost : staticCost;
-            const label = cost !== null ? getReportabilityFromCost(cost) : 'fragile';
+            const rawLabel = cost !== null ? getReportabilityFromCost(cost) : 'fragile';
+            const label = applyTierDowngrade(rawLabel, tier);
             let html = `<span class="report-badge ${label}">${label.charAt(0).toUpperCase() + label.slice(1)}</span>`;
             if (cost !== null) {
                 html += `<span class="report-detail"><strong>${formatReportabilityCost(cost)}</strong> to move 5¢</span>`;
@@ -523,18 +534,21 @@
         const pmValHtml = e.has_pm ? `<div class="plat-val">${formatPrice(pmSpot)}</div>` : '<div class="plat-none">No market</div>';
         const kValHtml = e.has_k ? `<div class="plat-val">${formatPrice(kSpot)}</div>` : '<div class="plat-none">No market</div>';
 
-        // Reportability - prefer static cost from reportable_markets.json over live data
+        // Reportability - prefer static cost from reportable_markets.json over live data,
+        // then apply tier-based downgrade to match worker logic
         let reportBadgeHtml = '';
         let reportDetailHtml = '';
         const staticCostR = e?.cost_to_move_5c;
         const liveCostR = liveData?.robustness?.cost_to_move_5c;
         const costR = liveCostR != null ? liveCostR : staticCostR;
         if (costR !== null && costR !== undefined) {
-            const labelR = getReportabilityFromCost(costR);
+            const rawLabelR = getReportabilityFromCost(costR);
+            const labelR = applyTierDowngrade(rawLabelR, tier);
             reportBadgeHtml = `<span class="report-badge ${labelR}">${labelR.charAt(0).toUpperCase() + labelR.slice(1)}</span>`;
             reportDetailHtml = `<span class="report-detail"><strong>${formatReportabilityCost(costR)}</strong> to move 5¢</span>`;
         } else if (liveData?.robustness) {
-            const labelR = liveData.robustness.reportability || 'fragile';
+            const rawLabelR = liveData.robustness.reportability || 'fragile';
+            const labelR = applyTierDowngrade(rawLabelR, tier);
             reportBadgeHtml = `<span class="report-badge ${labelR}">${labelR.charAt(0).toUpperCase() + labelR.slice(1)}</span>`;
         }
 
@@ -639,18 +653,21 @@
         const pmValHtml = isPM ? `<div class="plat-val">${formatPrice(spotPrice)}</div>` : '<div class="plat-none">No market</div>';
         const kValHtml = !isPM ? `<div class="plat-val">${formatPrice(spotPrice)}</div>` : '<div class="plat-none">No market</div>';
 
-        // Reportability - prefer static cost from reportable_markets.json over live data
+        // Reportability - prefer static cost from reportable_markets.json over live data,
+        // then apply tier-based downgrade to match worker logic
         let reportBadgeHtml = '';
         let reportDetailHtml = '';
         const staticCostR = m?.cost_to_move_5c;
         const liveCostR = liveData?.robustness?.cost_to_move_5c;
         const costR = liveCostR != null ? liveCostR : staticCostR;
         if (costR !== null && costR !== undefined) {
-            const labelR = getReportabilityFromCost(costR);
+            const rawLabelR = getReportabilityFromCost(costR);
+            const labelR = applyTierDowngrade(rawLabelR, tier);
             reportBadgeHtml = `<span class="report-badge ${labelR}">${labelR.charAt(0).toUpperCase() + labelR.slice(1)}</span>`;
             reportDetailHtml = `<span class="report-detail"><strong>${formatReportabilityCost(costR)}</strong> to move 5¢</span>`;
         } else if (liveData?.robustness) {
-            const labelR = liveData.robustness.reportability || 'fragile';
+            const rawLabelR = liveData.robustness.reportability || 'fragile';
+            const labelR = applyTierDowngrade(rawLabelR, tier);
             reportBadgeHtml = `<span class="report-badge ${labelR}">${labelR.charAt(0).toUpperCase() + labelR.slice(1)}</span>`;
         }
 
