@@ -47,9 +47,10 @@
   /* ── NAV ── */
   nav {
     position: fixed; top: 0; width: 100%; z-index: 100;
-    background: rgba(255,255,255,0.92);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--bw-border);
+    background: rgba(255,255,255,0.55);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
     transition: box-shadow 0.3s;
   }
   nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
@@ -178,7 +179,7 @@
   /* ── WHY SECTION ── */
   .why-section {
     background: var(--bw-bg);
-    border-top: 1px solid var(--bw-border); border-bottom: 1px solid var(--bw-border);
+    border-top: 1px solid var(--bw-border); border-bottom: 1px solid rgba(255,255,255,0.35);
   }
   .why-section section {
     max-width: 1200px; margin: 0 auto; padding: 100px 32px;
@@ -264,7 +265,7 @@
   /* ── PLATFORM VISION ── */
   .platform-section {
     background: var(--bw-bg);
-    border-top: 1px solid var(--bw-border); border-bottom: 1px solid var(--bw-border);
+    border-top: 1px solid var(--bw-border); border-bottom: 1px solid rgba(255,255,255,0.35);
   }
   .platform-section section {
     max-width: 1200px; margin: 0 auto; padding: 100px 32px;

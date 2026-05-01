@@ -44,9 +44,10 @@
   /* ── NAV ── */
   nav {
     position: fixed; top: 0; width: 100%; z-index: 100;
-    background: rgba(255,255,255,0.92);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--bw-border);
+    background: rgba(255,255,255,0.55);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
     transition: box-shadow 0.3s;
   }
   nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
@@ -86,7 +87,7 @@
     align-items: flex-end;
     justify-content: space-between;
     padding-bottom: 28px;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
   }
   .page-header-left h1 {
     font-family: var(--font-serif);
@@ -156,7 +157,7 @@
   }
   .spec-preview-header {
     padding: 14px 20px;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -174,7 +175,7 @@
   .spec-field {
     display: grid;
     grid-template-columns: 140px 1fr;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
   }
   .spec-field:last-child { border-bottom: none; }
   .spec-field-name {
@@ -352,13 +353,13 @@
     color: var(--bw-text-secondary);
     padding: 14px 20px;
     text-align: left;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
     background: var(--bw-bg);
   }
   .blueprint-table tbody td {
     padding: 18px 20px;
     font-size: 14px;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
     vertical-align: top;
   }
   .blueprint-table tbody tr:last-child td { border-bottom: none; }
@@ -433,7 +434,7 @@
   .blueprint-detail.open { display: block; }
   .detail-header {
     padding: 24px 28px;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
     background: var(--bw-white);
   }
   .detail-header h3 {
@@ -454,7 +455,7 @@
   .detail-field {
     display: grid;
     grid-template-columns: 160px 1fr;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
   }
   .detail-field:last-child { border-bottom: none; }
   .detail-field-name {
@@ -632,9 +633,9 @@
     .footer-inner { grid-template-columns: 1fr 1fr; }
     .nav-links a:not(.nav-cta) { display: none; }
     .detail-field { grid-template-columns: 1fr; }
-    .detail-field-name { border-right: none; border-bottom: 1px solid var(--bw-border); }
+    .detail-field-name { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.35); }
     .spec-field { grid-template-columns: 1fr; }
-    .spec-field-name { border-right: none; border-bottom: 1px solid var(--bw-border); }
+    .spec-field-name { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.35); }
     .blueprint-table { font-size: 13px; }
     .blueprint-table thead th:nth-child(4),
     .blueprint-table tbody td:nth-child(4) { display: none; }

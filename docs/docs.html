@@ -47,9 +47,10 @@
   /* ── NAV ── */
   nav {
     position: fixed; top: 0; width: 100%; z-index: 100;
-    background: rgba(255,255,255,0.92);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--bw-border);
+    background: rgba(255,255,255,0.55);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
     transition: box-shadow 0.3s;
   }
   nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
@@ -163,7 +164,7 @@
     color: var(--bw-dark);
     margin-bottom: 12px;
     padding-bottom: 12px;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
   }
   .doc-section h3 {
     font-size: 16px;
@@ -246,7 +247,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
   }
   .endpoint-method {
     font-family: var(--font-mono);
@@ -286,12 +287,12 @@
     color: var(--bw-text-secondary);
     padding: 10px 0;
     text-align: left;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
   }
   .param-table tbody td {
     padding: 10px 0;
     font-size: 13px;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
     vertical-align: top;
   }
   .param-table tbody tr:last-child td { border-bottom: none; }
@@ -343,13 +344,13 @@
     color: var(--bw-text-secondary);
     padding: 12px 16px;
     text-align: left;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
     background: var(--bw-bg);
   }
   .glossary-table tbody td {
     padding: 10px 16px;
     font-size: 13px;
-    border-bottom: 1px solid var(--bw-border);
+    border-bottom: 1px solid rgba(255,255,255,0.35);
     vertical-align: top;
   }
   .glossary-table tbody tr:last-child td { border-bottom: none; }
@@ -490,7 +491,7 @@
     .docs-wrapper { grid-template-columns: 1fr; }
     .docs-sidebar {
       position: static; height: auto;
-      border-right: none; border-bottom: 1px solid var(--bw-border);
+      border-right: none; border-bottom: 1px solid rgba(255,255,255,0.35);
       padding: 20px 24px;
       display: flex; gap: 24px; overflow-x: auto;
     }

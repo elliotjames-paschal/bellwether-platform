@@ -38,8 +38,9 @@
   }
   nav {
     position: fixed; top: 0; width: 100%; z-index: 100;
-    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--bw-border); transition: box-shadow 0.3s;
+    background: rgba(255,255,255,0.55); -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid rgba(255,255,255,0.35); transition: box-shadow 0.3s;
   }
   nav.scrolled { box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
   .nav-inner {
@@ -61,7 +62,7 @@
   .nav-affil { font-size: 12px; color: var(--bw-text-secondary); opacity: 0.6; font-weight: 300; letter-spacing: 0.02em; }
   .content { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
   .page-header { padding: 92px 32px 0; max-width: 1200px; margin: 0 auto; }
-  .page-header-top { padding-bottom: 28px; border-bottom: 1px solid var(--bw-border); }
+  .page-header-top { padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,0.35); }
   .page-header-top h1 { font-family: var(--font-serif); font-size: 28px; font-weight: 600; color: var(--bw-dark); letter-spacing: -0.01em; margin-bottom: 6px; }
   .page-header-top .subtitle { font-size: 15px; color: var(--bw-text-secondary); line-height: 1.5; }
   .opening { padding: 56px 0; max-width: 720px; }
