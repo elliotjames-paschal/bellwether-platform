@@ -2493,24 +2493,17 @@ a.price-box.clickable:hover {
     flex-shrink: 0;
     background: none;
     border: none;
-    color: #666;
+    color: #9ca3af;
     cursor: pointer;
     padding: 6px 8px;
     margin: -5px -5px -5px 0;
     line-height: 1;
     border-radius: 3px;
-    opacity: 0;
-    transition: opacity 0.15s, background 0.15s, color 0.15s;
-}
-.market-card:hover .ticker-copy-btn {
-    opacity: 1;
-}
-.card-ticker:hover .ticker-copy-btn {
-    opacity: 1;
+    transition: color 0.15s, background 0.15s;
 }
 .ticker-copy-btn:hover {
-    color: #fff;
-    background: rgba(255,255,255,0.1);
+    color: #374151;
+    background: rgba(0,0,0,0.05);
 }
 .ticker-copy-btn.copied {
     color: #4ade80;
