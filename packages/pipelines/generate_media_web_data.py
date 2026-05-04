@@ -400,13 +400,20 @@ def main():
     if promo_removed:
         logger.info(f"Filtered {promo_removed} promotional/affiliate citations")
 
-    # Step 2: Filter out generic platform coverage (op-eds about prediction
+    # Step 2: Reject future-dated citations (bad seendate parses from Media Cloud)
+    max_date = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    non_future = [c for c in non_promo if c.get("published_date", "") <= max_date]
+    future_removed = len(non_promo) - len(non_future)
+    if future_removed:
+        logger.info(f"Filtered {future_removed} future-dated citations")
+
+    # Step 3: Filter out generic platform coverage (op-eds about prediction
     # markets, industry news). Only keep citations that reference markets in the
     # context of a real-world event.
     EXCLUDED_TOPICS = {"Industry News", "Other"}
-    citations = [c for c in non_promo if classify_topic(c) not in EXCLUDED_TOPICS]
-    topic_removed = len(non_promo) - len(citations)
-    logger.info(f"After filtering: {len(citations)} citations ({dedup_removed} dedup + {promo_removed} promo + {topic_removed} non-event removed)")
+    citations = [c for c in non_future if classify_topic(c) not in EXCLUDED_TOPICS]
+    topic_removed = len(non_future) - len(citations)
+    logger.info(f"After filtering: {len(citations)} citations ({dedup_removed} dedup + {promo_removed} promo + {future_removed} future + {topic_removed} non-event removed)")
 
     # Ensure output directory exists
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
