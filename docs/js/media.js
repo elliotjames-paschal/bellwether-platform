@@ -8,6 +8,8 @@
   let detailDisplayCount = 20;
   let topicDisplayCount = 10;
   let activeTopic = null;
+  let outletDisplayCount = 15;
+  let outletShowAll = false;
 
   // Sorting state
   let sortColumn = 'citations';
@@ -50,6 +52,7 @@
   // ─── Dashboard ──────────────────────────────────────────────────────────────
   function renderDashboard() {
     renderMetaDate();
+    renderHeroCollage();
     renderHeroStats();
     renderTopics();
     renderOutletTable();
@@ -63,35 +66,150 @@
     }
   }
 
+  function renderHeroCollage() {
+    const container = document.getElementById('hero-collage');
+    if (!container || !citationsData) return;
+
+    const citations = citationsData.citations || [];
+    const withTitle = citations.filter(c => c.title && c.domain);
+    if (!withTitle.length) return;
+
+    // Topics regular people understand (not crypto/platform inside baseball)
+    const goodTopics = new Set(['US Politics', 'Iran Conflict', 'Military & Defense', 'Fed & Rates', 'Nobel Prize', 'SpaceX IPO']);
+
+    // Outlets people recognize
+    const majorOutlets = new Set([
+      'nytimes.com','washingtonpost.com','wsj.com','reuters.com','apnews.com',
+      'bbc.com','bbc.co.uk','cnn.com','cnbc.com','bloomberg.com','foxnews.com',
+      'forbes.com','newsweek.com','politico.com','thehill.com','abcnews.com',
+      'nbcnews.com','cbsnews.com','theguardian.com','ft.com','economist.com',
+      'nypost.com','finance.yahoo.com',
+    ]);
+
+    // Filter out crypto/platform navel-gazing titles
+    const boringKeywords = /polymarket|kalshi|predictit|tokeniz|onchain|chainalysis|crypto|blockchain|solana|ethereum|bitcoin|robinhood|coinbase/i;
+
+    const scored = withTitle
+      .filter(c => !boringKeywords.test(c.title))
+      .map(c => {
+        let score = 0;
+        if (c.topic && goodTopics.has(c.topic)) score += 150;
+        if (majorOutlets.has(c.domain)) score += 100;
+        if (c.title.length < 70) score += 30;
+        if (c.date) {
+          const age = (Date.now() - new Date(c.date).getTime()) / 86400000;
+          if (age < 7) score += 40 - age * 5;
+        }
+        return { c, score };
+      });
+
+    scored.sort((a, b) => b.score - a.score);
+
+    // Deduplicate by title (radio syndication creates many copies)
+    const seen = new Set();
+    const deduped = [];
+    for (const s of scored) {
+      const key = s.c.title.slice(0, 40).toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(s);
+    }
+
+    const top = deduped.slice(0, 30).map(s => s.c);
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    const items = shuffle(top).slice(0, 22);
+
+    // Place items with collision avoidance — no overlap
+    const containerW = 1000;
+    const containerH = 440;
+    const itemW = 340;
+    const itemH = 48;
+    const padding = 16; // gap between items
+    const maxOverlapFraction = 0.0;
+
+    const placed = [];
+
+    function overlaps(x, y) {
+      for (const p of placed) {
+        const overlapX = Math.max(0, Math.min(x + itemW + padding, p.x + p.w + padding) - Math.max(x - padding, p.x - padding));
+        const overlapY = Math.max(0, Math.min(y + itemH + padding, p.y + p.h + padding) - Math.max(y - padding, p.y - padding));
+        if (overlapX > 0 && overlapY > 0) return true;
+      }
+      return false;
+    }
+
+    function findPosition() {
+      for (let attempt = 0; attempt < 200; attempt++) {
+        const x = Math.random() * (containerW - itemW);
+        const y = Math.random() * (containerH - itemH);
+        if (!overlaps(x, y)) return { x, y };
+      }
+      return null;
+    }
+
+    container.innerHTML = '';
+    items.forEach((c) => {
+      const pos = findPosition();
+      if (!pos) return;
+      placed.push({ x: pos.x, y: pos.y, w: itemW, h: itemH });
+
+      const xPct = (pos.x / containerW * 100).toFixed(1);
+      const yPct = (pos.y / containerH * 100).toFixed(1);
+      const rotation = (Math.random() - 0.5) * 4;
+      const opacity = 0.7 + Math.random() * 0.25;
+
+      const div = document.createElement('div');
+      div.className = 'hero-collage-item';
+      div.style.cssText = 'left:' + xPct + '%;top:' + yPct + '%;transform:rotate(' +
+        rotation.toFixed(1) + 'deg);opacity:' + opacity.toFixed(2);
+
+      const title = (c.title || '').length > 55 ? c.title.slice(0, 52) + '\u2026' : c.title;
+      const domain = c.domain || '';
+      const logoUrl = domain ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=32' : '';
+
+      div.innerHTML =
+        (logoUrl ? '<img class="hero-collage-logo" src="' + esc(logoUrl) + '" alt="">' : '') +
+        '<div><div class="hero-collage-title">' + esc(title) + '</div>' +
+        '<div class="hero-collage-meta">' + esc(c.domain_name || c.station || domain) + '</div></div>';
+
+      container.appendChild(div);
+    });
+  }
+
   function renderHeroStats() {
     const hero = summaryData.hero;
 
     // Big hero percentage
-    animateValue('hero-pct', 0, hero.pct_not_reportable || 0, 1000, '%');
-
-    // Drive the red bar width via CSS variable
-    const card = document.querySelector('.hero-card');
-    if (card) card.style.setProperty('--hero-pct', (hero.pct_not_reportable || 0) + '%');
+    animateValue('hero-pct', 0, hero.pct_not_reportable || 0, 1200, '<span class="pct-sign">%</span>', true);
 
     // Prose paragraph — raw mentions (unfiltered) → filtered citations → fragility finding
     const proseEl = document.getElementById('hero-prose');
     if (proseEl) {
-      const rawMentions = (hero.total_raw_mentions_30d || hero.total_citations_30d || 0).toLocaleString();
+      const rawMentions = (hero.total_raw_mentions_30d || ((hero.citations_mention_only || 0) + (hero.total_citations_30d || 0)) || 0).toLocaleString();
       const outlets = (hero.total_raw_outlets_30d || hero.total_outlets || 0).toLocaleString();
       const filtered = (hero.total_citations_30d || 0).toLocaleString();
       const pct = hero.pct_not_reportable || 0;
 
-      proseEl.innerHTML = 'We tracked <strong>' + rawMentions + '</strong> mentions of prediction market data across <strong>' +
-        outlets + '</strong> outlets in the last 30 days. Of those, <strong>' + filtered +
+      proseEl.innerHTML = 'Every day, Bellwether scans U.S. news for prediction market citations. In the last 30 days, we found <strong>' + rawMentions + '</strong> mentions across <strong>' +
+        outlets + '</strong> outlets. Of those, <strong>' + filtered +
         '</strong> cite a specific market\u2009\u2014\u2009and <strong>' + pct +
-        '%</strong> of those markets lack the liquidity for reliable reporting.';
+        '%</strong> of those markets lack the liquidity for reliable reporting. This page updates daily.';
     }
   }
 
-  function animateValue(id, start, end, duration, suffix) {
+  function animateValue(id, start, end, duration, suffix, isHtml) {
     const el = document.getElementById(id);
     if (!el) return;
-    if (end === 0) { el.textContent = '0' + (suffix || ''); return; }
+    if (end === 0) { el[isHtml ? 'innerHTML' : 'textContent'] = '0' + (suffix || ''); return; }
 
     const range = end - start;
     const startTime = performance.now();
@@ -101,7 +219,8 @@
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      el.textContent = Math.round(start + range * eased).toLocaleString() + sfx;
+      const val = Math.round(start + range * eased).toLocaleString() + sfx;
+      el[isHtml ? 'innerHTML' : 'textContent'] = val;
       if (progress < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
@@ -125,19 +244,9 @@
       card.className = 'topic-card';
       card.dataset.topic = t.name;
 
-      let platformsHtml = '';
-      (t.platforms || []).forEach(p => {
-        if (p === 'polymarket') platformsHtml += '<span class="plat-pill pm">PM</span>';
-        else if (p === 'kalshi') platformsHtml += '<span class="plat-pill k">K</span>';
-      });
-
       card.innerHTML = `
+        <div class="topic-count">${t.count.toLocaleString()}</div>
         <div class="topic-name">${esc(t.name)}</div>
-        <div class="topic-count">${t.count} <span>citations</span></div>
-        <div class="topic-platforms">
-          ${platformsHtml}
-          <span style="font-size:11px;color:var(--bw-text-secondary)">${t.outlet_count} outlet${t.outlet_count !== 1 ? 's' : ''}</span>
-        </div>
       `;
 
       card.addEventListener('click', () => toggleTopic(t.name));
@@ -246,7 +355,17 @@
     tbody.innerHTML = '';
     updateSortArrows();
 
-    sorted.forEach(o => {
+    const visible = outletShowAll ? sorted : sorted.slice(0, outletDisplayCount);
+    const showMoreEl = document.getElementById('outlet-show-more');
+    const showMoreBtn = document.getElementById('outlet-show-more-btn');
+    if (showMoreEl) {
+      showMoreEl.style.display = sorted.length > outletDisplayCount && !outletShowAll ? '' : 'none';
+    }
+    if (showMoreBtn) {
+      showMoreBtn.textContent = 'Show all ' + sorted.length + ' outlets';
+    }
+
+    visible.forEach(o => {
       const tr = document.createElement('tr');
 
       const plats = [];
@@ -276,7 +395,7 @@
 
       tr.innerHTML = `
         <td class="col-domain">${esc(displayName)}</td>
-        <td class="col-num"><span>${c24}</span> <span style="color:var(--bw-text-secondary)">|</span> <span>${c30}</span></td>
+        <td class="col-num">${c30}<span style="font-size:11px;color:var(--bw-text-secondary);margin-left:4px">(${c24} today)</span></td>
         <td class="col-num">${pctR}</td>
         <td class="col-num">${avgF}</td>
         <td class="col-num">${avgB}</td>
@@ -320,6 +439,14 @@
         detailDisplayCount += 20;
         const domain = loadMore.dataset.domain;
         if (domain) renderDetailCitations(domain);
+      });
+    }
+
+    const outletShowMoreBtn = document.getElementById('outlet-show-more-btn');
+    if (outletShowMoreBtn) {
+      outletShowMoreBtn.addEventListener('click', () => {
+        outletShowAll = true;
+        renderOutletTable();
       });
     }
 
