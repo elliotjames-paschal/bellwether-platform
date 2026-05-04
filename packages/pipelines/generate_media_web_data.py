@@ -268,8 +268,11 @@ def generate_topics(citations):
     ]
 
 
-def generate_hero_stats(citations, outlets):
-    """Top-level summary statistics with 24h and 30d windows."""
+def generate_hero_stats(citations, outlets, raw_citations=None):
+    """Top-level summary statistics with 24h and 30d windows.
+
+    raw_citations: pre-filter citations (deduped only) for raw mention counts.
+    """
     now = datetime.now(timezone.utc)
     cutoff_24h = now - timedelta(hours=24)
     cutoff_30d = now - timedelta(days=30)
@@ -323,12 +326,26 @@ def generate_hero_stats(citations, outlets):
                                for r in c.get("market_references", [])))
     cite_mention = len(citations) - cite_prob  # general mentions (no probability)
 
+    # Raw mention counts (before promo/topic filtering, after dedup)
+    raw_mentions_30d = 0
+    raw_outlets_30d = set()
+    for c in (raw_citations or citations):
+        dt = _parse_date(c.get("published_date", ""))
+        if dt and dt >= cutoff_30d:
+            raw_mentions_30d += 1
+            domain = c.get("domain", "unknown")
+            if c.get("source_type") == "tv":
+                domain = c.get("station", domain)
+            raw_outlets_30d.add(domain)
+
     return {
         "total_citations_24h": citations_24h,
         "total_citations_30d": citations_30d,
         "total_outlets_24h": len(outlets_24h),
         "total_outlets_30d": len(outlets_30d),
         "total_outlets": len(outlets),
+        "total_raw_mentions_30d": raw_mentions_30d,
+        "total_raw_outlets_30d": len(raw_outlets_30d),
         "citations_with_probability": cite_prob,
         "citations_matched": cite_matched,
         "citations_mention_only": cite_mention,
@@ -455,9 +472,9 @@ def main():
     timeline = generate_timeline(citations)
     logger.info(f"Generated timeline with {len(timeline)} weeks")
 
-    # 3. Hero stats
-    hero = generate_hero_stats(citations, outlets)
-    logger.info(f"Hero stats: {hero['total_citations_24h']} citations (24h), {hero['total_citations_30d']} (30d), {hero['total_outlets']} outlets")
+    # 3. Hero stats (pass deduped as raw_citations for unfiltered mention count)
+    hero = generate_hero_stats(citations, outlets, raw_citations=deduped)
+    logger.info(f"Hero stats: {hero['total_raw_mentions_30d']} raw mentions, {hero['total_citations_30d']} filtered (30d), {hero['total_outlets']} outlets")
 
     # 4. Topics
     topics = generate_topics(citations)

@@ -69,14 +69,22 @@
     // Big hero percentage
     animateValue('hero-pct', 0, hero.pct_not_reportable || 0, 1000, '%');
 
-    // Prose paragraph
+    // Drive the red bar width via CSS variable
+    const card = document.querySelector('.hero-card');
+    if (card) card.style.setProperty('--hero-pct', (hero.pct_not_reportable || 0) + '%');
+
+    // Prose paragraph — raw mentions (unfiltered) → filtered citations → fragility finding
     const proseEl = document.getElementById('hero-prose');
     if (proseEl) {
-      const mentions = (hero.total_citations_30d || 0).toLocaleString();
-      const outlets = (hero.total_outlets_30d || 0).toLocaleString();
-      const withProb = (hero.citations_with_probability || 0).toLocaleString();
-      proseEl.textContent = 'We tracked ' + mentions + ' mentions of prediction market data across ' +
-        outlets + ' outlets in the last 30 days. Of those, ' + withProb + ' cite a specific probability.';
+      const rawMentions = (hero.total_raw_mentions_30d || hero.total_citations_30d || 0).toLocaleString();
+      const outlets = (hero.total_raw_outlets_30d || hero.total_outlets || 0).toLocaleString();
+      const filtered = (hero.total_citations_30d || 0).toLocaleString();
+      const pct = hero.pct_not_reportable || 0;
+
+      proseEl.innerHTML = 'We tracked <strong>' + rawMentions + '</strong> mentions of prediction market data across <strong>' +
+        outlets + '</strong> outlets in the last 30 days. Of those, <strong>' + filtered +
+        '</strong> cite a specific market\u2009\u2014\u2009and <strong>' + pct +
+        '%</strong> of those markets lack the liquidity for reliable reporting.';
     }
   }
 
