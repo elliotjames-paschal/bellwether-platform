@@ -95,31 +95,41 @@
         padding: 0 32px;
       }
 
-      /* ══ PAGE HEADER ══ */
+      /* ══ PAGE HEADER / HERO ══ */
       .page-header {
         padding-top: 92px;
       }
       .page-header-top {
-        display: flex; align-items: flex-end; justify-content: space-between;
-        padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,0.35);
+        display: flex; align-items: center; justify-content: space-between;
+        padding-bottom: 12px;
       }
-      .page-header-left h1 {
-        font-family: var(--font-serif); font-size: 28px; font-weight: 600;
-        color: var(--bw-dark); letter-spacing: -0.01em; margin-bottom: 6px;
-      }
-      .page-header-left p {
-        font-size: 15px; color: var(--bw-text-secondary); line-height: 1.5; max-width: 580px;
-      }
-      .page-header-meta {
-        display: flex; align-items: center; gap: 16px;
-        font-size: 13px; color: var(--bw-text-secondary); flex-shrink: 0;
+      .hero-eyebrow {
+        font-family: var(--font-sans); font-size: 11px; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.1em;
+        color: var(--bw-text-secondary);
       }
       .meta-date { font-family: var(--font-mono); font-size: 12px; color: var(--bw-text-secondary); }
 
+      .hero-body {
+        text-align: center; padding: 40px 0 32px;
+      }
+      .hero-headline {
+        font-family: var(--font-mono); font-size: 72px; font-weight: 500;
+        color: var(--bw-red); line-height: 1; margin-bottom: 16px;
+      }
+      .hero-subtitle {
+        font-family: var(--font-serif); font-size: 20px; font-weight: 400;
+        color: var(--bw-text); line-height: 1.5; max-width: 600px;
+        margin: 0 auto 20px;
+      }
+      .hero-context {
+        font-family: var(--font-mono); font-size: 14px; color: var(--bw-text-secondary);
+      }
+
       /* ══ STAT CARDS ══ */
       .stats-row {
-        display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
-        padding-top: 32px;
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+        padding-top: 0;
       }
       .stat-card {
         background: var(--bw-white); border: 1px solid var(--bw-border);
@@ -486,7 +496,8 @@
       /* ══ RESPONSIVE ══ */
       @media (max-width: 900px) {
         .stats-row { grid-template-columns: 1fr; }
-        .page-header-top { flex-direction: column; align-items: flex-start; gap: 16px; }
+        .hero-headline { font-size: 56px; }
+        .hero-subtitle { font-size: 17px; }
         .v2-footer .footer-inner { grid-template-columns: 1fr 1fr; }
         .v2-nav .nav-links a:not(.nav-cta) { display: none; }
         .v2-nav .nav-affil { display: none; }
@@ -533,23 +544,25 @@
     <!-- PAGE HEADER -->
     <div class="page-header">
       <div class="page-header-top">
-        <div class="page-header-left">
-          <h1>Media Accountability</h1>
-          <p>Tracking when news outlets cite prediction markets &mdash; and whether those markets were robust enough to report.</p>
-        </div>
-        <div class="page-header-meta">
-          <span class="meta-date" id="meta-date"></span>
-        </div>
+        <span class="hero-eyebrow">Media Accountability</span>
+        <span class="meta-date" id="meta-date"></span>
+      </div>
+
+      <!-- HERO -->
+      <div class="hero-body">
+        <div class="hero-headline" id="hero-pct">&mdash;</div>
+        <div class="hero-subtitle">of prediction markets cited in the news lack the liquidity to be reliably reported</div>
+        <div class="hero-context" id="hero-context"></div>
       </div>
     </div>
 
     <!-- STAT CARDS -->
     <div class="stats-row">
       <div class="stat-card">
-        <div class="stat-value"><span id="stat-citations-24h">&mdash;</span> <span style="color:var(--bw-text-secondary);font-size:0.6em;font-weight:400">|</span> <span id="stat-citations-30d">&mdash;</span></div>
-        <div class="stat-label">Citations (24h | 30d)</div>
+        <div class="stat-value" id="stat-citations-30d">&mdash;</div>
+        <div class="stat-label">Citations (30d)</div>
         <div class="stat-tooltip">
-          Total prediction market mentions discovered via GDELT news monitoring. Shown as last 24 hours | last 30 days.
+          Total prediction market mentions discovered via GDELT news monitoring in the last 30 days.
         </div>
       </div>
       <div class="stat-card">
@@ -557,13 +570,6 @@
         <div class="stat-label">Cite a Probability</div>
         <div class="stat-tooltip">
           Articles that quote a specific probability or price from a prediction market contract (e.g. &ldquo;62% on Polymarket&rdquo;).
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="stat-matched">&mdash;</div>
-        <div class="stat-label">Matched to Contract</div>
-        <div class="stat-tooltip">
-          Citations successfully matched to a specific Bellwether-tracked prediction market contract, enabling fragility analysis.
         </div>
       </div>
       <div class="stat-card">

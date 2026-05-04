@@ -279,6 +279,11 @@ def generate_hero_stats(citations, outlets):
     outlets_24h = set()
     outlets_30d = set()
 
+    # Tier counters for 30d window
+    tiers_reportable = 0
+    tiers_caution = 0
+    tiers_fragile = 0
+
     for c in citations:
         domain = c.get("domain", "unknown")
         if c.get("source_type") == "tv":
@@ -288,9 +293,26 @@ def generate_hero_stats(citations, outlets):
         if dt and dt >= cutoff_24h:
             citations_24h += 1
             outlets_24h.add(domain)
-        if dt and dt >= cutoff_30d:
+        is_30d = dt and dt >= cutoff_30d
+        if is_30d:
             citations_30d += 1
             outlets_30d.add(domain)
+
+        # Count tiers from matched market references (30d window only)
+        if is_30d:
+            for ref in c.get("market_references", []):
+                matched = ref.get("matched_market", {})
+                frag = matched.get("fragility", {})
+                tier = frag.get("price_tier")
+                if tier == 1:
+                    tiers_reportable += 1
+                elif tier == 2:
+                    tiers_caution += 1
+                elif tier == 3:
+                    tiers_fragile += 1
+
+    tiers_total = tiers_reportable + tiers_caution + tiers_fragile
+    pct_not_reportable = round((tiers_caution + tiers_fragile) / tiers_total * 100) if tiers_total > 0 else 0
 
     # Citation quality breakdown
     cite_prob = sum(1 for c in citations if c.get("market_references") and
@@ -310,6 +332,11 @@ def generate_hero_stats(citations, outlets):
         "citations_with_probability": cite_prob,
         "citations_matched": cite_matched,
         "citations_mention_only": cite_mention,
+        "tiers_reportable": tiers_reportable,
+        "tiers_caution": tiers_caution,
+        "tiers_fragile": tiers_fragile,
+        "tiers_total": tiers_total,
+        "pct_not_reportable": pct_not_reportable,
     }
 
 

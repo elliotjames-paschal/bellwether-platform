@@ -66,10 +66,21 @@
 
   function renderHeroStats() {
     const hero = summaryData.hero;
-    animateValue('stat-citations-24h', 0, hero.total_citations_24h || 0, 800);
+
+    // Big hero percentage
+    animateValue('hero-pct', 0, hero.pct_not_reportable || 0, 1000, '%');
+
+    // Context line
+    const ctxEl = document.getElementById('hero-context');
+    if (ctxEl) {
+      const citations = (hero.total_citations_30d || 0).toLocaleString();
+      const outlets = (hero.total_outlets_30d || 0).toLocaleString();
+      ctxEl.textContent = 'Based on ' + citations + ' citations across ' + outlets + ' outlets \u00b7 30 days';
+    }
+
+    // 3 stat cards
     animateValue('stat-citations-30d', 0, hero.total_citations_30d || 0, 800);
     animateValue('stat-cite-prob', 0, hero.citations_with_probability || 0, 800);
-    animateValue('stat-matched', 0, hero.citations_matched || 0, 800);
     animateValue('stat-outlets', 0, hero.total_outlets || 0, 800);
   }
 
@@ -86,19 +97,20 @@
     });
   }
 
-  function animateValue(id, start, end, duration) {
+  function animateValue(id, start, end, duration, suffix) {
     const el = document.getElementById(id);
     if (!el) return;
-    if (end === 0) { el.textContent = '0'; return; }
+    if (end === 0) { el.textContent = '0' + (suffix || ''); return; }
 
     const range = end - start;
     const startTime = performance.now();
+    const sfx = suffix || '';
 
     function tick(now) {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      el.textContent = Math.round(start + range * eased).toLocaleString();
+      el.textContent = Math.round(start + range * eased).toLocaleString() + sfx;
       if (progress < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
