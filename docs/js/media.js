@@ -51,7 +51,6 @@
   function renderDashboard() {
     renderMetaDate();
     renderHeroStats();
-    renderOutletTooltip();
     renderTopics();
     renderOutletTable();
   }
@@ -70,31 +69,15 @@
     // Big hero percentage
     animateValue('hero-pct', 0, hero.pct_not_reportable || 0, 1000, '%');
 
-    // Context line
-    const ctxEl = document.getElementById('hero-context');
-    if (ctxEl) {
-      const citations = (hero.total_citations_30d || 0).toLocaleString();
+    // Prose paragraph
+    const proseEl = document.getElementById('hero-prose');
+    if (proseEl) {
+      const mentions = (hero.total_citations_30d || 0).toLocaleString();
       const outlets = (hero.total_outlets_30d || 0).toLocaleString();
-      ctxEl.textContent = 'Based on ' + citations + ' citations across ' + outlets + ' outlets \u00b7 30 days';
+      const withProb = (hero.citations_with_probability || 0).toLocaleString();
+      proseEl.textContent = 'We tracked ' + mentions + ' mentions of prediction market data across ' +
+        outlets + ' outlets in the last 30 days. Of those, ' + withProb + ' cite a specific probability.';
     }
-
-    // 3 stat cards
-    animateValue('stat-citations-30d', 0, hero.total_citations_30d || 0, 800);
-    animateValue('stat-cite-prob', 0, hero.citations_with_probability || 0, 800);
-    animateValue('stat-outlets', 0, hero.total_outlets || 0, 800);
-  }
-
-  function renderOutletTooltip() {
-    const list = document.getElementById('tt-outlet-list');
-    if (!list || !outletsData) return;
-
-    const outlets = outletsData.outlets || [];
-    list.innerHTML = '';
-    outlets.forEach(o => {
-      const li = document.createElement('li');
-      li.textContent = (o.domain_name || o.domain) + ' (' + o.total_citations + ')';
-      list.appendChild(li);
-    });
   }
 
   function animateValue(id, start, end, duration, suffix) {

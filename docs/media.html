@@ -103,75 +103,24 @@
         display: flex; align-items: center; justify-content: space-between;
         padding-bottom: 12px;
       }
-      .hero-eyebrow {
-        font-family: var(--font-sans); font-size: 11px; font-weight: 600;
-        text-transform: uppercase; letter-spacing: 0.1em;
-        color: var(--bw-text-secondary);
-      }
       .meta-date { font-family: var(--font-mono); font-size: 12px; color: var(--bw-text-secondary); }
 
       .hero-body {
-        text-align: center; padding: 40px 0 32px;
+        padding: 40px 0 32px;
       }
       .hero-headline {
-        font-family: var(--font-mono); font-size: 72px; font-weight: 500;
-        color: var(--bw-red); line-height: 1; margin-bottom: 16px;
+        font-family: var(--font-mono); font-size: 144px; font-weight: 500;
+        color: var(--bw-dark); line-height: 1; margin-bottom: 16px;
       }
       .hero-subtitle {
         font-family: var(--font-serif); font-size: 20px; font-weight: 400;
-        color: var(--bw-text); line-height: 1.5; max-width: 600px;
-        margin: 0 auto 20px;
+        color: var(--bw-text); line-height: 1.5;
+        margin: 0 0 24px;
       }
-      .hero-context {
-        font-family: var(--font-mono); font-size: 14px; color: var(--bw-text-secondary);
-      }
-
-      /* ══ STAT CARDS ══ */
-      .stats-row {
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
-        padding-top: 0;
-      }
-      .stat-card {
-        background: var(--bw-white); border: 1px solid var(--bw-border);
-        border-radius: 10px; padding: 24px; text-align: center;
-        transition: border-color 0.2s; position: relative;
-      }
-      .stat-card:hover { border-color: var(--bw-blue-muted); }
-      .stat-card .stat-value {
-        font-family: var(--font-mono); font-size: 32px;
-        font-weight: 500; color: var(--bw-dark);
-        line-height: 1; margin-bottom: 8px;
-      }
-      .stat-card .stat-label {
-        font-size: 12px; text-transform: uppercase;
-        letter-spacing: 0.06em; color: var(--bw-text-secondary); font-weight: 500;
-      }
-
-      /* Tooltip */
-      .stat-tooltip {
-        display: none; position: absolute; z-index: 10;
-        left: 50%; transform: translateX(-50%); top: calc(100% + 8px);
-        background: var(--bw-dark); color: rgba(255,255,255,0.9);
-        font-size: 12px; line-height: 1.5; padding: 10px 14px;
-        border-radius: 6px; max-width: 300px; width: max-content;
-        text-align: left; text-transform: none; letter-spacing: 0;
-        pointer-events: none;
-      }
-      .stat-tooltip::before {
-        content: ''; position: absolute; top: -5px; left: 50%;
-        transform: translateX(-50%);
-        border-left: 5px solid transparent;
-        border-right: 5px solid transparent;
-        border-bottom: 5px solid var(--bw-dark);
-      }
-      .stat-card:hover .stat-tooltip { display: block; }
-      .stat-tooltip .tt-list {
-        margin: 4px 0 0; padding: 0; list-style: none;
-        max-height: 180px; overflow-y: auto;
-        font-family: var(--font-sans); font-weight: 400;
-      }
-      .stat-tooltip .tt-list li {
-        padding: 1px 0; white-space: nowrap;
+      .hero-prose {
+        font-family: var(--font-serif); font-size: 16px; font-weight: 400;
+        color: var(--bw-text-secondary); line-height: 1.7;
+        max-width: 640px;
       }
 
       /* ══ SECTION HEADERS ══ */
@@ -495,8 +444,7 @@
 
       /* ══ RESPONSIVE ══ */
       @media (max-width: 900px) {
-        .stats-row { grid-template-columns: 1fr; }
-        .hero-headline { font-size: 56px; }
+        .hero-headline { font-size: 80px; }
         .hero-subtitle { font-size: 17px; }
         .v2-footer .footer-inner { grid-template-columns: 1fr 1fr; }
         .v2-nav .nav-links a:not(.nav-cta) { display: none; }
@@ -544,41 +492,15 @@
     <!-- PAGE HEADER -->
     <div class="page-header">
       <div class="page-header-top">
-        <span class="hero-eyebrow">Media Accountability</span>
+        <span></span>
         <span class="meta-date" id="meta-date"></span>
       </div>
 
       <!-- HERO -->
       <div class="hero-body">
         <div class="hero-headline" id="hero-pct">&mdash;</div>
-        <div class="hero-subtitle">of prediction markets cited in the news lack the liquidity to be reliably reported</div>
-        <div class="hero-context" id="hero-context"></div>
-      </div>
-    </div>
-
-    <!-- STAT CARDS -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-value" id="stat-citations-30d">&mdash;</div>
-        <div class="stat-label">Citations (30d)</div>
-        <div class="stat-tooltip">
-          Total prediction market mentions discovered via GDELT news monitoring in the last 30 days.
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="stat-cite-prob">&mdash;</div>
-        <div class="stat-label">Cite a Probability</div>
-        <div class="stat-tooltip">
-          Articles that quote a specific probability or price from a prediction market contract (e.g. &ldquo;62% on Polymarket&rdquo;).
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="stat-outlets">&mdash;</div>
-        <div class="stat-label">Outlets Monitored</div>
-        <div class="stat-tooltip" id="stat-outlets-tooltip">
-          <strong>Outlets citing prediction markets:</strong>
-          <ul class="tt-list" id="tt-outlet-list"></ul>
-        </div>
+        <div class="hero-subtitle">of prediction markets mentioned in the news lack the liquidity to be reliably reported.</div>
+        <p class="hero-prose" id="hero-prose"></p>
       </div>
     </div>
 
