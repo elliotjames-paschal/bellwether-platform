@@ -1,79 +1,221 @@
 {
   "hero": {
     "total_citations_24h": 0,
-    "total_citations_30d": 52,
+    "total_citations_30d": 4003,
     "total_outlets_24h": 0,
-    "total_outlets_30d": 51,
-    "total_outlets": 51,
-    "citations_with_probability": 4,
-    "citations_matched": 0,
-    "citations_mention_only": 48,
-    "tiers_reportable": 0,
-    "tiers_caution": 0,
-    "tiers_fragile": 0,
-    "tiers_total": 0,
-    "pct_not_reportable": 0
+    "total_outlets_30d": 1373,
+    "total_outlets": 2148,
+    "citations_with_probability": 3486,
+    "citations_matched": 1827,
+    "citations_mention_only": 10823,
+    "tiers_reportable": 60,
+    "tiers_caution": 68,
+    "tiers_fragile": 183,
+    "tiers_total": 311,
+    "pct_not_reportable": 81
   },
   "topics": [
     {
-      "name": "Regulation",
-      "count": 42,
+      "name": "US Politics",
+      "count": 5915,
       "platforms": [
+        "generic",
+        "kalshi",
+        "polymarket",
+        "predictit"
+      ],
+      "outlet_count": 1379,
+      "example_sentence": "Opinion What our nation risks when everything becomes a bet | EDITORIAL Share this: Share on Facebook (Opens in new window) Facebook Share on X (Opens in new window) X Gannon Ken Van Dyke, a soldier w"
+    },
+    {
+      "name": "Iran Conflict",
+      "count": 2601,
+      "platforms": [
+        "generic",
         "kalshi",
         "polymarket"
       ],
-      "outlet_count": 42,
-      "example_sentence": "The legal action by the CFTC comes after Wisconsin attorney general Josh Kaul filed complaints last week against Coinbase, Crypto.com, Kalshi, Polymarket, and Robinhood, accusing them of offering spor"
+      "outlet_count": 891,
+      "example_sentence": "The single biggest risk is rapid de-escalation or inventory builds that unwind the premium faster than expected.\n**SECTION 2 \u2014 Business Overview** \ud83c\udfe2\nWTI Crude Oil is the leading U.S. light sweet crude"
+    },
+    {
+      "name": "Regulation",
+      "count": 2055,
+      "platforms": [
+        "generic",
+        "kalshi",
+        "polymarket",
+        "predictit"
+      ],
+      "outlet_count": 874,
+      "example_sentence": "Army soldier was arrested on a federal indictment accusing him of using classified information to make bets that won him $400,000 on the Polymarket prediction market related to the American military m"
     },
     {
       "name": "Crypto",
-      "count": 4,
+      "count": 1496,
       "platforms": [
+        "generic",
         "kalshi",
-        "polymarket"
+        "polymarket",
+        "predictit"
       ],
-      "outlet_count": 4,
-      "example_sentence": "A new report from blockchain analytics firm Solidus Labs finds that profit concentration on Polymarket is extreme, with fewer than 1% of wallets capturing roughly half of all gains in key markets."
-    },
-    {
-      "name": "US Politics",
-      "count": 3,
-      "platforms": [
-        "polymarket"
-      ],
-      "outlet_count": 3,
-      "example_sentence": "Read more:Morgan Stanley broadens crypto fund access to wealth clients as ETF landscape shifts Event contracts already trade on platforms such as Polymarket and Kalshi, which together recorded $24.3 b"
+      "outlet_count": 214,
+      "example_sentence": "undefined\nPosts\nundefined\nFollowers\nUK warship deployment odds plummet amid King Charles US visit\nBy Estefano Gomez,\n3 days agoComments\nYOU MAY ALSO LIKE\nBeing Liberal\nHigh School Students Say \u2018Hell N"
     },
     {
       "name": "Fed & Rates",
-      "count": 1,
+      "count": 923,
       "platforms": [
-        "kalshi"
+        "generic",
+        "kalshi",
+        "polymarket",
+        "predictit"
       ],
-      "outlet_count": 1,
-      "example_sentence": "Betting markets also favor no shift in interest rates: Polymarket placed 100% odds on no change, and Kalshi projected 99% odds that rates will remain within their current range."
-    },
-    {
-      "name": "Military & Defense",
-      "count": 1,
-      "platforms": [
-        "polymarket"
-      ],
-      "outlet_count": 1,
-      "example_sentence": "special forces soldier involved in a military operation to capture former Venezuelan leader Nicol\u00e1s Maduro pleaded not guilty on April 28 to using classified information about the secret plan to win m"
+      "outlet_count": 327,
+      "example_sentence": "Quick Read\n-\nVanEck BDC Income ETF (BIZD) \u2014 9.3% yield faces pressure as Federal Reserve cuts rates threaten floating-rate loan income.\n-\nThe fund\u2019s dividend depends on Business Development Companies "
     }
   ],
   "timeline": [
     {
-      "week": "2026-04-27",
-      "count": 52,
+      "week": "2026-01-26",
+      "count": 1,
       "avg_fragility": null,
       "tiers": {
         "reportable": 0,
         "caution": 0,
         "fragile": 0
       }
+    },
+    {
+      "week": "2026-02-02",
+      "count": 53,
+      "avg_fragility": 30.0,
+      "tiers": {
+        "reportable": 1,
+        "caution": 0,
+        "fragile": 0
+      }
+    },
+    {
+      "week": "2026-02-09",
+      "count": 99,
+      "avg_fragility": 27.6,
+      "tiers": {
+        "reportable": 4,
+        "caution": 0,
+        "fragile": 1
+      }
+    },
+    {
+      "week": "2026-02-16",
+      "count": 88,
+      "avg_fragility": 45.0,
+      "tiers": {
+        "reportable": 0,
+        "caution": 1,
+        "fragile": 0
+      }
+    },
+    {
+      "week": "2026-02-23",
+      "count": 308,
+      "avg_fragility": 36.5,
+      "tiers": {
+        "reportable": 7,
+        "caution": 6,
+        "fragile": 4
+      }
+    },
+    {
+      "week": "2026-03-02",
+      "count": 422,
+      "avg_fragility": 47.0,
+      "tiers": {
+        "reportable": 8,
+        "caution": 6,
+        "fragile": 33
+      }
+    },
+    {
+      "week": "2026-03-09",
+      "count": 113,
+      "avg_fragility": 21.0,
+      "tiers": {
+        "reportable": 1,
+        "caution": 0,
+        "fragile": 0
+      }
+    },
+    {
+      "week": "2026-03-16",
+      "count": 439,
+      "avg_fragility": 36.3,
+      "tiers": {
+        "reportable": 10,
+        "caution": 6,
+        "fragile": 3
+      }
+    },
+    {
+      "week": "2026-03-23",
+      "count": 367,
+      "avg_fragility": 40.2,
+      "tiers": {
+        "reportable": 7,
+        "caution": 17,
+        "fragile": 0
+      }
+    },
+    {
+      "week": "2026-03-30",
+      "count": 668,
+      "avg_fragility": 41.4,
+      "tiers": {
+        "reportable": 11,
+        "caution": 6,
+        "fragile": 3
+      }
+    },
+    {
+      "week": "2026-04-06",
+      "count": 1129,
+      "avg_fragility": 36.3,
+      "tiers": {
+        "reportable": 7,
+        "caution": 7,
+        "fragile": 164
+      }
+    },
+    {
+      "week": "2026-04-13",
+      "count": 650,
+      "avg_fragility": 43.2,
+      "tiers": {
+        "reportable": 5,
+        "caution": 10,
+        "fragile": 3
+      }
+    },
+    {
+      "week": "2026-04-20",
+      "count": 1472,
+      "avg_fragility": 39.4,
+      "tiers": {
+        "reportable": 24,
+        "caution": 14,
+        "fragile": 7
+      }
+    },
+    {
+      "week": "2026-04-27",
+      "count": 680,
+      "avg_fragility": 41.5,
+      "tiers": {
+        "reportable": 19,
+        "caution": 35,
+        "fragile": 9
+      }
     }
   ],
-  "generated_at": "2026-05-04T20:57:45.426319+00:00"
+  "generated_at": "2026-05-04T21:05:56.615510+00:00"
 }
