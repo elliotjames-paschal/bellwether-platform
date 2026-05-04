@@ -183,14 +183,9 @@
         return 'reportable';
     }
 
-    // Apply tier-based downgrade to reportability (mirrors worker-v2.js logic)
-    // Tier 1: no change, Tier 2: downgrade one level, Tier 3+: always fragile
+    // Return reportability as-is (based on orderbook depth, no tier downgrade)
     function applyTierDowngrade(reportability, tier) {
-        if (!tier || tier <= 1) return reportability;
-        if (tier >= 3) return 'fragile';
-        // Tier 2: downgrade one level
-        if (reportability === 'reportable') return 'caution';
-        return 'fragile';
+        return reportability;
     }
 
     // Small delay helper

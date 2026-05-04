@@ -643,14 +643,7 @@ async function getMarketMetrics(platform, tokenId, kv) {
   const costToMove5c = computeCostToMove5Cents(bids, asks);
   const rawReportability = getBaseReportability(costToMove5c);
 
-  let reportability;
-  if (tieredPrice.tier === 1) {
-    reportability = rawReportability;
-  } else if (tieredPrice.tier === 2) {
-    reportability = downgradeReportability(rawReportability);
-  } else {
-    reportability = "fragile";
-  }
+  const reportability = rawReportability;
 
   const costUp = computeCostToMoveUp5Cents(asks);
   const costDown = computeCostToMoveDown5Cents(bids);
@@ -746,14 +739,7 @@ async function getEventMetrics(market, kv) {
   }
 
   const rawReportability = getBaseReportability(minCost);
-  let reportability;
-  if (tieredPrice.tier === 1) {
-    reportability = rawReportability;
-  } else if (tieredPrice.tier === 2) {
-    reportability = downgradeReportability(rawReportability);
-  } else {
-    reportability = "fragile";
-  }
+  const reportability = rawReportability;
 
   return {
     ticker: market.ticker,
@@ -963,14 +949,7 @@ export default {
       }
 
       const rawReportability = getBaseReportability(minCost);
-      let reportability;
-      if (tieredPrice.tier === 1) {
-        reportability = rawReportability;
-      } else if (tieredPrice.tier === 2) {
-        reportability = downgradeReportability(rawReportability);
-      } else {
-        reportability = "fragile";
-      }
+      const reportability = rawReportability;
 
       // Try to find ticker from market index
       let ticker = null;
