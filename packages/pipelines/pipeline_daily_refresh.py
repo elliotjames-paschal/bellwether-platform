@@ -784,7 +784,7 @@ def main():
             "pipeline_media_discover_citations.py",
             "Discover prediction market citations (GDELT)",
             required=False,
-            timeout=5400  # 90 minutes — GDELT can be slow
+            timeout=None  # No timeout — let it finish; incremental fetch keeps it fast
         )
         results["media_discover"] = media_ok
         step_results["media_discover"] = "OK" if media_ok else ("FAIL" if media_ok is False else "SKIP")
