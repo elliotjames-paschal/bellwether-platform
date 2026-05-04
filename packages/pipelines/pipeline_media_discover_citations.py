@@ -1324,13 +1324,15 @@ def main():
     # Sort by date descending
     filtered.sort(key=lambda x: x.get("published_date", ""), reverse=True)
 
-    # Prune citations older than retention window
+    # Prune citations older than retention window or dated in the future
     cutoff = (run_start - timedelta(days=RETENTION_DAYS)).isoformat()
+    max_date = (run_start + timedelta(days=1)).isoformat()
     before_prune = len(filtered)
-    filtered = [c for c in filtered if c.get("published_date", "") >= cutoff or not c.get("published_date")]
+    filtered = [c for c in filtered if (c.get("published_date", "") >= cutoff or not c.get("published_date"))
+                and c.get("published_date", "") <= max_date]
     pruned = before_prune - len(filtered)
     if pruned:
-        logger.info(f"Pruned {pruned} citations older than {RETENTION_DAYS} days")
+        logger.info(f"Pruned {pruned} citations outside valid date range ({RETENTION_DAYS}d retention, +1d future max)")
 
     new_count = len(filtered) - len(existing)
     logger.info(f"After dedup + filter: {len(filtered)} total ({new_count} new)")

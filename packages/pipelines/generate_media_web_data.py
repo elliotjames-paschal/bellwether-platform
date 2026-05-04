@@ -295,7 +295,10 @@ def generate_hero_stats(citations, outlets):
     # Citation quality breakdown
     cite_prob = sum(1 for c in citations if c.get("market_references") and
                     any(r.get("probability_cited") is not None for r in c.get("market_references", [])))
-    cite_matched = sum(1 for c in citations if c.get("match_status") == "MATCHED")
+    cite_matched = sum(1 for c in citations if c.get("match_status") == "MATCHED"
+                       and any(r.get("match_confidence") not in (None, "MEDIUM")
+                               and r.get("matched_market")
+                               for r in c.get("market_references", [])))
     cite_mention = len(citations) - cite_prob  # general mentions (no probability)
 
     return {
@@ -318,10 +321,12 @@ def prepare_web_citations(citations, limit=MAX_CITATIONS_WEB):
     flat = []
     for c in citations:
         refs = c.get("market_references", [])
-        # Get the first matched reference (primary)
+        # Get the first HIGH-confidence matched reference (primary).
+        # MEDIUM confidence matches (fuzzy-only, no LLM confirmation) are
+        # too unreliable for display — treat them as unmatched.
         primary_ref = None
         for ref in refs:
-            if ref.get("matched_market"):
+            if ref.get("matched_market") and ref.get("match_confidence") != "MEDIUM":
                 primary_ref = ref
                 break
         if not primary_ref:
