@@ -1180,71 +1180,8 @@ def main():
         else:
             logger.info(f"  '{kw}': 0 articles")
 
-    # 4. NewsAPI.org — broader coverage including major outlets (WSJ, NYT, CNN, etc.)
-    newsapi_key = _get_newsapi_key()
-    if newsapi_key:
-        logger.info("--- NewsAPI.org (broad keyword coverage) ---")
-        # NewsAPI free tier: max 30 days back
-        newsapi_from = (run_start - timedelta(days=min(backfill_days, 30))).strftime("%Y-%m-%d")
-        newsapi_to = run_start.strftime("%Y-%m-%d")
-        for query in NEWSAPI_QUERIES:
-            results = search_newsapi(query, newsapi_from, newsapi_to, newsapi_key)
-            if results:
-                logger.info(f"  '{query}': {len(results)} articles")
-                all_new.extend(results)
-            else:
-                logger.info(f"  '{query}': 0 articles")
-    else:
-        logger.info("--- NewsAPI.org: SKIPPED (no NEWSAPI_KEY configured) ---")
-
-    # 5. The Guardian Content API — full article body text for free
-    guardian_key = _get_guardian_key()
-    if guardian_key:
-        logger.info("--- The Guardian Content API ---")
-        guardian_from = (run_start - timedelta(days=backfill_days)).strftime("%Y-%m-%d")
-        guardian_to = run_start.strftime("%Y-%m-%d")
-        for query in GUARDIAN_QUERIES:
-            results = search_guardian(query, guardian_from, guardian_to, guardian_key)
-            if results:
-                logger.info(f"  '{query}': {len(results)} articles")
-                all_new.extend(results)
-            else:
-                logger.info(f"  '{query}': 0 articles")
-            time.sleep(1)  # Be gentle with rate limits
-    else:
-        logger.info("--- The Guardian: SKIPPED (no GUARDIAN_API_KEY) ---")
-
-    # 6. TV — Internet Archive TV News Archive (replaces GDELT TV, offline since Oct 2024)
-    logger.info("--- Internet Archive TV News (Tier 1: platform names) ---")
-    for kw in TIER1_KEYWORDS:
-        results = search_ia_tv(kw, days_back=backfill_days)
-        if results:
-            logger.info(f"  '{kw}': {len(results)} TV clips")
-            all_new.extend(results)
-        else:
-            logger.info(f"  '{kw}': 0 TV clips")
-
-    # 7. GDELT TV API (may be offline since Oct 2024, but try anyway)
-    logger.info("--- GDELT TV API (Tier 1: platform names) ---")
-    for kw in TIER1_KEYWORDS:
-        results = search_tv_api(kw, timespan)
-        if results:
-            logger.info(f"  '{kw}': {len(results)} TV clips (GDELT)")
-            all_new.extend(results)
-        else:
-            logger.info(f"  '{kw}': 0 TV clips (GDELT)")
-
-    # 8. GDELT LowerThird / Chyron API (CNN/MSNBC/Fox/BBC only)
-    logger.info("--- GDELT LowerThird API (Tier 1: on-screen text) ---")
-    for kw in TIER1_KEYWORDS:
-        results = search_lowerthird_api(kw, timespan)
-        if results:
-            logger.info(f"  '{kw}': {len(results)} chyron clips")
-            all_new.extend(results)
-        else:
-            logger.info(f"  '{kw}': 0 chyron clips")
-
-    # 9. Media Cloud — US national online news (academic index)
+    # 4. Media Cloud — US national online news (academic index)
+    # Moved early to ensure it runs before slower TV/chyron steps that risk timeout
     mc_key = _get_mediacloud_key()
     if mc_key:
         mc_from = (run_start - timedelta(days=backfill_days)).strftime("%Y-%m-%d")
@@ -1284,6 +1221,70 @@ def main():
             logger.info("  Tier 2 citations: 0 articles")
     else:
         logger.info("--- Media Cloud: SKIPPED (no MEDIACLOUD_API_KEY configured) ---")
+
+    # 5. NewsAPI.org — broader coverage including major outlets (WSJ, NYT, CNN, etc.)
+    newsapi_key = _get_newsapi_key()
+    if newsapi_key:
+        logger.info("--- NewsAPI.org (broad keyword coverage) ---")
+        # NewsAPI free tier: max 30 days back
+        newsapi_from = (run_start - timedelta(days=min(backfill_days, 30))).strftime("%Y-%m-%d")
+        newsapi_to = run_start.strftime("%Y-%m-%d")
+        for query in NEWSAPI_QUERIES:
+            results = search_newsapi(query, newsapi_from, newsapi_to, newsapi_key)
+            if results:
+                logger.info(f"  '{query}': {len(results)} articles")
+                all_new.extend(results)
+            else:
+                logger.info(f"  '{query}': 0 articles")
+    else:
+        logger.info("--- NewsAPI.org: SKIPPED (no NEWSAPI_KEY configured) ---")
+
+    # 6. The Guardian Content API — full article body text for free
+    guardian_key = _get_guardian_key()
+    if guardian_key:
+        logger.info("--- The Guardian Content API ---")
+        guardian_from = (run_start - timedelta(days=backfill_days)).strftime("%Y-%m-%d")
+        guardian_to = run_start.strftime("%Y-%m-%d")
+        for query in GUARDIAN_QUERIES:
+            results = search_guardian(query, guardian_from, guardian_to, guardian_key)
+            if results:
+                logger.info(f"  '{query}': {len(results)} articles")
+                all_new.extend(results)
+            else:
+                logger.info(f"  '{query}': 0 articles")
+            time.sleep(1)  # Be gentle with rate limits
+    else:
+        logger.info("--- The Guardian: SKIPPED (no GUARDIAN_API_KEY) ---")
+
+    # 7. TV — Internet Archive TV News Archive (replaces GDELT TV, offline since Oct 2024)
+    logger.info("--- Internet Archive TV News (Tier 1: platform names) ---")
+    for kw in TIER1_KEYWORDS:
+        results = search_ia_tv(kw, days_back=backfill_days)
+        if results:
+            logger.info(f"  '{kw}': {len(results)} TV clips")
+            all_new.extend(results)
+        else:
+            logger.info(f"  '{kw}': 0 TV clips")
+
+    # 8. GDELT TV API (may be offline since Oct 2024, but try anyway)
+    logger.info("--- GDELT TV API (Tier 1: platform names) ---")
+    for kw in TIER1_KEYWORDS:
+        results = search_tv_api(kw, timespan)
+        if results:
+            logger.info(f"  '{kw}': {len(results)} TV clips (GDELT)")
+            all_new.extend(results)
+        else:
+            logger.info(f"  '{kw}': 0 TV clips (GDELT)")
+
+    # 9. GDELT LowerThird / Chyron API (CNN/MSNBC/Fox/BBC only)
+    logger.info("--- GDELT LowerThird API (Tier 1: on-screen text) ---")
+    for kw in TIER1_KEYWORDS:
+        results = search_lowerthird_api(kw, timespan)
+        if results:
+            logger.info(f"  '{kw}': {len(results)} chyron clips")
+            all_new.extend(results)
+        else:
+            logger.info(f"  '{kw}': 0 chyron clips")
 
     logger.info(f"Total raw results: {len(all_new)} (API errors: {api_errors})")
 
