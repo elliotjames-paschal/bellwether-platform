@@ -375,7 +375,6 @@
       const displayName = o.domain_name || o.domain;
       const pctR = o.pct_reportable != null ? o.pct_reportable + '%' : '\u2014';
       const avgF = o.avg_cost_to_move_5c != null ? formatVolume(o.avg_cost_to_move_5c) : '\u2014';
-      const avgB = o.avg_brier != null ? o.avg_brier.toFixed(3) : '\u2014';
       const c24 = o.citations_24h != null ? o.citations_24h : (o.total_citations || 0);
       const c30 = o.citations_30d != null ? o.citations_30d : (o.total_citations || 0);
 
@@ -398,7 +397,6 @@
         <td class="col-num">${c30}<span style="font-size:11px;color:var(--bw-text-secondary);margin-left:4px">(${c24} today)</span></td>
         <td class="col-num">${pctR}</td>
         <td class="col-num">${avgF}</td>
-        <td class="col-num">${avgB}</td>
         <td class="col-center">${tierBarHtml}</td>
         <td><div class="outlet-platforms">${plats.join('')}</div></td>
         <td class="col-arrow">&rsaquo;</td>
