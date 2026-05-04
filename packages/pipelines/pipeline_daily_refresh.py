@@ -783,7 +783,8 @@ def main():
         media_ok = run_script(
             "pipeline_media_discover_citations.py",
             "Discover prediction market citations (GDELT)",
-            required=False
+            required=False,
+            timeout=5400  # 90 minutes — GDELT can be slow
         )
         results["media_discover"] = media_ok
         step_results["media_discover"] = "OK" if media_ok else ("FAIL" if media_ok is False else "SKIP")
@@ -792,7 +793,8 @@ def main():
             media_ok = run_script(
                 "pipeline_media_extract_markets.py",
                 "Extract and match market references from citations",
-                required=False
+                required=False,
+                timeout=5400  # 90 minutes — LLM matching can be slow
             )
             results["media_extract"] = media_ok
             step_results["media_extract"] = "OK" if media_ok else ("FAIL" if media_ok is False else "SKIP")
