@@ -87,14 +87,16 @@
     ]);
 
     // Filter out crypto/platform navel-gazing titles
-    const boringKeywords = /polymarket|kalshi|predictit|tokeniz|onchain|chainalysis|crypto|blockchain|solana|ethereum|bitcoin|robinhood|coinbase/i;
+    const boringKeywords = /tokeniz|onchain|chainalysis|crypto|blockchain|solana|ethereum|bitcoin|robinhood|coinbase|NBA|NFL|NHL|MLB|PGA|NCAA|Super Bowl|March Madness|playoff|World Series|touchdown|quarterback|batting|pitcher|draft pick|fantasy football|fantasy basketball|DraftKings|FanDuel|sportsbook|sports bet/i;
+
+    // Title must clearly be about prediction markets / betting odds
+    const pmKeywords = /prediction market|betting (odds|market)|polymarket|kalshi|predictit|event contract|wagering|bettors|traders (bet|give|put|price)|odds (of|on|for|say|suggest|show|give|put|at)|percent chance|probability of/i;
 
     const scored = withTitle
-      .filter(c => !boringKeywords.test(c.title))
+      .filter(c => majorOutlets.has(c.domain) && !boringKeywords.test(c.title) && pmKeywords.test(c.title + ' ' + (c.sentence || '')))
       .map(c => {
         let score = 0;
         if (c.topic && goodTopics.has(c.topic)) score += 150;
-        if (majorOutlets.has(c.domain)) score += 100;
         if (c.title.length < 70) score += 30;
         if (c.date) {
           const age = (Date.now() - new Date(c.date).getTime()) / 86400000;
@@ -115,81 +117,122 @@
       deduped.push(s);
     }
 
-    const top = deduped.slice(0, 40).map(s => s.c);
+    const top = deduped.slice(0, 30).map(s => s.c);
 
-    function shuffle(arr) {
-      const a = [...arr];
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a;
-    }
-
-    const items = shuffle(top).slice(0, 28);
-
-    // Place items with collision avoidance — no overlap
-    const containerW = 1000;
-    const containerH = 520;
-    const itemW = 340;
-    const itemH = 48;
-    const padding = 16; // gap between items
-    const maxOverlapFraction = 0.0;
-
-    const placed = [];
-
-    function overlaps(x, y) {
-      for (const p of placed) {
-        const overlapX = Math.max(0, Math.min(x + itemW + padding, p.x + p.w + padding) - Math.max(x - padding, p.x - padding));
-        const overlapY = Math.max(0, Math.min(y + itemH + padding, p.y + p.h + padding) - Math.max(y - padding, p.y - padding));
-        if (overlapX > 0 && overlapY > 0) return true;
-      }
-      return false;
-    }
-
-    function findPosition() {
-      for (let attempt = 0; attempt < 200; attempt++) {
-        const x = Math.random() * (containerW - itemW);
-        const y = Math.random() * (containerH - itemH);
-        if (!overlaps(x, y)) return { x, y };
-      }
-      return null;
-    }
-
+    // Build two columns of article cards
     container.innerHTML = '';
-    items.forEach((c) => {
-      const pos = findPosition();
-      if (!pos) return;
-      placed.push({ x: pos.x, y: pos.y, w: itemW, h: itemH });
+    var col1 = document.createElement('div');
+    col1.className = 'hero-feed-col scroll-up';
+    var col2 = document.createElement('div');
+    col2.className = 'hero-feed-col scroll-down';
 
-      const xPct = (pos.x / containerW * 100).toFixed(1);
-      const yPct = (pos.y / containerH * 100).toFixed(1);
-      const rotation = (Math.random() - 0.5) * 4;
-      const opacity = 0.7 + Math.random() * 0.25;
-
-      const div = document.createElement('div');
+    function makeCard(c) {
+      var div = document.createElement('div');
       div.className = 'hero-collage-item';
-      div.style.cssText = 'left:' + xPct + '%;top:' + yPct + '%;transform:rotate(' +
-        rotation.toFixed(1) + 'deg);opacity:' + opacity.toFixed(2);
-
-      const title = (c.title || '').length > 55 ? c.title.slice(0, 52) + '\u2026' : c.title;
-      const domain = c.domain || '';
-      const logoUrl = domain ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=32' : '';
-
+      var title = (c.title || '').length > 72 ? c.title.slice(0, 69) + '\u2026' : c.title;
+      var domain = c.domain || '';
+      var outletName = c.domain_name || c.station || domain.replace(/\.com$|\.co\.uk$|\.org$/,'');
+      var logoUrl = domain ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=32' : '';
+      var dateStr = '';
+      if (c.date) {
+        var d = new Date(c.date);
+        dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
       div.innerHTML =
-        (logoUrl ? '<img class="hero-collage-logo" src="' + esc(logoUrl) + '" alt="">' : '') +
-        '<div><div class="hero-collage-title">' + esc(title) + '</div>' +
-        '<div class="hero-collage-meta">' + esc(c.domain_name || c.station || domain) + '</div></div>';
+        '<div class="hero-collage-meta">' +
+          (logoUrl ? '<img class="hero-collage-logo" src="' + esc(logoUrl) + '" alt="">' : '') +
+          '<span class="hero-collage-outlet">' + esc(outletName) + '</span>' +
+          (dateStr ? '<span class="hero-collage-date">' + esc(dateStr) + '</span>' : '') +
+        '</div>' +
+        '<div class="hero-collage-title">' + esc(title) + '</div>';
+      return div;
+    }
 
-      container.appendChild(div);
+    // Split items between columns
+    var items1 = top.filter(function(_, i) { return i % 2 === 0; });
+    var items2 = top.filter(function(_, i) { return i % 2 === 1; });
+
+    // Duplicate items so the scroll loops seamlessly
+    var all1 = items1.concat(items1);
+    var all2 = items2.concat(items2);
+
+    all1.forEach(function(c) { col1.appendChild(makeCard(c)); });
+    all2.forEach(function(c) { col2.appendChild(makeCard(c)); });
+
+    container.appendChild(col1);
+    container.appendChild(col2);
+
+    // Set animation duration based on item count (slower = more readable)
+    var duration1 = items1.length * 4;
+    var duration2 = items2.length * 5;
+    col1.style.animationDuration = duration1 + 's';
+    col2.style.animationDuration = duration2 + 's';
+
+    // Pause on hover
+    container.addEventListener('mouseenter', function() {
+      col1.style.animationPlayState = 'paused';
+      col2.style.animationPlayState = 'paused';
     });
+    container.addEventListener('mouseleave', function() {
+      col1.style.animationPlayState = 'running';
+      col2.style.animationPlayState = 'running';
+    });
+  }
+
+  function typewriterHTML(el, html, charDelay, onDone) {
+    // Parse HTML string, type out text characters while preserving tags
+    el.innerHTML = '';
+    var i = 0;
+    function step() {
+      if (i >= html.length) { if (onDone) onDone(); return; }
+      // If we hit a tag, insert the whole tag at once
+      if (html[i] === '<') {
+        var close = html.indexOf('>', i);
+        if (close !== -1) {
+          i = close + 1;
+          el.innerHTML = html.slice(0, i);
+          requestAnimationFrame(step);
+          return;
+        }
+      }
+      i++;
+      el.innerHTML = html.slice(0, i);
+      setTimeout(step, charDelay);
+    }
+    step();
   }
 
   function renderHeroStats() {
     const hero = summaryData.hero;
 
-    // Big hero percentage
-    animateValue('hero-pct', 0, hero.pct_not_reportable || 0, 1200, '<span class="pct-sign">%</span>', true);
+    // Typewriter the statement, then animate the number in
+    const stmtEl = document.getElementById('hero-statement');
+    const pctEl = document.getElementById('hero-pct');
+    if (pctEl) pctEl.style.opacity = '0';
+
+    const stmtHTML = 'Of prediction market odds reported in media, the share <em>that could be misinformation</em> is';
+    const proseEl2 = document.getElementById('hero-prose');
+    const ruleEl = document.querySelector('.hero-rule');
+    if (proseEl2) { proseEl2.style.opacity = '0'; proseEl2.style.transition = 'opacity 0.6s'; }
+    if (ruleEl) { ruleEl.style.opacity = '0'; ruleEl.style.transition = 'opacity 0.6s'; }
+    if (stmtEl) {
+      typewriterHTML(stmtEl, stmtHTML, 25, function() {
+        // After typing finishes, animate the number in
+        if (pctEl) {
+          pctEl.style.transition = 'opacity 0.4s';
+          pctEl.style.opacity = '1';
+        }
+        animateValue('hero-pct', 0, hero.pct_not_reportable_all || hero.pct_not_reportable || 0, 1200, '<span class="pct-sign">%</span>', true);
+        // After number finishes, fade in the rule and prose
+        setTimeout(function() {
+          if (ruleEl) ruleEl.style.opacity = '1';
+          if (proseEl2) proseEl2.style.opacity = '1';
+        }, 1300);
+      });
+    } else {
+      // Fallback if element not found
+      animateValue('hero-pct', 0, hero.pct_not_reportable_all || hero.pct_not_reportable || 0, 1200, '<span class="pct-sign">%</span>', true);
+    }
 
     // Prose paragraph — raw mentions (unfiltered) → filtered citations → fragility finding
     const proseEl = document.getElementById('hero-prose');
@@ -202,7 +245,7 @@
       proseEl.innerHTML = 'Every day, Bellwether scans U.S. news for prediction market citations. In the last 30 days, we found <strong>' + rawMentions + '</strong> mentions across <strong>' +
         outlets + '</strong> outlets. Of those, <strong>' + filtered +
         '</strong> cite a specific market\u2009\u2014\u2009and <strong>' + pct +
-        '%</strong> of those markets lack the liquidity for reliable reporting. This page updates daily.';
+        '%</strong> of those markets lack the liquidity for reliable reporting.';
     }
   }
 

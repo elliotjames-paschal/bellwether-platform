@@ -287,6 +287,11 @@ def generate_hero_stats(citations, outlets, raw_citations=None):
     tiers_caution = 0
     tiers_fragile = 0
 
+    # All-time tier counters
+    tiers_reportable_all = 0
+    tiers_caution_all = 0
+    tiers_fragile_all = 0
+
     for c in citations:
         domain = c.get("domain", "unknown")
         if c.get("source_type") == "tv":
@@ -301,21 +306,26 @@ def generate_hero_stats(citations, outlets, raw_citations=None):
             citations_30d += 1
             outlets_30d.add(domain)
 
-        # Count tiers from matched market references (30d window only)
-        if is_30d:
-            for ref in c.get("market_references", []):
-                matched = ref.get("matched_market", {})
-                frag = matched.get("fragility", {})
-                tier = frag.get("price_tier")
-                if tier == 1:
-                    tiers_reportable += 1
-                elif tier == 2:
-                    tiers_caution += 1
-                elif tier == 3:
-                    tiers_fragile += 1
+        # Count tiers from matched market references
+        for ref in c.get("market_references", []):
+            matched = ref.get("matched_market", {})
+            frag = matched.get("fragility", {})
+            tier = frag.get("price_tier")
+            if tier == 1:
+                tiers_reportable_all += 1
+                if is_30d: tiers_reportable += 1
+            elif tier == 2:
+                tiers_caution_all += 1
+                if is_30d: tiers_caution += 1
+            elif tier == 3:
+                tiers_fragile_all += 1
+                if is_30d: tiers_fragile += 1
 
     tiers_total = tiers_reportable + tiers_caution + tiers_fragile
     pct_not_reportable = round((tiers_caution + tiers_fragile) / tiers_total * 100) if tiers_total > 0 else 0
+
+    tiers_total_all = tiers_reportable_all + tiers_caution_all + tiers_fragile_all
+    pct_not_reportable_all = round((tiers_caution_all + tiers_fragile_all) / tiers_total_all * 100) if tiers_total_all > 0 else 0
 
     # Citation quality breakdown
     cite_prob = sum(1 for c in citations if c.get("market_references") and
@@ -354,6 +364,11 @@ def generate_hero_stats(citations, outlets, raw_citations=None):
         "tiers_fragile": tiers_fragile,
         "tiers_total": tiers_total,
         "pct_not_reportable": pct_not_reportable,
+        "tiers_reportable_all": tiers_reportable_all,
+        "tiers_caution_all": tiers_caution_all,
+        "tiers_fragile_all": tiers_fragile_all,
+        "tiers_total_all": tiers_total_all,
+        "pct_not_reportable_all": pct_not_reportable_all,
     }
 
 
