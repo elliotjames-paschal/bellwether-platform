@@ -193,34 +193,41 @@
         will-change: transform;
       }
       .hero-collage-item {
-        padding: 12px 0;
+        padding: 14px 0;
         border-bottom: 1px solid var(--bw-border);
         flex-shrink: 0;
       }
       .hero-collage-meta {
         display: flex; align-items: center; gap: 5px;
-        margin-bottom: 4px;
+        margin-bottom: 6px;
       }
       .hero-collage-logo {
-        width: 12px; height: 12px; border-radius: 2px;
+        width: 14px; height: 14px; border-radius: 2px;
         flex-shrink: 0;
         object-fit: contain;
-        opacity: 0.7;
       }
       .hero-collage-outlet {
-        font-family: var(--font-mono); font-size: 10px; font-weight: 500;
-        color: var(--bw-text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        font-family: var(--font-sans); font-size: 11px; font-weight: 600;
+        color: var(--bw-text);
+        letter-spacing: 0.01em;
+      }
+      .hero-collage-dot {
+        width: 3px; height: 3px; border-radius: 50%;
+        background: var(--bw-text-secondary); opacity: 0.4;
+        flex-shrink: 0;
       }
       .hero-collage-date {
         font-family: var(--font-mono); font-size: 10px;
-        color: var(--bw-text-secondary); opacity: 0.4;
-        margin-left: auto;
+        color: var(--bw-text-secondary); opacity: 0.5;
       }
       .hero-collage-title {
-        font-family: var(--font-serif); font-size: 13px; font-weight: 400;
-        color: var(--bw-text); line-height: 1.4;
+        font-family: var(--font-serif); font-size: 15px; font-weight: 600;
+        color: var(--bw-dark); line-height: 1.35;
+        margin-bottom: 4px;
+      }
+      .hero-collage-excerpt {
+        font-family: var(--font-serif); font-size: 12.5px; font-weight: 300;
+        color: var(--bw-text-secondary); line-height: 1.45;
       }
 
       /* ══ SECTION BANDS ══ */

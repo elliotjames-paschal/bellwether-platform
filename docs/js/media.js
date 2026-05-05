@@ -138,13 +138,16 @@
         var d = new Date(c.date);
         dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       }
+      var excerpt = (c.sentence || '').replace(/<[^>]*>/g, '').trim();
+      if (excerpt.length > 100) excerpt = excerpt.slice(0, 97) + '\u2026';
       div.innerHTML =
         '<div class="hero-collage-meta">' +
           (logoUrl ? '<img class="hero-collage-logo" src="' + esc(logoUrl) + '" alt="">' : '') +
           '<span class="hero-collage-outlet">' + esc(outletName) + '</span>' +
-          (dateStr ? '<span class="hero-collage-date">' + esc(dateStr) + '</span>' : '') +
+          (dateStr ? '<span class="hero-collage-dot"></span><span class="hero-collage-date">' + esc(dateStr) + '</span>' : '') +
         '</div>' +
-        '<div class="hero-collage-title">' + esc(title) + '</div>';
+        '<div class="hero-collage-title">' + esc(title) + '</div>' +
+        (excerpt ? '<div class="hero-collage-excerpt">' + esc(excerpt) + '</div>' : '');
       return div;
     }
 
