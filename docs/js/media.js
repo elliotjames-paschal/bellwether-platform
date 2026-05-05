@@ -115,7 +115,7 @@
       deduped.push(s);
     }
 
-    const top = deduped.slice(0, 30).map(s => s.c);
+    const top = deduped.slice(0, 40).map(s => s.c);
 
     function shuffle(arr) {
       const a = [...arr];
@@ -126,11 +126,11 @@
       return a;
     }
 
-    const items = shuffle(top).slice(0, 22);
+    const items = shuffle(top).slice(0, 28);
 
     // Place items with collision avoidance — no overlap
     const containerW = 1000;
-    const containerH = 440;
+    const containerH = 520;
     const itemW = 340;
     const itemH = 48;
     const padding = 16; // gap between items
