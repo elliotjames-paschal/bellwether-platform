@@ -126,28 +126,41 @@
     var col2 = document.createElement('div');
     col2.className = 'hero-feed-col';
 
-    function makeCard(c) {
+    // Topic label mapping (shorten for wire-style display)
+    var topicLabels = {
+      'US Politics': 'POLITICS', 'Iran Conflict': 'WORLD', 'Regulation': 'REGULATION',
+      'Crypto': 'MARKETS', 'Military & Defense': 'DEFENSE', 'Fed & Rates': 'ECONOMY',
+    };
+
+    function makeCard(c, isLead) {
       var div = document.createElement('div');
-      div.className = 'hero-collage-item';
-      var title = (c.title || '').length > 72 ? c.title.slice(0, 69) + '\u2026' : c.title;
+      div.className = 'hero-collage-item' + (isLead ? ' lead-item' : '');
+
+      var maxLen = isLead ? 90 : 72;
+      var title = (c.title || '').length > maxLen ? c.title.slice(0, maxLen - 3) + '\u2026' : c.title;
       var domain = c.domain || '';
       var outletName = c.domain_name || c.station || domain.replace(/\.com$|\.co\.uk$|\.org$/,'');
-      var logoUrl = domain ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=32' : '';
       var dateStr = '';
       if (c.date) {
         var d = new Date(c.date);
         dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       }
+      var section = topicLabels[c.topic] || '';
       var excerpt = (c.sentence || '').replace(/<[^>]*>/g, '').trim();
-      if (excerpt.length > 100) excerpt = excerpt.slice(0, 97) + '\u2026';
+      var excerptMax = isLead ? 130 : 90;
+      if (excerpt.length > excerptMax) excerpt = excerpt.slice(0, excerptMax - 3) + '\u2026';
+
+      var logoUrl = domain ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=32' : '';
+
       div.innerHTML =
-        '<div class="hero-collage-meta">' +
-          (logoUrl ? '<img class="hero-collage-logo" src="' + esc(logoUrl) + '" alt="">' : '') +
-          '<span class="hero-collage-outlet">' + esc(outletName) + '</span>' +
-          (dateStr ? '<span class="hero-collage-dot"></span><span class="hero-collage-date">' + esc(dateStr) + '</span>' : '') +
-        '</div>' +
+        (section ? '<div class="hero-collage-section">' + esc(section) + '</div>' : '') +
         '<div class="hero-collage-title">' + esc(title) + '</div>' +
-        (excerpt ? '<div class="hero-collage-excerpt">' + esc(excerpt) + '</div>' : '');
+        (excerpt ? '<div class="hero-collage-excerpt">' + esc(excerpt) + '</div>' : '') +
+        '<div class="hero-collage-byline">' +
+          (logoUrl ? '<img class="hero-collage-logo" src="' + esc(logoUrl) + '" alt="">' : '') +
+          esc(outletName) +
+          (dateStr ? ' <span class="byline-date">\u00b7 ' + esc(dateStr) + '</span>' : '') +
+        '</div>';
       return div;
     }
 
@@ -159,8 +172,8 @@
     var all1 = items1.concat(items1);
     var all2 = items2.concat(items2);
 
-    all1.forEach(function(c) { col1.appendChild(makeCard(c)); });
-    all2.forEach(function(c) { col2.appendChild(makeCard(c)); });
+    all1.forEach(function(c, i) { col1.appendChild(makeCard(c, i % items1.length % 4 === 0)); });
+    all2.forEach(function(c, i) { col2.appendChild(makeCard(c, i % items2.length % 4 === 2)); });
 
     container.appendChild(col1);
     container.appendChild(col2);
