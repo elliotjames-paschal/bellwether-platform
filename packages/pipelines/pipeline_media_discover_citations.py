@@ -71,6 +71,42 @@ NEWSAPI_QUERIES = [
     '"betting market" AND (election OR political OR trump OR president)',
 ]
 
+# ─── RSS Feeds Configuration ─────────────────────────────────────────────────
+# Paywalled outlets with public RSS feeds containing headlines + descriptions.
+# No API key required. Keyword filtering applied locally.
+RSS_FEEDS = [
+    # WSJ
+    {"url": "https://feeds.a.dj.com/rss/RSSMarketsMain.xml", "domain": "wsj.com", "name": "WSJ"},
+    {"url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml", "domain": "wsj.com", "name": "WSJ"},
+    {"url": "https://feeds.a.dj.com/rss/RSSOpinion.xml", "domain": "wsj.com", "name": "WSJ"},
+    # Bloomberg
+    {"url": "https://feeds.bloomberg.com/markets/news.rss", "domain": "bloomberg.com", "name": "Bloomberg"},
+    {"url": "https://feeds.bloomberg.com/politics/news.rss", "domain": "bloomberg.com", "name": "Bloomberg"},
+    # Financial Times
+    {"url": "https://www.ft.com/markets?format=rss", "domain": "ft.com", "name": "Financial Times"},
+    {"url": "https://www.ft.com/world/us/politics?format=rss", "domain": "ft.com", "name": "Financial Times"},
+    # NYT
+    {"url": "https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml", "domain": "nytimes.com", "name": "NYT"},
+    {"url": "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml", "domain": "nytimes.com", "name": "NYT"},
+    {"url": "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml", "domain": "nytimes.com", "name": "NYT"},
+    # Washington Post
+    {"url": "https://feeds.washingtonpost.com/rss/politics", "domain": "washingtonpost.com", "name": "WaPo"},
+    {"url": "https://feeds.washingtonpost.com/rss/business", "domain": "washingtonpost.com", "name": "WaPo"},
+    # Economist
+    {"url": "https://www.economist.com/united-states/rss.xml", "domain": "economist.com", "name": "Economist"},
+    {"url": "https://www.economist.com/finance-and-economics/rss.xml", "domain": "economist.com", "name": "Economist"},
+    # The Atlantic
+    {"url": "https://www.theatlantic.com/feed/channel/politics/", "domain": "theatlantic.com", "name": "The Atlantic"},
+]
+
+# Keywords to filter RSS entries (must match at least one)
+RSS_KEYWORDS = [
+    "polymarket", "kalshi", "predictit", "prediction market", "prediction markets",
+    "betting market", "betting odds", "event contract", "event contracts",
+    "odds of", "probability of", "percent chance", "traders bet",
+    "bettors", "wagering",
+]
+
 # ─── The Guardian Content API Configuration ──────────────────────────────────
 # Free tier: 12 calls/sec, 5,000 calls/day
 # Register at https://open-platform.theguardian.com/access/
@@ -580,6 +616,83 @@ def search_newsapi(query, from_date, to_date, api_key):
         })
 
     return articles
+
+
+# ─── RSS Feed Search ─────────────────────────────────────────────────────────
+
+def search_rss_feeds(feeds, keywords, days_back=30):
+    """
+    Fetch RSS feeds and filter entries that mention prediction market keywords.
+
+    Returns list of citation dicts in the same format as other sources.
+    No API key required. RSS feeds are public even for paywalled outlets.
+    """
+    import feedparser
+    import time as _time
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days_back)
+    results = []
+    keywords_lower = [kw.lower() for kw in keywords]
+
+    for feed_cfg in feeds:
+        try:
+            feed = feedparser.parse(feed_cfg["url"])
+            if feed.bozo and not feed.entries:
+                logger.warning(f"RSS: Failed to parse {feed_cfg['url']}: {feed.bozo_exception}")
+                continue
+
+            for entry in feed.entries:
+                # Parse publication date
+                pub_date = None
+                if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                    pub_date = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
+                elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
+                    pub_date = datetime(*entry.updated_parsed[:6], tzinfo=timezone.utc)
+
+                # Skip entries older than cutoff
+                if pub_date and pub_date < cutoff:
+                    continue
+
+                title = (entry.get("title") or "").strip()
+                summary = (entry.get("summary") or entry.get("description") or "").strip()
+                link = (entry.get("link") or "").strip()
+
+                if not link or not title:
+                    continue
+
+                # Keyword match on title + summary
+                search_text = f"{title} {summary}".lower()
+                if not any(kw in search_text for kw in keywords_lower):
+                    continue
+
+                # Format seendate for compatibility
+                seendate = ""
+                if pub_date:
+                    seendate = pub_date.strftime("%Y%m%dT%H%M%SZ")
+
+                results.append({
+                    "url": link,
+                    "title": title,
+                    "seendate": seendate,
+                    "domain": feed_cfg["domain"],
+                    "language": "ENGLISH",
+                    "sourcecountry": "US",
+                    "socialimage": "",
+                    "sentence": summary[:500] if summary else "",
+                    "context": summary[:1000] if summary else "",
+                    "source_type": "article",
+                    "search_keyword": "rss_feed",
+                    "discovery_source": "rss",
+                })
+
+            _time.sleep(0.5)  # Be polite to feed servers
+
+        except Exception as e:
+            logger.warning(f"RSS: Error fetching {feed_cfg['url']}: {e}")
+            continue
+
+    logger.info(f"RSS feeds: {len(results)} keyword-matched entries from {len(feeds)} feeds")
+    return results
 
 
 # ─── The Guardian Content API Search ─────────────────────────────────────────
@@ -1221,6 +1334,15 @@ def main():
             logger.info("  Tier 2 citations: 0 articles")
     else:
         logger.info("--- Media Cloud: SKIPPED (no MEDIACLOUD_API_KEY configured) ---")
+
+    # 4b. RSS Feeds — paywalled outlets (WSJ, Bloomberg, FT, NYT, WaPo, etc.)
+    logger.info("--- RSS Feeds (paywalled outlets) ---")
+    rss_results = search_rss_feeds(RSS_FEEDS, RSS_KEYWORDS, days_back=backfill_days)
+    if rss_results:
+        logger.info(f"  RSS: {len(rss_results)} keyword-matched articles")
+        all_new.extend(rss_results)
+    else:
+        logger.info("  RSS: 0 keyword-matched articles")
 
     # 5. NewsAPI.org — broader coverage including major outlets (WSJ, NYT, CNN, etc.)
     newsapi_key = _get_newsapi_key()
