@@ -237,7 +237,7 @@ MAX_RETRIES = 3
 BACKOFF_BASE_SEC = 10.0
 
 # Prune citations older than this to keep file sizes manageable
-RETENTION_DAYS = 90
+RETENTION_DAYS = None  # Keep all data indefinitely
 
 # ─── GDELT API Helpers ──────────────────────────────────────────────────────
 
@@ -1447,15 +1447,19 @@ def main():
     # Sort by date descending
     filtered.sort(key=lambda x: x.get("published_date", ""), reverse=True)
 
-    # Prune citations older than retention window or dated in the future
-    cutoff = (run_start - timedelta(days=RETENTION_DAYS)).isoformat()
+    # Prune citations dated in the future (bad data), and optionally by retention window
     max_date = (run_start + timedelta(days=1)).isoformat()
     before_prune = len(filtered)
-    filtered = [c for c in filtered if (c.get("published_date", "") >= cutoff or not c.get("published_date"))
-                and c.get("published_date", "") <= max_date]
+    if RETENTION_DAYS is not None:
+        cutoff = (run_start - timedelta(days=RETENTION_DAYS)).isoformat()
+        filtered = [c for c in filtered if (c.get("published_date", "") >= cutoff or not c.get("published_date"))
+                    and c.get("published_date", "") <= max_date]
+    else:
+        # No retention limit — only prune future-dated citations
+        filtered = [c for c in filtered if c.get("published_date", "") <= max_date]
     pruned = before_prune - len(filtered)
     if pruned:
-        logger.info(f"Pruned {pruned} citations outside valid date range ({RETENTION_DAYS}d retention, +1d future max)")
+        logger.info(f"Pruned {pruned} citations (retention={RETENTION_DAYS or 'unlimited'}, +1d future max)")
 
     new_count = len(filtered) - len(existing)
     logger.info(f"After dedup + filter: {len(filtered)} total ({new_count} new)")
