@@ -122,9 +122,9 @@
     // Build two columns of article cards
     container.innerHTML = '';
     var col1 = document.createElement('div');
-    col1.className = 'hero-feed-col scroll-up';
+    col1.className = 'hero-feed-col';
     var col2 = document.createElement('div');
-    col2.className = 'hero-feed-col scroll-down';
+    col2.className = 'hero-feed-col';
 
     function makeCard(c) {
       var div = document.createElement('div');
@@ -162,20 +162,37 @@
     container.appendChild(col1);
     container.appendChild(col2);
 
-    // Set animation duration based on item count (slower = more readable)
-    var duration1 = items1.length * 4;
-    var duration2 = items2.length * 5;
-    col1.style.animationDuration = duration1 + 's';
-    col2.style.animationDuration = duration2 + 's';
+    // JS-driven seamless scroll loop
+    var paused = false;
+    container.addEventListener('mouseenter', function() { paused = true; });
+    container.addEventListener('mouseleave', function() { paused = false; });
 
-    // Pause on hover
-    container.addEventListener('mouseenter', function() {
-      col1.style.animationPlayState = 'paused';
-      col2.style.animationPlayState = 'paused';
-    });
-    container.addEventListener('mouseleave', function() {
-      col1.style.animationPlayState = 'running';
-      col2.style.animationPlayState = 'running';
+    // Wait a frame for layout, then measure and start scrolling
+    requestAnimationFrame(function() {
+      // Height of the first set of items (half the column since we duplicated)
+      var h1 = 0, h2 = 0;
+      for (var i = 0; i < items1.length; i++) h1 += col1.children[i].offsetHeight;
+      for (var i = 0; i < items2.length; i++) h2 += col2.children[i].offsetHeight;
+
+      var y1 = 0, y2 = -h2; // col1 scrolls up, col2 starts scrolled up and scrolls down
+      var speed1 = 0.3; // pixels per frame
+      var speed2 = 0.25;
+
+      function tick() {
+        if (!paused) {
+          // Column 1: scroll up
+          y1 -= speed1;
+          if (y1 <= -h1) y1 += h1;
+          col1.style.transform = 'translateY(' + y1 + 'px)';
+
+          // Column 2: scroll down
+          y2 += speed2;
+          if (y2 >= 0) y2 -= h2;
+          col2.style.transform = 'translateY(' + y2 + 'px)';
+        }
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
     });
   }
 

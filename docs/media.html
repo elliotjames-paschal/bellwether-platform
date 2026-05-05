@@ -190,22 +190,7 @@
         flex-direction: column;
         gap: 0;
         padding: 0 12px;
-        animation-timing-function: linear;
-        animation-iteration-count: infinite;
-      }
-      .hero-feed-col.scroll-up {
-        animation-name: scrollUp;
-      }
-      .hero-feed-col.scroll-down {
-        animation-name: scrollDown;
-      }
-      @keyframes scrollUp {
-        0% { transform: translateY(0); }
-        100% { transform: translateY(-50%); }
-      }
-      @keyframes scrollDown {
-        0% { transform: translateY(-50%); }
-        100% { transform: translateY(0); }
+        will-change: transform;
       }
       .hero-collage-item {
         padding: 12px 0;
