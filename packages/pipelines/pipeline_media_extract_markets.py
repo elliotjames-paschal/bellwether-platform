@@ -317,6 +317,12 @@ def main():
         except (json.JSONDecodeError, IOError):
             pass
 
+    # Matching cutoff — only GPT-match citations from the last 6 months.
+    # Older citations are kept for mention counts but marked NO_MATCH_HISTORICAL.
+    MATCH_CUTOFF_DAYS = 180
+    match_cutoff = (datetime.now(timezone.utc) - __import__('datetime').timedelta(days=MATCH_CUTOFF_DAYS)).isoformat()
+    skipped_historical = 0
+
     # Process each citation
     matched_count = 0
     unmatched_count = 0
@@ -352,6 +358,18 @@ def main():
                 unmatched_count += 1
             skipped_prior += 1
             primary_outputs[i] = prior
+            continue
+
+        # Skip old citations — keep for mention counts but don't burn GPT credits
+        pub_date = citation.get("published_date", "") or citation.get("seendate", "")
+        if pub_date and pub_date < match_cutoff:
+            output_citations.append({
+                **citation,
+                "market_references": [],
+                "match_status": "NO_MATCH_HISTORICAL",
+            })
+            skipped_historical += 1
+            no_reference_count += 1
             continue
 
         # Syndicated copies inherit match from primary
@@ -455,7 +473,7 @@ def main():
         primary_outputs[i] = out_entry
 
     # Summary
-    logger.info(f"Results: {matched_count} matched, {unmatched_count} unmatched, {no_reference_count} no reference, {skipped_prior} reused from prior run")
+    logger.info(f"Results: {matched_count} matched, {unmatched_count} unmatched, {no_reference_count} no reference, {skipped_prior} reused, {skipped_historical} skipped (historical)")
 
     # Final save
     _save_output(output_citations, matched_count, unmatched_count, no_reference_count, skipped_prior, len(citations))
