@@ -80,6 +80,22 @@ CROSS_PLATFORM_FILE = DATA_DIR / "cross_platform_reviewed_pairs.json"
 
 # ─── I/O Functions (stay in this script) ─────────────────────────────────────
 
+def _save_output(output_citations, matched_count, unmatched_count, no_reference_count, skipped_prior, total):
+    """Save current progress to OUTPUT_FILE (used for periodic checkpoints and final save)."""
+    output = {
+        "citations": output_citations,
+        "metadata": {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "total_citations": len(output_citations),
+            "matched": matched_count,
+            "unmatched": unmatched_count,
+            "no_reference": no_reference_count,
+        },
+    }
+    atomic_write_json(OUTPUT_FILE, output, indent=2, ensure_ascii=False)
+    logger.info(f"Checkpoint: saved {len(output_citations)}/{total} citations ({matched_count} matched, {skipped_prior} reused)")
+
+
 def load_enriched_markets():
     """Load enriched markets, flatten nested structures, and build search index."""
     logger.info(f"Loading enriched markets from {ENRICHED_FILE}...")
@@ -312,9 +328,16 @@ def main():
     # Track primary citation outputs for syndication inheritance
     primary_outputs = {}
 
+    last_save = 0
+
     for i, citation in enumerate(citations):
         if i % 100 == 0 and i > 0:
             logger.info(f"Progress: {i}/{len(citations)} citations processed")
+
+        # Save progress every 2000 citations so timeout doesn't lose work
+        if i - last_save >= 2000 and i > 0:
+            _save_output(output_citations, matched_count, unmatched_count, no_reference_count, skipped_prior, len(citations))
+            last_save = i
 
         # Skip citations already matched in a prior run
         url = citation.get("url", "")
@@ -434,20 +457,8 @@ def main():
     # Summary
     logger.info(f"Results: {matched_count} matched, {unmatched_count} unmatched, {no_reference_count} no reference, {skipped_prior} reused from prior run")
 
-    # Save output
-    output = {
-        "citations": output_citations,
-        "metadata": {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "total_citations": len(output_citations),
-            "matched": matched_count,
-            "unmatched": unmatched_count,
-            "no_reference": no_reference_count,
-        },
-    }
-
-    atomic_write_json(OUTPUT_FILE, output, indent=2, ensure_ascii=False)
-    logger.info(f"Saved {len(output_citations)} citations to {OUTPUT_FILE}")
+    # Final save
+    _save_output(output_citations, matched_count, unmatched_count, no_reference_count, skipped_prior, len(citations))
 
     return 0
 

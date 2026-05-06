@@ -794,7 +794,7 @@ def main():
                 "pipeline_media_extract_markets.py",
                 "Extract and match market references from citations",
                 required=False,
-                timeout=5400  # 90 minutes — LLM matching can be slow
+                timeout=10800  # 3 hours — large backlog after retention change
             )
             results["media_extract"] = media_ok
             step_results["media_extract"] = "OK" if media_ok else ("FAIL" if media_ok is False else "SKIP")
