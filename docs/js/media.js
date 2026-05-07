@@ -6,8 +6,6 @@
   let outletsData = null;
   let citationsData = null;
   let detailDisplayCount = 20;
-  let topicDisplayCount = 10;
-  let activeTopic = null;
   let outletDisplayCount = 15;
   let outletShowAll = false;
 
@@ -54,7 +52,7 @@
     renderMetaDate();
     renderHeroCollage();
     renderHeroStats();
-    renderTopics();
+    renderTrendChart();
     renderOutletTable();
   }
 
@@ -302,83 +300,181 @@
     requestAnimationFrame(tick);
   }
 
-  // ─── Topics ─────────────────────────────────────────────────────────────────
-  function renderTopics() {
-    const container = document.getElementById('topic-row');
-    if (!container) return;
+  // ─── Trend Chart ────────────────────────────────────────────────────────────
+  let trendChart = null;
 
-    const topics = summaryData.topics || [];
-    if (!topics.length) {
-      container.innerHTML = '<div class="empty-state" style="padding:24px"><p>No topic data available.</p></div>';
+  const TIER_COLORS = {
+    reportable: '#3A8A5C',
+    caution: '#D4950A',
+    fragile: '#D94A4A',
+  };
+
+  const CATEGORY_COLORS = {
+    'US Politics': '#4A90D9',
+    'Iran Conflict': '#D94A4A',
+    'Regulation': '#7B61C2',
+    'Crypto': '#D4950A',
+    'Military & Defense': '#2D6A4F',
+    'Trade & Tariffs': '#E07A3A',
+    'Fed & Rates': '#3AA5A5',
+  };
+
+  function getTimelineEntries() {
+    return summaryData.timeline || [];
+  }
+
+  function buildChartData(view, entries) {
+    var labels = entries.map(function(e) {
+      var key = e.date || e.week || '';
+      var d = new Date(key + 'T00:00:00');
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+
+    var datasets = [];
+
+    if (view === 'total') {
+      datasets.push({
+        label: 'Total Citations',
+        data: entries.map(function(e) { return e.count; }),
+        borderColor: '#4A90D9',
+        backgroundColor: 'rgba(74, 144, 217, 0.08)',
+        fill: true,
+        tension: 0.3,
+        borderWidth: 2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+      });
+    } else if (view === 'tiers') {
+      ['reportable', 'caution', 'fragile'].forEach(function(tier) {
+        datasets.push({
+          label: tier.charAt(0).toUpperCase() + tier.slice(1),
+          data: entries.map(function(e) { return (e.tiers || {})[tier] || 0; }),
+          borderColor: TIER_COLORS[tier],
+          backgroundColor: 'transparent',
+          tension: 0.3,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+        });
+      });
+    } else if (view === 'categories') {
+      // Collect all category names across entries
+      var catSet = {};
+      entries.forEach(function(e) {
+        var cats = e.categories || {};
+        Object.keys(cats).forEach(function(c) { catSet[c] = (catSet[c] || 0) + cats[c]; });
+      });
+      // Sort by total count descending, take top 6
+      var sortedCats = Object.keys(catSet).sort(function(a, b) { return catSet[b] - catSet[a]; }).slice(0, 6);
+      var fallbackColors = ['#4A90D9', '#D94A4A', '#7B61C2', '#D4950A', '#2D6A4F', '#E07A3A', '#3AA5A5'];
+
+      sortedCats.forEach(function(cat, i) {
+        datasets.push({
+          label: cat,
+          data: entries.map(function(e) { return (e.categories || {})[cat] || 0; }),
+          borderColor: CATEGORY_COLORS[cat] || fallbackColors[i % fallbackColors.length],
+          backgroundColor: 'transparent',
+          tension: 0.3,
+          borderWidth: 2,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+        });
+      });
+    }
+
+    return { labels: labels, datasets: datasets };
+  }
+
+  function renderTrendChart() {
+    var canvas = document.getElementById('trend-chart');
+    var select = document.getElementById('trend-view');
+    if (!canvas || !summaryData) return;
+
+    var entries = getTimelineEntries();
+    if (!entries.length) {
+      canvas.parentElement.innerHTML = '<div class="empty-state" style="padding:24px"><p>No timeline data available.</p></div>';
       return;
     }
 
-    container.innerHTML = '';
-
-    topics.forEach(t => {
-      const card = document.createElement('div');
-      card.className = 'topic-card';
-      card.dataset.topic = t.name;
-
-      card.innerHTML = `
-        <div class="topic-count">${t.count.toLocaleString()}</div>
-        <div class="topic-name">${esc(t.name)}</div>
-      `;
-
-      card.addEventListener('click', () => toggleTopic(t.name));
-      container.appendChild(card);
-    });
-  }
-
-  function toggleTopic(topicName) {
-    if (activeTopic === topicName) {
-      closeTopic();
-      return;
-    }
-    activeTopic = topicName;
-    topicDisplayCount = 10;
-
-    document.querySelectorAll('.topic-card').forEach(c => {
-      c.classList.toggle('active', c.dataset.topic === topicName);
-    });
-
-    renderTopicDetail(topicName);
-  }
-
-  function closeTopic() {
-    activeTopic = null;
-    document.querySelectorAll('.topic-card').forEach(c => c.classList.remove('active'));
-    const detail = document.getElementById('topic-detail');
-    if (detail) detail.style.display = 'none';
-  }
-
-  function renderTopicDetail(topicName) {
-    const detail = document.getElementById('topic-detail');
-    const titleEl = document.getElementById('topic-detail-title');
-    const countEl = document.getElementById('topic-detail-count');
-    const container = document.getElementById('topic-citations');
-    const loadMore = document.getElementById('topic-load-more');
-
-    if (!detail || !container || !citationsData) return;
-
-    const all = (citationsData.citations || []).filter(c => c.topic === topicName);
-    const toShow = all.slice(0, topicDisplayCount);
-
-    if (titleEl) titleEl.textContent = topicName;
-    if (countEl) countEl.textContent = all.length + ' citation' + (all.length !== 1 ? 's' : '');
-
-    container.innerHTML = '';
-    toShow.forEach(c => container.appendChild(buildCitationCard(c)));
-
-    detail.style.display = 'block';
-
-    if (loadMore) {
-      loadMore.style.display = all.length > topicDisplayCount ? '' : 'none';
-      loadMore.textContent = 'Load More (' + Math.min(topicDisplayCount, all.length) + ' of ' + all.length + ')';
-      loadMore.dataset.topic = topicName;
+    // If no category data exists yet (old weekly format), hide the category option
+    var hasCategories = entries.some(function(e) { return e.categories && Object.keys(e.categories).length > 0; });
+    if (select) {
+      var catOption = select.querySelector('option[value="categories"]');
+      if (catOption && !hasCategories) catOption.style.display = 'none';
     }
 
-    detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    function draw(view) {
+      var chartData = buildChartData(view, entries);
+
+      if (trendChart) {
+        trendChart.data = chartData;
+        trendChart.update();
+        return;
+      }
+
+      trendChart = new Chart(canvas, {
+        type: 'line',
+        data: chartData,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              align: 'start',
+              labels: {
+                font: { family: "'DM Sans', sans-serif", size: 12 },
+                color: '#6B6B6B',
+                boxWidth: 12,
+                boxHeight: 2,
+                padding: 16,
+                usePointStyle: false,
+              },
+            },
+            tooltip: {
+              backgroundColor: '#1A1A1A',
+              titleFont: { family: "'DM Sans', sans-serif", size: 12 },
+              bodyFont: { family: "'JetBrains Mono', monospace", size: 12 },
+              padding: 12,
+              cornerRadius: 6,
+            },
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                font: { family: "'DM Sans', sans-serif", size: 11 },
+                color: '#6B6B6B',
+                maxRotation: 0,
+                maxTicksLimit: 10,
+              },
+              border: { color: '#E8E8E8' },
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,0.04)' },
+              ticks: {
+                font: { family: "'JetBrains Mono', monospace", size: 11 },
+                color: '#6B6B6B',
+                precision: 0,
+              },
+              border: { display: false },
+            },
+          },
+        },
+      });
+    }
+
+    draw('total');
+
+    if (select) {
+      select.addEventListener('change', function() { draw(this.value); });
+    }
   }
 
   // ─── Outlet Table ───────────────────────────────────────────────────────────
@@ -521,18 +617,6 @@
       outletShowMoreBtn.addEventListener('click', () => {
         outletShowAll = true;
         renderOutletTable();
-      });
-    }
-
-    const topicClose = document.getElementById('topic-close-btn');
-    if (topicClose) topicClose.addEventListener('click', closeTopic);
-
-    const topicLoadMore = document.getElementById('topic-load-more');
-    if (topicLoadMore) {
-      topicLoadMore.addEventListener('click', () => {
-        topicDisplayCount += 10;
-        const topic = topicLoadMore.dataset.topic;
-        if (topic) renderTopicDetail(topic);
       });
     }
 
