@@ -479,6 +479,8 @@ def main():
             with _lock:
                 if metrics:
                     update_summary_market(summary, market_id, market_info, metrics, 'polymarket')
+                    metrics['market_id'] = market_id
+                    metrics['platform'] = 'polymarket'
                     pm_new_metrics.append(metrics)
                     pm_success += 1
                 else:
@@ -514,6 +516,8 @@ def main():
             with _lock:
                 if metrics:
                     update_summary_market(summary, market_id, market_info, metrics, 'kalshi')
+                    metrics['market_id'] = market_id
+                    metrics['platform'] = 'kalshi'
                     k_new_metrics.append(metrics)
                     k_success += 1
                 else:
