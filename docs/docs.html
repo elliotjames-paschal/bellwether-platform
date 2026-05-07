@@ -486,6 +486,41 @@
   }
   .footer-col a:hover { color: var(--bw-white); }
 
+  /* ── Nav dropdown ── */
+  .nav-dropdown { position: relative; }
+  .nav-dropdown-trigger {
+    font-size: 14px; color: var(--bw-text-secondary);
+    font-weight: 400; cursor: pointer; transition: color 0.2s;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .nav-dropdown-trigger:hover { color: var(--bw-dark); }
+  .nav-dropdown-trigger.active { color: var(--bw-dark); font-weight: 500; }
+  .nav-dropdown-trigger .chevron { font-size: 10px; transition: transform 0.2s; }
+  .nav-dropdown:hover .chevron { transform: rotate(180deg); }
+  .nav-dropdown-menu {
+    display: none; position: absolute;
+    top: calc(100% + 12px); left: 50%; transform: translateX(-50%);
+    background: var(--bw-white); border: 1px solid var(--bw-border);
+    border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    min-width: 260px; padding: 8px; z-index: 200;
+  }
+  .nav-dropdown:hover .nav-dropdown-menu { display: block; }
+  .nav-dropdown-menu::before {
+    content: ''; position: absolute;
+    top: -16px; left: 0; right: 0; height: 16px;
+  }
+  .nav-dropdown-item {
+    display: block; padding: 12px 16px;
+    border-radius: 6px; text-decoration: none; transition: background 0.15s;
+  }
+  .nav-dropdown-item:hover { background: var(--bw-bg); }
+  .nav-dropdown-item-name {
+    font-size: 14px; font-weight: 500; color: var(--bw-dark); margin-bottom: 2px;
+  }
+  .nav-dropdown-item-desc {
+    font-size: 12px; color: var(--bw-text-secondary); line-height: 1.4;
+  }
+
   /* ── RESPONSIVE ── */
   @media (max-width: 900px) {
     .docs-wrapper { grid-template-columns: 1fr; }
@@ -501,6 +536,7 @@
     .docs-main { padding: 32px 24px 80px; }
     .footer-inner { grid-template-columns: 1fr 1fr; }
     .nav-links a:not(.nav-cta) { display: none; }
+    .nav-dropdown { display: none; }
   }
 </style>
 </head>
@@ -513,7 +549,24 @@
     <div class="nav-links">
       <a href="monitor.html">Markets</a>
       <a href="media.html">Media</a>
-      <a href="blueprints.html">Blueprints</a>
+      <a href="models.html">Models</a>
+      <div class="nav-dropdown">
+        <span class="nav-dropdown-trigger active">Products <span class="chevron">&#9662;</span></span>
+        <div class="nav-dropdown-menu">
+          <a href="tape-api.html" class="nav-dropdown-item">
+            <div class="nav-dropdown-item-name">Tape API</div>
+            <div class="nav-dropdown-item-desc">Market data for humans</div>
+          </a>
+          <a href="almanac-api.html" class="nav-dropdown-item">
+            <div class="nav-dropdown-item-name">Almanac API</div>
+            <div class="nav-dropdown-item-desc">Training data for machines</div>
+          </a>
+          <a href="blueprints.html" class="nav-dropdown-item">
+            <div class="nav-dropdown-item-name">Resolution Engine</div>
+            <div class="nav-dropdown-item-desc">Ground truth that connects both</div>
+          </a>
+        </div>
+      </div>
       <a href="research.html">Research</a>
       <a href="docs.html" class="active">Docs</a>
       <span class="nav-affil">Stanford &middot; Hoover Institution</span>

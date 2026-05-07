@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Resolution Engine — Bellwether</title>
+<title>Almanac API — Bellwether</title>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-4JTSRBJBY5"></script>
 <script>
@@ -166,112 +166,50 @@
     max-width: 560px; margin-bottom: 56px;
   }
 
-  /* ── THESIS: TWO AUDIENCES ── */
-  .thesis-section {
+  /* ── PROBLEM SECTION ── */
+  .problem-section {
     background: var(--bw-bg);
     border-top: 1px solid var(--bw-border);
   }
-  .thesis-section section {
+  .problem-section section {
     max-width: 1200px; margin: 0 auto; padding: 100px 32px;
   }
-  .thesis-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 32px;
-    margin-bottom: 48px;
+  .problem-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px;
   }
-  .thesis-card {
-    border: 1px solid var(--bw-border); border-radius: 12px;
-    padding: 40px 36px; background: var(--bw-white);
-    transition: all 0.3s; position: relative;
+  .problem-card .problem-num {
+    font-family: var(--font-mono); font-size: 48px; font-weight: 500;
+    color: var(--bw-blue); line-height: 1; margin-bottom: 16px;
+    opacity: 0.3;
   }
-  .thesis-card:hover {
-    border-color: var(--bw-blue-muted);
-    box-shadow: 0 4px 24px rgba(74,144,217,0.06);
-    transform: translateY(-2px);
+  .problem-card h3 {
+    font-size: 17px; font-weight: 600; color: var(--bw-dark); margin-bottom: 10px;
   }
-  .thesis-card-label {
-    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
-    text-transform: uppercase; letter-spacing: 0.1em;
-    color: var(--bw-blue); margin-bottom: 20px;
-  }
-  .thesis-card h3 {
-    font-family: var(--font-serif); font-size: 24px; font-weight: 600;
-    color: var(--bw-dark); margin-bottom: 16px; line-height: 1.25;
-  }
-  .thesis-card p {
-    font-size: 15px; color: var(--bw-text-secondary); line-height: 1.7;
-    margin-bottom: 12px;
-  }
-  .thesis-card p:last-of-type { margin-bottom: 24px; }
-  .thesis-card-link {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 14px; font-weight: 500; color: var(--bw-blue);
-    text-decoration: none; transition: color 0.2s;
-  }
-  .thesis-card-link:hover { color: var(--bw-dark); }
-
-  .thesis-connector {
-    max-width: 680px; margin: 0 auto;
-    text-align: center;
-    padding: 40px 48px;
-    background: var(--bw-dark); border-radius: 12px;
-    position: relative;
-  }
-  .thesis-connector::before {
-    content: ''; position: absolute; top: -24px; left: 50%;
-    transform: translateX(-50%);
-    width: 1px; height: 24px; background: var(--bw-border);
-  }
-  .thesis-connector-label {
-    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
-    text-transform: uppercase; letter-spacing: 0.1em;
-    color: var(--bw-blue-muted); margin-bottom: 12px;
-  }
-  .thesis-connector h3 {
-    font-family: var(--font-serif); font-size: 20px; font-weight: 600;
-    color: var(--bw-white); margin-bottom: 10px;
-  }
-  .thesis-connector p {
-    font-size: 14px; color: rgba(255,255,255,0.55); line-height: 1.65;
-    max-width: 480px; margin: 0 auto;
-  }
-
-  /* ── DISPUTES ── */
-  .disputes-section {
-    max-width: 1200px; margin: 0 auto; padding: 100px 32px;
-  }
-  .failure-cards {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
-  }
-  .failure-card {
-    border: 1px solid var(--bw-border); border-radius: 10px;
-    padding: 32px 28px; transition: all 0.2s;
-    display: flex; flex-direction: column; background: var(--bw-white);
-  }
-  .failure-card:hover {
-    border-color: var(--bw-blue-muted);
-    box-shadow: 0 2px 12px rgba(74,144,217,0.06);
-  }
-  .failure-type {
-    font-size: 10px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.06em; padding: 3px 10px; border-radius: 4px;
-    display: inline-block; margin-bottom: 16px; width: fit-content;
-    background: rgba(74,144,217,0.08); color: var(--bw-blue);
-  }
-  .failure-card h3 {
-    font-family: var(--font-serif); font-size: 18px; font-weight: 600;
-    color: var(--bw-dark); margin-bottom: 12px; line-height: 1.3;
-  }
-  .failure-card .failure-desc {
+  .problem-card p {
     font-size: 14px; color: var(--bw-text-secondary); line-height: 1.65;
-    flex-grow: 1; margin-bottom: 16px;
   }
-  .failure-card .failure-ticker {
-    font-family: var(--font-mono); font-size: 11px;
-    color: var(--bw-text-secondary); padding-top: 16px;
-    border-top: 1px solid var(--bw-border);
+
+  /* ── FEATURES SECTION ── */
+  .features-section {
+    max-width: 1200px; margin: 0 auto; padding: 100px 32px;
   }
-  .failure-card .failure-outcome {
-    font-size: 12px; font-weight: 500; margin-top: 8px; color: var(--bw-green);
+  .features-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 40px 64px;
+  }
+  .feature-card {
+    display: flex; gap: 16px; align-items: flex-start;
+  }
+  .feature-icon {
+    width: 36px; height: 36px; flex-shrink: 0;
+    background: var(--bw-blue-light); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bw-blue); font-size: 15px;
+  }
+  .feature-card h3 {
+    font-size: 15px; font-weight: 600; color: var(--bw-dark); margin-bottom: 4px;
+  }
+  .feature-card p {
+    font-size: 14px; color: var(--bw-text-secondary); line-height: 1.6;
   }
 
   /* ── PROCESS ── */
@@ -420,8 +358,8 @@
     .nav-affil { display: none; }
     .hero { grid-template-columns: 1fr; gap: 48px; min-height: auto; padding-top: 60px; }
     .hero-headline { font-size: 40px; }
-    .thesis-grid { grid-template-columns: 1fr; }
-    .failure-cards { grid-template-columns: 1fr; }
+    .problem-grid { grid-template-columns: 1fr; }
+    .features-grid { grid-template-columns: 1fr; }
     .process-steps { grid-template-columns: 1fr 1fr; }
     .process-steps::before { display: none; }
     .footer-inner { grid-template-columns: 1fr 1fr; }
@@ -471,104 +409,151 @@
 <!-- ════════════ HERO ════════════ -->
 <div class="hero">
   <div class="hero-text fade-in">
-    <div class="hero-label">Resolution Engine</div>
-    <div class="hero-headline">From prediction<br>to <strong>proof</strong></div>
+    <div class="hero-label">Almanac API</div>
+    <div class="hero-headline">Every outcome verified, structured, and <strong>ready to train on</strong></div>
     <p class="hero-desc">
-      Every prediction market trade is a claim about the future. When that future arrives, someone must verify what happened. Today, that process is manual, disputed, and broken.
+      Verified ground truth from prediction markets for AI calibration. Structured records linking questions to manipulation-resistant probabilities and confirmed outcomes.
     </p>
     <p class="hero-detail">
-      The Resolution Engine evaluates outcomes against precise specifications, checking authoritative sources with no human discretion required. Ground truth for newsrooms and AI training pipelines.
+      Coming soon. The Almanac API is currently in development. Sign up for early access to be notified when it launches.
     </p>
     <div class="hero-actions">
-      <a href="https://resolution-oracle.vercel.app/" target="_blank" rel="noopener" class="btn-primary">Try the Prototype &rarr;</a>
-      <a href="#how" class="btn-secondary">How It Works</a>
+      <a href="mailto:paschal@stanford.edu?subject=Almanac%20API%20Early%20Access" class="btn-primary">Get Early Access &rarr;</a>
+      <a href="research.html" class="btn-secondary">Read the Research</a>
     </div>
   </div>
 
-  <!-- Resolution output block -->
+  <!-- Almanac record block -->
   <div class="api-block fade-in" style="transition-delay: 0.15s">
     <div class="api-header">
-      <span class="method">RESOLVE</span>
-      <span class="endpoint">BWR-GOVT-SHUTDOWN-FED-2024</span>
+      <span class="method">GET</span>
+      <span class="endpoint">/v2/almanac/BWR-GOVT-SHUTDOWN-FED-2024</span>
     </div>
     <div class="api-body">
-<pre><span class="dim">// contract specification</span>
-<span class="key">"question"</span>: <span class="str">"Will there be a federal government shutdown before Dec 31, 2024?"</span>,
-<span class="key">"resolution_rule"</span>: <span class="str">"YES if a funding lapse causes OMB to issue shutdown guidance"</span>,
+<pre>{
+  <span class="key">"ticker"</span>: <span class="str">"BWR-GOVT-SHUTDOWN-FED-2024"</span>,
+  <span class="key">"question"</span>: <span class="str">"Will there be a federal government shutdown before Dec 31, 2024?"</span>,
+  <span class="key">"category"</span>: <span class="str">"GOVERNMENT_OPERATIONS"</span>,
 
-<span class="dim">// evidence gathered</span>
-<span class="key">"sources_checked"</span>: [<span class="str">"omb.gov"</span>, <span class="str">"opm.gov"</span>, <span class="str">"congress.gov"</span>],
-<span class="key">"evidence"</span>: <span class="str">"OMB issued shutdown contingency plans on Dec 19. OPM confirmed agency furloughs effective Dec 21."</span>,
+  <span class="key">"probability_at_close"</span>: <span class="num">0.78</span>,
+  <span class="key">"price_label"</span>: <span class="str">"6h VWAP, reportable window"</span>,
 
-<span class="dim">// verdict</span>
-<span class="key">"outcome"</span>: <span class="str">"YES"</span>,
-<span class="key">"confidence"</span>: <span class="str">"definitive"</span>,
-<span class="key">"resolved_at"</span>: <span class="str">"2024-12-21T00:00:00Z"</span>,
-<span class="key">"market_price_at_close"</span>: <span class="num">0.78</span></pre>
+  <span class="key">"outcome"</span>: <span class="str">"YES"</span>,
+  <span class="key">"resolved_at"</span>: <span class="str">"2024-12-21T00:00:00Z"</span>,
+  <span class="key">"resolution_sources"</span>: [<span class="str">"omb.gov"</span>, <span class="str">"opm.gov"</span>],
+
+  <span class="key">"robustness"</span>: {
+    <span class="key">"peak_cost_to_move_5c"</span>: <span class="num">112000</span>,
+    <span class="key">"reportability"</span>: <span class="str">"reportable"</span>
+  }
+}</pre>
     </div>
   </div>
 </div>
 
-<!-- ════════════ PROTOTYPE ════════════ -->
-<div class="thesis-section">
+<!-- ════════════ THE PROBLEM ════════════ -->
+<div class="problem-section">
   <section>
-    <div class="section-label fade-in">Prototype</div>
-    <h2 class="section-title fade-in">The Resolution Oracle</h2>
-    <p class="section-subtitle fade-in" style="max-width: 640px; margin-bottom: 32px;">
-      A working prototype of the Resolution Engine, applied to real prediction market contracts from Polymarket and Kalshi.
+    <div class="section-label fade-in">The Problem</div>
+    <h2 class="section-title fade-in">AI systems need ground truth.<br>The training data doesn't exist.</h2>
+    <p class="section-subtitle fade-in">
+      Prediction markets generate millions of probabilistic forecasts, but turning them into calibration data requires verification, filtering, and structure that nobody provides.
     </p>
-    <div style="max-width: 640px;" class="fade-in" style="transition-delay: 0.06s">
-      <p style="font-family: var(--font-serif); font-size: 16px; color: var(--bw-text-secondary); line-height: 1.75; margin-bottom: 20px;">
-        The oracle takes a contract specification, gathers evidence from tiered authoritative sources, extracts verifiable facts with direct quotes, and applies the resolution rules step by step. The full reasoning chain &mdash; from evidence to verdict &mdash; is visible and auditable. When the oracle isn't confident, it flags the case for escalation rather than guessing.
-      </p>
-      <a href="https://resolution-oracle.vercel.app/" target="_blank" rel="noopener" class="btn-primary" style="margin-top: 12px;">Resolution Oracle &rarr;</a>
+    <div class="problem-grid">
+      <div class="problem-card fade-in">
+        <div class="problem-num">01</div>
+        <h3>Outcomes aren't verified</h3>
+        <p>Platforms self-report resolutions with no independent checks. Disputes go unresolved, edge cases get hand-waved, and there's no audit trail. Training on unverified outcomes means training on noise.</p>
+      </div>
+      <div class="problem-card fade-in" style="transition-delay: 0.08s">
+        <div class="problem-num">02</div>
+        <h3>Probabilities aren't filtered</h3>
+        <p>Most market prices used for training come from illiquid, manipulable markets. A probability from a market that can be moved for $500 teaches an AI system the wrong lessons about real-world likelihood.</p>
+      </div>
+      <div class="problem-card fade-in" style="transition-delay: 0.16s">
+        <div class="problem-num">03</div>
+        <h3>Data isn't structured</h3>
+        <p>There's no standard format linking a question to the probability it produced and the outcome that actually happened. Every research team builds their own fragile pipeline from scratch.</p>
+      </div>
     </div>
   </section>
 </div>
 
-<!-- ════════════ RESOLUTION IS BROKEN ════════════ -->
-<div class="disputes-section">
-  <div class="section-label fade-in">Why This Matters</div>
-  <h2 class="section-title fade-in">Real disputes that automated<br>resolution would have prevented</h2>
-  <p class="section-subtitle fade-in">
-    These aren't hypothetical. Each was caused by ambiguous contract specifications and human discretion in the resolution process. Millions lost. Platform credibility damaged.
-  </p>
+<!-- ════════════ FEATURES ════════════ -->
+<section class="features-section">
+  <div class="section-label fade-in">What You Get</div>
+  <h2 class="section-title fade-in">Every outcome verified, structured,<br>and ready to train on</h2>
+  <p class="section-subtitle fade-in">Calibration-grade data from prediction markets that actually resisted manipulation.</p>
 
-  <div class="failure-cards">
-    <div class="failure-card fade-in">
-      <span class="failure-type">Semantic Ambiguity</span>
-      <h3>Venezuela "Invasion"</h3>
-      <div class="failure-desc">U.S. forces captured Maduro, but Polymarket ruled it wasn't an "invasion" because no territorial control was established. $10M+ unresolved. The word was never defined in the contract.</div>
-      <div class="failure-ticker">BWR-US-INVADE-VENEZUELA-TERRITORY_CONTROL-ANY-2025</div>
-      <div class="failure-outcome">&#8627; Resolution Engine separates invasion from regime change</div>
+  <div class="features-grid">
+    <div class="feature-card fade-in">
+      <div class="feature-icon">&#9673;</div>
+      <div>
+        <h3>Reportable-Only Filtering</h3>
+        <p>Only markets that achieved cost-to-move-5&cent; &ge; $100K during their active window. Real consensus, not noise from thin markets that anyone could move.</p>
+      </div>
     </div>
-    <div class="failure-card fade-in" style="transition-delay: 0.08s">
-      <span class="failure-type">Oracle Failure</span>
-      <h3>Lebanon Ground Incursion</h3>
-      <div class="failure-desc">Israel conducted a widely reported ground operation. UMA's oracle resolved NO after token-weighted voting overrode observable reality. The oracle was wrong.</div>
-      <div class="failure-ticker">BWR-ISRAEL-ENTER-LEBANON-GROUND_INCURSION-ANY-2024</div>
-      <div class="failure-outcome">&#8627; Resolution Engine uses authoritative sources, not oracles</div>
+    <div class="feature-card fade-in" style="transition-delay: 0.06s">
+      <div class="feature-icon">&#10003;</div>
+      <div>
+        <h3>Verified Outcomes</h3>
+        <p>The Resolution Engine checks outcomes against authoritative sources — government databases, official records, wire services. No human discretion, no platform self-reporting.</p>
+      </div>
     </div>
-    <div class="failure-card fade-in" style="transition-delay: 0.16s">
-      <span class="failure-type">Rules Changed</span>
-      <h3>Government Shutdown</h3>
-      <div class="failure-desc">Platform inserted an earlier cutoff date after trading was underway. Markets resolved YES under rules traders never agreed to. The contract was mutable.</div>
-      <div class="failure-ticker">BWR-GOVT-SHUTDOWN-FED-FUNDING_LAPSE-DEC31-2024</div>
-      <div class="failure-outcome">&#8627; Specifications are immutable once published</div>
+    <div class="feature-card fade-in" style="transition-delay: 0.12s">
+      <div class="feature-icon">&#9655;</div>
+      <div>
+        <h3>Structured Triples</h3>
+        <p>(question, probability, outcome) format ready for ML pipelines. Each record links the natural-language question to the manipulation-resistant price and the verified result.</p>
+      </div>
+    </div>
+    <div class="feature-card fade-in" style="transition-delay: 0.18s">
+      <div class="feature-icon">&#9651;</div>
+      <div>
+        <h3>Historical VWAP</h3>
+        <p>The volume-weighted average price from the market's reportable window — not a spot price that could reflect a single large trade or manipulation attempt.</p>
+      </div>
+    </div>
+    <div class="feature-card fade-in" style="transition-delay: 0.24s">
+      <div class="feature-icon">&#9881;</div>
+      <div>
+        <h3>Provenance Metadata</h3>
+        <p>Source markets, platforms, resolution sources, timestamps, and robustness metrics. Full lineage from prediction to outcome for reproducible research.</p>
+      </div>
     </div>
   </div>
-</div>
+</section>
 
-<!-- ════════════ UMA DELEGATE ════════════ -->
-<div class="process-section">
-  <section style="text-align: center;">
-    <div class="section-label fade-in">UMA Governance</div>
-    <h2 class="section-title fade-in" style="max-width: 600px; margin-left: auto; margin-right: auto;">We are a delegate for<br>Polymarket on UMA.</h2>
-    <p class="section-subtitle fade-in" style="max-width: 540px; margin-left: auto; margin-right: auto;">
-      Bellwether participates in UMA's optimistic oracle as a voter and delegate. If you hold staked UMA and want your votes informed by our resolution methodology, you can delegate to us.
+<!-- ════════════ HOW IT WORKS ════════════ -->
+<div class="process-section" id="how">
+  <section>
+    <div class="section-label fade-in">How It Works</div>
+    <h2 class="section-title fade-in">From market to training data</h2>
+    <p class="section-subtitle fade-in">
+      Four steps between a live prediction market and a verified record in the Almanac.
     </p>
-    <div class="fade-in">
-      <a href="https://vote.uma.xyz/" target="_blank" rel="noopener" class="btn-primary">Delegate on UMA &rarr;</a>
+
+    <div class="process-steps">
+      <div class="process-step fade-in">
+        <div class="step-num">1</div>
+        <h3>Market reaches threshold</h3>
+        <p>A market achieves reportable status — cost-to-move-5&cent; &ge; $100K. Only liquid, manipulation-resistant markets qualify.</p>
+      </div>
+      <div class="process-step fade-in" style="transition-delay: 0.06s">
+        <div class="step-num">2</div>
+        <h3>Event window closes</h3>
+        <p>The underlying event resolves. The market's final reportable-window VWAP is captured as the probability of record.</p>
+      </div>
+      <div class="process-step fade-in" style="transition-delay: 0.12s">
+        <div class="step-num">3</div>
+        <h3>Resolution Engine verifies</h3>
+        <p>Automated verification against authoritative sources. What actually happened, confirmed independently of the platform.</p>
+      </div>
+      <div class="process-step fade-in" style="transition-delay: 0.18s">
+        <div class="step-num">4</div>
+        <h3>Record enters the Almanac</h3>
+        <p>The structured triple — question, probability, verified outcome — is published to the Almanac API with full provenance.</p>
+      </div>
     </div>
   </section>
 </div>
@@ -576,11 +561,11 @@
 <!-- ════════════ CTA ════════════ -->
 <div class="cta-section" id="contact">
   <div class="cta-inner">
-    <h2 class="fade-in">Ground truth as a service.</h2>
-    <p class="fade-in">The Resolution Engine is live. If you're building AI systems that need calibrated outcome data, or a newsroom that needs verified market intelligence, we should talk.</p>
+    <h2 class="fade-in">Ground truth for the next generation of AI.</h2>
+    <p class="fade-in">The Almanac API is coming soon. If you're building AI systems that need calibrated probabilistic ground truth, we'd like to hear from you.</p>
     <div class="cta-actions fade-in">
-      <a href="mailto:paschal@stanford.edu" class="btn-white">Get in Touch</a>
-      <a href="https://resolution-oracle.vercel.app/" target="_blank" rel="noopener" class="btn-ghost">Try the Prototype</a>
+      <a href="mailto:paschal@stanford.edu?subject=Almanac%20API%20Early%20Access" class="btn-white">Get Early Access</a>
+      <a href="tape-api.html" class="btn-ghost">View Tape API</a>
     </div>
   </div>
 </div>
@@ -596,6 +581,7 @@
     <div class="footer-col">
       <h4>Platform</h4>
       <a href="tape-api.html">Tape API</a>
+      <a href="almanac-api.html">Almanac API</a>
       <a href="blueprints.html">Resolution Engine</a>
       <a href="docs.html">Documentation</a>
     </div>
@@ -620,7 +606,6 @@
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
   }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
   document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
-
 </script>
 
 </body>

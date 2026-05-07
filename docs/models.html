@@ -11,7 +11,7 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Accountability &mdash; Bellwether</title>
+    <title>AI Models &mdash; Bellwether</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -89,7 +89,7 @@
       .v2-nav .nav-links a.nav-cta:hover { background: #333 !important; }
 
       /* ══ CONTENT WRAPPER ══ */
-      .media-page {
+      .models-page {
         max-width: 1200px;
         margin: 0 auto;
         padding: 0 32px;
@@ -128,7 +128,6 @@
         margin-bottom: 32px;
       }
 
-      /* ── The statement ── */
       .hero-statement {
         font-family: var(--font-serif); font-size: 26px; font-weight: 300;
         color: var(--bw-text); line-height: 1.45;
@@ -139,17 +138,11 @@
         color: var(--bw-dark);
       }
 
-      /* ── The number ── */
       .hero-headline {
         font-family: var(--font-serif); font-size: 280px; font-weight: 700;
         color: var(--bw-dark); line-height: 0.8;
         letter-spacing: -12px;
         margin-bottom: 8px;
-      }
-      .hero-headline .pct-sign {
-        font-size: 0.45em; font-weight: 400;
-        letter-spacing: 0; vertical-align: super;
-        color: var(--bw-dark); opacity: 0.5;
       }
 
       .hero-rule {
@@ -168,7 +161,7 @@
         color: var(--bw-dark); font-weight: 600;
       }
 
-      /* ── Scrolling article feed (right side) ── */
+      /* ── Scrolling model feed (right side) ── */
       .hero-collage-wrap {
         position: absolute;
         right: 0;
@@ -202,7 +195,7 @@
         border-bottom: 1px solid var(--bw-border);
         flex-shrink: 0;
       }
-      .hero-collage-item.lead-item {
+      .hero-collage-item.top-item {
         padding: 22px 0 20px;
         border-bottom: 2px solid var(--bw-dark);
       }
@@ -219,28 +212,39 @@
         color: var(--bw-dark); line-height: 1.3;
         margin-bottom: 6px;
       }
-      .lead-item .hero-collage-title {
+      .top-item .hero-collage-title {
         font-size: 18px; font-weight: 700; line-height: 1.25;
         margin-bottom: 8px;
       }
-      .hero-collage-excerpt {
-        font-family: var(--font-serif); font-size: 12.5px; font-weight: 300;
-        color: var(--bw-text-secondary); line-height: 1.5;
-        margin-bottom: 10px;
+      .hero-collage-scores {
+        display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center;
+        font-family: var(--font-mono); font-size: 11px;
+        color: var(--bw-text-secondary); margin-bottom: 8px;
+      }
+      .hero-collage-scores .score-item {
+        white-space: nowrap;
+      }
+      .hero-collage-scores .score-val {
+        font-weight: 500; color: var(--bw-text);
       }
       .hero-collage-byline {
         font-family: var(--font-sans); font-size: 12px; font-weight: 700;
         color: var(--bw-dark); letter-spacing: 0.01em;
         display: flex; align-items: center; gap: 6px;
       }
-      .hero-collage-logo {
-        width: 16px; height: 16px; border-radius: 2px;
-        flex-shrink: 0; object-fit: contain;
+      .hero-collage-byline .byline-rank {
+        font-family: var(--font-mono); font-size: 11px;
+        font-weight: 400; color: var(--bw-text-secondary);
       }
-      .hero-collage-byline .byline-date {
-        font-weight: 400; text-transform: none;
-        opacity: 0.6;
+      .rank-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px; border-radius: 50%;
+        font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+        flex-shrink: 0;
       }
+      .rank-badge.top-10 { background: rgba(74,144,217,0.12); color: var(--bw-blue); }
+      .rank-badge.top-50 { background: rgba(58,138,92,0.1); color: var(--bw-green); }
+      .rank-badge.rest { background: var(--bw-bg); color: var(--bw-text-secondary); }
 
       /* ══ SECTION BANDS ══ */
       .section-band {
@@ -253,7 +257,6 @@
       }
       .section-band.alt {
         background: var(--bw-white);
-        /* break out of .media-page 1200px constraint */
         width: 100vw;
         margin-left: calc(-50vw + 50%);
         padding: 40px 0;
@@ -269,20 +272,6 @@
       }
       .section-band-inner {
         max-width: 1200px; margin: 0 auto;
-      }
-
-      /* Show more button — matches monitor.html style */
-      .outlet-show-more {
-        display: flex; justify-content: center; margin-top: 20px;
-      }
-      .outlet-show-more button {
-        padding: 10px 24px;
-        background: var(--bw-white); border: 1px solid var(--bw-border);
-        border-radius: 6px; font-size: 14px; font-family: var(--font-sans);
-        color: var(--bw-text-secondary); cursor: pointer; transition: all 0.15s;
-      }
-      .outlet-show-more button:hover {
-        background: var(--bw-bg); border-color: var(--bw-blue-muted);
       }
 
       /* ══ SECTION HEADERS ══ */
@@ -322,17 +311,18 @@
       }
       .trend-chart-wrap canvas { width: 100% !important; }
 
-      /* ══ OUTLET TABLE ══ */
+      /* ══ MODEL TABLE ══ */
       .outlet-table-wrap { overflow-x: auto; }
       .outlet-table { width: 100%; border-collapse: collapse; }
       .outlet-table th {
         font-size: 11px; text-transform: uppercase;
         letter-spacing: 0.06em; color: var(--bw-text-secondary); font-weight: 600;
-        padding: 12px 16px; text-align: left; border-bottom: 2px solid var(--bw-border);
+        padding: 12px 14px; text-align: left; border-bottom: 2px solid var(--bw-border);
+        white-space: nowrap;
       }
       .outlet-table td {
         font-size: 14px; color: var(--bw-text);
-        padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.35);
+        padding: 14px 14px; border-bottom: 1px solid var(--bw-border);
         transition: background 0.15s;
       }
       .outlet-table tbody tr { cursor: pointer; }
@@ -344,6 +334,53 @@
       .outlet-table .col-center { text-align: center; }
       .outlet-table .col-arrow {
         color: var(--bw-text-secondary); font-size: 16px; width: 32px; text-align: center;
+      }
+      .outlet-table .col-rank {
+        font-family: var(--font-mono); font-size: 13px;
+        text-align: center; width: 48px; color: var(--bw-text-secondary);
+      }
+
+      /* Model name cell */
+      .model-cell-name {
+        font-family: var(--font-serif); font-size: 14px; font-weight: 500;
+        color: var(--bw-dark); line-height: 1.3;
+      }
+      .model-cell-org {
+        font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--bw-blue); margin-top: 2px;
+      }
+
+      /* Brier bar visual */
+      .brier-cell {
+        display: flex; align-items: center; gap: 8px; justify-content: flex-end;
+      }
+      .brier-bar {
+        width: 48px; height: 6px; border-radius: 3px;
+        background: var(--bw-border); overflow: hidden; flex-shrink: 0;
+      }
+      .brier-bar-fill {
+        height: 100%; border-radius: 3px;
+        transition: width 0.3s;
+      }
+
+      /* Superforecaster baseline row */
+      .outlet-table tbody tr.super-row td {
+        background: rgba(217,74,74,0.04);
+        border-bottom: 2px solid var(--bw-red);
+      }
+      .outlet-table tbody tr.super-row .model-cell-name {
+        font-weight: 700;
+      }
+      .outlet-table tbody tr.super-row .model-cell-org {
+        color: var(--bw-red);
+      }
+      .super-label {
+        display: inline-block; font-family: var(--font-mono); font-size: 9px;
+        font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--bw-red); background: rgba(217,74,74,0.08);
+        padding: 2px 6px; border-radius: 3px; margin-left: 6px;
+        vertical-align: middle;
       }
 
       /* Column header tooltip */
@@ -370,119 +407,19 @@
       }
       .col-tip:hover .col-tooltip { display: block; }
 
-      /* Tier bar in table */
-      .tier-bar {
-        display: flex; height: 8px; border-radius: 4px; overflow: hidden;
-        min-width: 80px; background: var(--bw-border);
+      /* Show more button */
+      .outlet-show-more {
+        display: flex; justify-content: center; margin-top: 20px;
       }
-      .tier-bar .seg-reportable { background: var(--bw-green); }
-      .tier-bar .seg-caution { background: var(--bw-amber); }
-      .tier-bar .seg-fragile { background: var(--bw-red); }
-
-      /* Platform tags in table */
-      .outlet-platforms {
-        display: flex; gap: 4px; font-size: 11px;
+      .outlet-show-more button {
+        padding: 10px 24px;
+        background: var(--bw-white); border: 1px solid var(--bw-border);
+        border-radius: 6px; font-size: 14px; font-family: var(--font-sans);
+        color: var(--bw-text-secondary); cursor: pointer; transition: all 0.15s;
       }
-      .outlet-platforms .plat-tag {
-        font-family: var(--font-mono); font-weight: 400;
-        color: var(--bw-text-secondary);
+      .outlet-show-more button:hover {
+        background: var(--bw-bg); border-color: var(--bw-blue-muted);
       }
-
-      /* ══ OUTLET DETAIL VIEW ══ */
-      #outlet-detail { display: none; }
-      #outlet-detail.active { display: block; }
-
-      .back-btn {
-        display: inline-flex; align-items: center; gap: 6px;
-        font-size: 14px; font-weight: 500; color: var(--bw-blue);
-        background: none; border: none; cursor: pointer; padding: 0;
-        margin-bottom: 24px; transition: color 0.2s;
-      }
-      .back-btn:hover { color: var(--bw-dark); }
-      .back-btn svg { width: 16px; height: 16px; }
-
-      .outlet-detail-header {
-        display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-        padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.35);
-        margin-bottom: 28px;
-      }
-      .outlet-detail-name {
-        font-family: var(--font-serif); font-size: 24px; font-weight: 600;
-        color: var(--bw-dark);
-      }
-      .outlet-detail-stats {
-        display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
-      }
-      .outlet-detail-stat {
-        font-size: 13px; color: var(--bw-text-secondary);
-      }
-      .outlet-detail-stat strong {
-        font-family: var(--font-mono); font-weight: 500; color: var(--bw-text);
-      }
-
-      /* ══ CITATION CARDS ══ */
-      .citation-list { display: flex; flex-direction: column; gap: 12px; }
-
-      .citation-card {
-        background: var(--bw-white); border: 1px solid var(--bw-border); border-radius: 8px;
-        padding: 20px 24px; transition: border-color 0.2s;
-      }
-      .citation-card:hover { border-color: var(--bw-blue-muted); }
-
-      .cc-meta {
-        display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
-        font-size: 12px; color: var(--bw-text-secondary); margin-bottom: 8px;
-      }
-      .cc-domain { font-weight: 500; color: var(--bw-text); }
-      .cc-date { font-family: var(--font-mono); }
-      .cc-platform {
-        font-size: 10px; font-weight: 600; text-transform: uppercase;
-        letter-spacing: 0.04em; padding: 1px 6px; border-radius: 3px;
-      }
-      .cc-platform.pm { color: #2563eb; background: #eff6ff; }
-      .cc-platform.k { color: #059669; background: #ecfdf5; }
-      a.cc-platform { text-decoration: none; transition: opacity 0.2s; }
-      a.cc-platform:hover { opacity: 0.7; }
-
-      .cc-title {
-        font-family: var(--font-serif); font-size: 16px; font-weight: 500;
-        color: var(--bw-dark); line-height: 1.4; margin-bottom: 10px;
-      }
-      .cc-title a { color: inherit; text-decoration: none; }
-      .cc-title a:hover { text-decoration: underline; }
-
-      .cc-sentence {
-        font-size: 14px; color: var(--bw-text); line-height: 1.6;
-        background: var(--bw-bg); border-left: 3px solid var(--bw-border);
-        border-radius: 0 6px 6px 0; padding: 12px 16px;
-        margin-bottom: 12px;
-      }
-
-      .cc-match {
-        display: flex; justify-content: space-between; align-items: center;
-        gap: 16px; flex-wrap: wrap;
-        padding-top: 10px; border-top: 1px solid var(--bw-border);
-      }
-      .cc-match-info { font-size: 13px; color: var(--bw-text-secondary); }
-      .cc-match-info strong { color: var(--bw-text); font-weight: 500; }
-
-      /* Fragility badge */
-      .frag-badge {
-        display: inline-flex; align-items: center; gap: 6px;
-        font-family: var(--font-mono); font-size: 12px; font-weight: 500;
-        padding: 4px 12px; border-radius: 20px;
-      }
-      .frag-badge.tier-1 { background: rgba(58,138,92,0.1); color: var(--bw-green); }
-      .frag-badge.tier-2 { background: rgba(212,149,10,0.1); color: var(--bw-amber); }
-      .frag-badge.tier-3 { background: rgba(217,74,74,0.1); color: var(--bw-red); }
-
-      .cc-prob {
-        font-family: var(--font-mono); font-size: 12px; color: var(--bw-text-secondary);
-        margin-top: 4px;
-      }
-
-      .frag-badge[data-modal-id] { cursor: pointer; transition: opacity 0.2s; }
-      .frag-badge[data-modal-id]:hover { opacity: 0.75; }
 
       /* ══ SORTABLE TABLE ══ */
       .outlet-table th.sortable {
@@ -495,6 +432,78 @@
       }
       .sort-arrow.asc::after { content: '\25B2'; }
       .sort-arrow.desc::after { content: '\25BC'; }
+
+      /* Gap bar (dataset vs market) */
+      .gap-bar {
+        display: flex; height: 8px; border-radius: 4px; overflow: hidden;
+        min-width: 80px; background: var(--bw-border);
+      }
+      .gap-bar .seg-dataset { background: var(--bw-blue); }
+      .gap-bar .seg-market { background: var(--bw-amber); }
+
+      /* Supers badge */
+      .supers-badge {
+        display: inline-block;
+        font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+        padding: 2px 8px; border-radius: 10px;
+      }
+      .supers-badge.no { background: rgba(217,74,74,0.1); color: var(--bw-red); }
+      .supers-badge.yes { background: rgba(58,138,92,0.1); color: var(--bw-green); }
+
+      /* ══ MODEL DETAIL VIEW ══ */
+      #model-detail { display: none; }
+      #model-detail.active { display: block; }
+
+      .back-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 14px; font-weight: 500; color: var(--bw-blue);
+        background: none; border: none; cursor: pointer; padding: 0;
+        margin-bottom: 24px; transition: color 0.2s;
+      }
+      .back-btn:hover { color: var(--bw-dark); }
+      .back-btn svg { width: 16px; height: 16px; }
+
+      .model-detail-header {
+        display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+        padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.35);
+        margin-bottom: 28px;
+      }
+      .model-detail-name {
+        font-family: var(--font-serif); font-size: 24px; font-weight: 600;
+        color: var(--bw-dark);
+      }
+      .model-detail-org {
+        font-size: 14px; color: var(--bw-text-secondary); margin-top: 2px;
+      }
+      .model-detail-stats {
+        display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+      }
+      .model-detail-stat {
+        font-size: 13px; color: var(--bw-text-secondary);
+      }
+      .model-detail-stat strong {
+        font-family: var(--font-mono); font-weight: 500; color: var(--bw-text);
+      }
+
+      .detail-scores-grid {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+        margin-top: 24px;
+      }
+      .detail-score-card {
+        background: var(--bw-white); border: 1px solid var(--bw-border);
+        border-radius: 10px; padding: 20px;
+      }
+      .detail-score-label {
+        font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--bw-text-secondary); font-weight: 600; margin-bottom: 8px;
+      }
+      .detail-score-value {
+        font-family: var(--font-mono); font-size: 28px; font-weight: 600;
+        color: var(--bw-dark);
+      }
+      .detail-score-sub {
+        font-size: 12px; color: var(--bw-text-secondary); margin-top: 4px;
+      }
 
       /* ══ METHODOLOGY ══ */
       .methodology-section {
@@ -525,30 +534,6 @@
       }
       .methodology-body h4:first-child { margin-top: 0; }
       .methodology-body p { margin: 0 0 10px; }
-      .tier-legend {
-        display: flex; gap: 16px; flex-wrap: wrap;
-        margin: 8px 0 12px; font-size: 13px;
-      }
-      .tier-legend span {
-        display: flex; align-items: center; gap: 6px;
-      }
-      .tier-dot {
-        width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-      }
-      .tier-dot.t1 { background: var(--bw-green); }
-      .tier-dot.t2 { background: var(--bw-amber); }
-      .tier-dot.t3 { background: var(--bw-red); }
-
-      /* Load more */
-      .load-more-wrap { text-align: center; padding: 24px 0; }
-      .load-more-btn {
-        padding: 10px 32px;
-        font-family: var(--font-sans); font-size: 14px; font-weight: 500;
-        color: var(--bw-text-secondary); background: var(--bw-white);
-        border: 1px solid var(--bw-border); border-radius: 6px;
-        cursor: pointer; transition: all 0.2s;
-      }
-      .load-more-btn:hover { border-color: var(--bw-blue-muted); color: var(--bw-dark); }
 
       /* Empty state */
       .empty-state {
@@ -625,8 +610,8 @@
       /* ══ RESPONSIVE ══ */
       @media (max-width: 900px) {
         .page-header { flex-direction: column; gap: 24px; }
-        .hero-text { flex: 1 1 100%; }
-        .hero-collage-wrap { position: relative; right: auto; top: auto; bottom: auto; flex: 1 1 100%; height: 300px; }
+        .hero-text { flex: 1 1 100%; width: 100%; max-width: 100%; }
+        .hero-collage-wrap { position: relative; right: auto; top: auto; bottom: auto; width: 100%; height: 300px; }
         .hero-collage { position: relative; height: 100%; }
         .hero-headline { font-size: 160px; letter-spacing: -6px; }
         .hero-statement { font-size: 20px; }
@@ -636,12 +621,12 @@
         .nav-dropdown { display: none; }
         .outlet-table { font-size: 13px; }
         .outlet-table th, .outlet-table td { padding: 10px 8px; }
-        .outlet-detail-header { flex-direction: column; align-items: flex-start; }
+        .model-detail-header { flex-direction: column; align-items: flex-start; }
+        .detail-scores-grid { grid-template-columns: 1fr 1fr; }
       }
       @media (max-width: 600px) {
-        .media-page { padding: 0 16px; }
-        .cc-match { flex-direction: column; align-items: flex-start; }
-        .topic-card { min-width: 160px; }
+        .models-page { padding: 0 16px; }
+        .detail-scores-grid { grid-template-columns: 1fr; }
       }
     </style>
 </head>
@@ -653,8 +638,8 @@
     <a href="home.html" class="nav-logo"><span class="dot"></span>Bellwether</a>
     <div class="nav-links">
       <a href="monitor.html">Markets</a>
-      <a href="media.html" class="active">Media</a>
-      <a href="models.html">Models</a>
+      <a href="media.html">Media</a>
+      <a href="models.html" class="active">Models</a>
       <div class="nav-dropdown">
         <span class="nav-dropdown-trigger">Products <span class="chevron">&#9662;</span></span>
         <div class="nav-dropdown-menu">
@@ -686,7 +671,7 @@
   }, { passive: true });
 </script>
 
-<div class="media-page">
+<div class="models-page">
 
   <!-- ═══ DASHBOARD VIEW ═══ -->
   <div id="dashboard-view">
@@ -694,9 +679,9 @@
     <!-- HERO -->
     <div class="page-header">
       <div class="hero-text">
-        <div class="hero-dateline" id="meta-date"></div>
+        <div class="hero-dateline" id="meta-date">ForecastBench Tournament Leaderboard</div>
         <div class="hero-statement" id="hero-statement"></div>
-        <div class="hero-headline" id="hero-pct">&mdash;</div>
+        <div class="hero-headline" id="hero-number" style="opacity:0">&mdash;</div>
         <hr class="hero-rule">
         <p class="hero-prose" id="hero-prose"></p>
       </div>
@@ -705,46 +690,46 @@
       </div>
     </div>
 
-    <!-- TREND CHART + OUTLETS (single card) -->
+    <!-- CHART + LEADERBOARD TABLE (single card) -->
     <div class="section-band alt">
       <div class="section-band-inner">
         <div class="section-header">
-          <h2>Citation Trends</h2>
+          <h2>Brier Score Comparison</h2>
         </div>
         <div class="trend-controls">
-          <select class="trend-select" id="trend-view">
-            <option value="total">Total Citations</option>
-            <option value="tiers">By Reportability Tier</option>
-            <option value="categories">By Category</option>
+          <select class="trend-select" id="chart-view">
+            <option value="topModels">Top Models vs Superforecasters</option>
+            <option value="datasetVsMarket">Dataset vs Market Scores</option>
+            <option value="byOrg">By Organization</option>
           </select>
         </div>
         <div class="trend-chart-wrap">
-          <canvas id="trend-chart"></canvas>
+          <canvas id="models-chart"></canvas>
         </div>
 
         <div style="border-top: 1px solid var(--bw-border); margin-top: 48px; padding-top: 8px;">
         <div class="section-header">
-          <h2>Outlet Accountability</h2>
-          <span class="section-count" id="outlet-count"></span>
+          <h2>Leaderboard</h2>
+          <span class="section-count" id="model-count"></span>
         </div>
         <div class="outlet-table-wrap">
-          <table class="outlet-table" id="outlet-table">
+          <table class="outlet-table" id="model-table">
         <thead>
           <tr>
-            <th class="sortable" data-sort="name">Outlet <span class="sort-arrow" id="sort-name"></span></th>
-            <th class="col-num sortable" data-sort="citations"><span class="col-tip">Citations<span class="col-tooltip">Number of times this outlet cited prediction market data in the last 30 days, with today's count in parentheses.</span></span> <span class="sort-arrow desc" id="sort-citations"></span></th>
-            <th class="col-num sortable" data-sort="reportable"><span class="col-tip">% Reportable<span class="col-tooltip">Percentage of this outlet's cited markets (last 30 days) that are Tier 1 (reportable) &mdash; meaning the market has sufficient liquidity and the cited probability is accurate. Higher is better.</span></span> <span class="sort-arrow" id="sort-reportable"></span></th>
-            <th class="col-num sortable" data-sort="fragility"><span class="col-tip">Avg $ to Move 5&cent;<span class="col-tooltip">Average dollar cost required to move the price of cited markets by 5 cents (last 30 days). Higher values mean more liquid, harder-to-manipulate markets.</span></span> <span class="sort-arrow" id="sort-fragility"></span></th>
-            <th class="col-center">Tier Mix</th>
-            <th>Platforms</th>
+            <th class="col-rank sortable" data-sort="rank"># <span class="sort-arrow asc" id="sort-rank"></span></th>
+            <th class="sortable" data-sort="model">Model <span class="sort-arrow" id="sort-model"></span></th>
+            <th class="col-num sortable" data-sort="brier_overall"><span class="col-tip">Overall<span class="col-tooltip">Overall Brier score combining dataset and market questions. Lower is better. 0 = perfect, 1 = always wrong.</span></span> <span class="sort-arrow" id="sort-brier_overall"></span></th>
+            <th class="col-num sortable" data-sort="brier_dataset"><span class="col-tip">Dataset<span class="col-tooltip">Brier score on structured data questions (e.g., will GDP growth exceed X%). Lower is better.</span></span> <span class="sort-arrow" id="sort-brier_dataset"></span></th>
+            <th class="col-num sortable" data-sort="brier_market"><span class="col-tip">Market<span class="col-tooltip">Brier score on real-world event questions (elections, conflicts, policy). Lower is better. This is where AI models consistently fail.</span></span> <span class="sort-arrow" id="sort-brier_market"></span></th>
+            <th class="col-num sortable" data-sort="n_total"><span class="col-tip">Questions<span class="col-tooltip">Total number of questions the model was evaluated on.</span></span> <span class="sort-arrow" id="sort-n_total"></span></th>
             <th class="col-arrow"></th>
           </tr>
         </thead>
-        <tbody id="outlet-tbody"></tbody>
+        <tbody id="model-tbody"></tbody>
       </table>
         </div>
-        <div class="outlet-show-more" id="outlet-show-more">
-          <button id="outlet-show-more-btn">Show more outlets</button>
+        <div class="outlet-show-more" id="model-show-more">
+          <button id="model-show-more-btn">Show more models</button>
         </div>
         </div><!-- /divider -->
       </div>
@@ -752,20 +737,16 @@
 
   </div><!-- /dashboard-view -->
 
-  <!-- ═══ OUTLET DETAIL VIEW ═══ -->
-  <div id="outlet-detail">
+  <!-- ═══ MODEL DETAIL VIEW ═══ -->
+  <div id="model-detail">
     <div style="padding-top: 92px;">
       <button class="back-btn" id="back-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
-        All outlets
+        All models
       </button>
     </div>
-    <div id="outlet-detail-content"></div>
-    <div class="citation-list" id="detail-citations"></div>
-    <div class="load-more-wrap">
-      <button class="load-more-btn" id="detail-load-more" style="display:none">Load More</button>
-    </div>
-  </div><!-- /outlet-detail -->
+    <div id="model-detail-content"></div>
+  </div><!-- /model-detail -->
 
   <!-- ═══ METHODOLOGY ═══ -->
   <div class="section-band" style="padding-bottom:48px">
@@ -776,36 +757,26 @@
       <span class="toggle-icon">&#9660;</span>
     </button>
     <div class="methodology-body">
-      <h4>Citation Discovery</h4>
-      <p>We monitor news articles and TV broadcasts that mention prediction market platforms (Polymarket, Kalshi, PredictIt) using GDELT's global news index, NewsAPI, and Internet Archive TV News. Citations are collected daily and deduplicated by URL.</p>
-
-      <h4>Market Matching</h4>
-      <p>Each citation is matched to a specific Bellwether market contract using a three-stage pipeline: (1) direct URL extraction, (2) fuzzy text matching against our enriched market database, and (3) LLM-assisted selection from candidate shortlists. This determines which market the journalist was citing.</p>
-
-      <h4>Fragility Assessment</h4>
-      <p>Matched markets are scored on a 0&ndash;100 fragility scale based on four components: trading volume, orderbook depth (cost to move the price 5&cent;), bid-ask spread, and price volatility around the time of citation. Each market is assigned a reportability tier:</p>
-      <div class="tier-legend">
-        <span><span class="tier-dot t1"></span> Tier 1 &mdash; Reportable ($100K+ depth)</span>
-        <span><span class="tier-dot t2"></span> Tier 2 &mdash; Caution ($10K&ndash;$100K depth)</span>
-        <span><span class="tier-dot t3"></span> Tier 3 &mdash; Fragile (&lt;$10K depth)</span>
-      </div>
+      <h4>ForecastBench</h4>
+      <p>ForecastBench is an open benchmark maintained by the Forecasting Research Institute that evaluates AI systems on their ability to predict real-world events. Models are tested on hundreds of questions spanning politics, economics, conflict, and policy &mdash; the same types of events that prediction markets track.</p>
 
       <h4>Brier Score</h4>
-      <p>For resolved markets, we compute the Brier score: (probability cited &minus; actual outcome)&sup2;. A score of 0 means the cited probability perfectly predicted the outcome; 1 means it was perfectly wrong. This measures whether outlets cite markets that turn out to be accurate.</p>
+      <p>The Brier score measures the accuracy of probabilistic predictions: (predicted probability &minus; actual outcome)&sup2;. A score of 0 means perfect prediction; 1 means perfectly wrong. Lower is better. For context, a naive "always guess 50%" strategy scores 0.25.</p>
 
-      <h4>Outlet Grading</h4>
-      <p>Outlets are ranked by the quality of markets they cite. Outlets that consistently cite deep, liquid markets (Tier 1) score higher than those citing thin, easily-manipulated markets (Tier 3). An outlet's "% Reportable" reflects what share of their citations referenced markets robust enough for responsible journalism.</p>
+      <h4>Dataset vs Market Questions</h4>
+      <p>"Dataset" questions are structured data problems with clear, quantifiable answers (e.g., will GDP growth exceed 3%?). "Market" questions are real-world event predictions that require understanding politics, geopolitics, and human behavior &mdash; elections, conflicts, policy decisions. The gap between these scores reveals how much a model's apparent intelligence is pattern-matching on structured data versus genuine world understanding.</p>
+
+      <h4>Superforecaster Baseline</h4>
+      <p>The "Superforecaster median forecast" is a human baseline derived from the top forecasters identified by Philip Tetlock's Good Judgment Project. These are individuals who have demonstrated sustained, exceptional accuracy in predicting world events. No AI model currently achieves a lower (better) overall Brier score than this human baseline.</p>
+
+      <h4>Data Source</h4>
+      <p>Leaderboard data is sourced from the <a href="https://github.com/forecastingresearch/forecastbench-datasets" target="_blank" rel="noopener" style="color:var(--bw-blue)">ForecastBench public dataset repository</a>. We update this data periodically. The original tournament includes 283 model submissions from organizations including OpenAI, Anthropic, Google, xAI, Meta, and independent research teams.</p>
     </div>
   </div>
   </div>
   </div>
 
-</div><!-- /media-page -->
-
-<!-- CONTRACT DETAIL MODAL (same pattern as monitor.html) -->
-<div id="media-modal" class="modal-overlay">
-  <div class="modal-content" id="media-modal-content" style="max-width:560px"></div>
-</div>
+</div><!-- /models-page -->
 
 <!-- FOOTER -->
 <footer class="v2-footer">
@@ -824,6 +795,7 @@
       <h4>Research</h4>
       <a href="research.html">Dashboard</a>
       <a href="media.html">Media</a>
+      <a href="models.html">Models</a>
       <a href="papers/liquidity-accuracy/">Trustworthy Price</a>
     </div>
     <div class="footer-col">
@@ -836,6 +808,6 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="js/media.js?v=20260506a"></script>
+<script src="js/models.js?v=20260506a"></script>
 </body>
 </html>
