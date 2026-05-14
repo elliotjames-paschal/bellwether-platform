@@ -320,7 +320,13 @@
   };
 
   function getTimelineEntries() {
-    return summaryData.timeline || [];
+    var all = summaryData.timeline || [];
+    var cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    return all.filter(function(e) {
+      var key = e.date || e.week || '';
+      return new Date(key + 'T00:00:00') >= cutoff;
+    });
   }
 
   function buildChartData(view, entries) {
