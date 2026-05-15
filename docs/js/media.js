@@ -253,7 +253,7 @@
           pctEl.style.transition = 'opacity 0.4s';
           pctEl.style.opacity = '1';
         }
-        animateValue('hero-pct', 0, hero.pct_not_reportable_all || hero.pct_not_reportable || 0, 1200, '<span class="pct-sign">%</span>', true);
+        animateValue('hero-pct', 0, hero.pct_not_reportable || 0, 1200, '<span class="pct-sign">%</span>', true);
         // After number finishes, fade in the rule and prose
         setTimeout(function() {
           if (ruleEl) ruleEl.style.opacity = '1';
@@ -262,7 +262,7 @@
       });
     } else {
       // Fallback if element not found
-      animateValue('hero-pct', 0, hero.pct_not_reportable_all || hero.pct_not_reportable || 0, 1200, '<span class="pct-sign">%</span>', true);
+      animateValue('hero-pct', 0, hero.pct_not_reportable || 0, 1200, '<span class="pct-sign">%</span>', true);
     }
 
     // Prose paragraph — raw mentions (unfiltered) → filtered citations → fragility finding
@@ -322,7 +322,7 @@
   function getTimelineEntries() {
     var all = summaryData.timeline || [];
     var cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 30);
+    cutoff.setDate(cutoff.getDate() - 50);
     return all.filter(function(e) {
       var key = e.date || e.week || '';
       return new Date(key + 'T00:00:00') >= cutoff;
