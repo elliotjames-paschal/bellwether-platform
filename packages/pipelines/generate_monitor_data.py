@@ -1597,6 +1597,7 @@ def generate_monitor_data(skip_prices=False):
     all_entries = []
     fully_expired_tickers = 0
     excluded_by_feedback = 0
+    divergent_demotions = 0
 
     for ticker_str, group in ticker_groups.items():
         pm_markets = group['pm_markets']
@@ -1639,6 +1640,15 @@ def generate_monitor_data(skip_prices=False):
 
         # Calculate spread (only when both platforms present)
         spread = abs(pm_price - k_price) if (has_both and pm_price is not None and k_price is not None) else None
+
+        # Demote to two single-platform entries if prices diverge by >25pp
+        # (likely a matching error or stale data)
+        if spread is not None and spread > 0.25:
+            log(f"    Divergent ({spread:.0%}): {ticker_str} — demoting to single-platform")
+            no_ticker_markets.append(pm_best)
+            no_ticker_markets.append(k_best)
+            divergent_demotions += 1
+            continue
 
         # Volumes
         pm_volume = get_row_volume(pm_best) if has_pm else 0
@@ -1748,7 +1758,7 @@ def generate_monitor_data(skip_prices=False):
 
     ticker_count = len(all_entries)
     cross_platform_count = sum(1 for e in all_entries if e['entry_type'] == 'cross_platform')
-    log(f"  Ticker-grouped entries: {ticker_count:,} ({cross_platform_count} cross-platform, {fully_expired_tickers} tickers fully expired, {excluded_by_feedback} split by human feedback)")
+    log(f"  Ticker-grouped entries: {ticker_count:,} ({cross_platform_count} cross-platform, {fully_expired_tickers} tickers fully expired, {excluded_by_feedback} split by human feedback, {divergent_demotions} demoted for price divergence)")
 
     # =========================================================================
     # PROCESS MARKETS WITHOUT TICKERS (fallback individual entries)
@@ -1838,6 +1848,7 @@ def generate_monitor_data(skip_prices=False):
             'total': len(all_entries),
             'ticker_grouped': ticker_count,
             'cross_platform': cross_platform_count,
+            'divergent_demotions': divergent_demotions,
             'no_ticker_fallback': no_ticker_count,
         },
         'category_counts': category_counts,
