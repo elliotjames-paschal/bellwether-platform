@@ -1,30 +1,30 @@
 {
   "hero": {
-    "total_citations_24h": 43,
-    "total_citations_30d": 3752,
-    "total_outlets_24h": 28,
-    "total_outlets_30d": 1335,
+    "total_citations_24h": 86,
+    "total_citations_30d": 3705,
+    "total_outlets_24h": 71,
+    "total_outlets_30d": 1324,
     "total_outlets": 2319,
-    "total_raw_mentions_30d": 8604,
-    "total_raw_outlets_30d": 2406,
-    "citations_with_probability": 1804,
-    "citations_matched": 1629,
-    "citations_mention_only": 17706,
+    "total_raw_mentions_30d": 8297,
+    "total_raw_outlets_30d": 2389,
+    "citations_with_probability": 1805,
+    "citations_matched": 1673,
+    "citations_mention_only": 17757,
     "tiers_reportable": 276,
-    "tiers_caution": 331,
-    "tiers_fragile": 89,
-    "tiers_total": 696,
-    "pct_not_reportable": 60,
+    "tiers_caution": 328,
+    "tiers_fragile": 132,
+    "tiers_total": 736,
+    "pct_not_reportable": 62,
     "tiers_reportable_all": 935,
     "tiers_caution_all": 796,
-    "tiers_fragile_all": 517,
-    "tiers_total_all": 2248,
-    "pct_not_reportable_all": 58
+    "tiers_fragile_all": 561,
+    "tiers_total_all": 2292,
+    "pct_not_reportable_all": 59
   },
   "topics": [
     {
       "name": "US Politics",
-      "count": 8555,
+      "count": 8558,
       "platforms": [
         "generic",
         "kalshi",
@@ -33,6 +33,18 @@
       ],
       "outlet_count": 1600,
       "example_sentence": "That 58% figure represents a roughly 10-point climb from where Republicans sat in mid-April, when some traders were briefly pricing Democratic control as the more likely outcome.\n\ud83d\udea8BREAKING: Republican"
+    },
+    {
+      "name": "Regulation",
+      "count": 2887,
+      "platforms": [
+        "generic",
+        "kalshi",
+        "polymarket",
+        "predictit"
+      ],
+      "outlet_count": 1013,
+      "example_sentence": "Senate has passed a resolution prohibiting senators from trading on prediction markets \u2026\nDiscussion:\nCNBC and NewsMax.com, more at Techmeme \u00bb\nRELATED:\nDevlin Barrett / New York Times:\nTrump Administra"
     },
     {
       "name": "Iran Conflict",
@@ -47,20 +59,8 @@
       "example_sentence": "Hardika Singh, Fundstrat Economic Strategist says that tech stock earnings are really driving the stock market more than the war in Iran. \nA renewed advance in\u00a0oil\u00a0prices sent\u00a0bonds\u00a0lower after the US"
     },
     {
-      "name": "Regulation",
-      "count": 2842,
-      "platforms": [
-        "generic",
-        "kalshi",
-        "polymarket",
-        "predictit"
-      ],
-      "outlet_count": 1012,
-      "example_sentence": "Senate has passed a resolution prohibiting senators from trading on prediction markets \u2026\nDiscussion:\nCNBC and NewsMax.com, more at Techmeme \u00bb\nRELATED:\nDevlin Barrett / New York Times:\nTrump Administra"
-    },
-    {
       "name": "Crypto",
-      "count": 2346,
+      "count": 2349,
       "platforms": [
         "generic",
         "kalshi",
@@ -2096,7 +2096,7 @@
     {
       "week": "2026-01-19",
       "count": 100,
-      "avg_fragility": 33.2,
+      "avg_fragility": 33.3,
       "tiers": {
         "reportable": 20,
         "caution": 10,
@@ -2256,7 +2256,7 @@
     {
       "week": "2026-05-11",
       "count": 495,
-      "avg_fragility": 38.4,
+      "avg_fragility": 38.5,
       "tiers": {
         "reportable": 131,
         "caution": 97,
@@ -2265,14 +2265,14 @@
     },
     {
       "week": "2026-05-18",
-      "count": 401,
-      "avg_fragility": 40.2,
+      "count": 453,
+      "avg_fragility": 42.1,
       "tiers": {
         "reportable": 37,
         "caution": 134,
-        "fragile": 6
+        "fragile": 50
       }
     }
   ],
-  "generated_at": "2026-05-21T22:19:09.355714+00:00"
+  "generated_at": "2026-05-22T04:34:39.675385+00:00"
 }
