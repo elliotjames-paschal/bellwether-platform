@@ -10940,6 +10940,11 @@
         },
         {
           "price": 0.15,
+          "volume": 2579.0,
+          "correct": false
+        },
+        {
+          "price": 0.15,
           "volume": 1098.0,
           "correct": true
         },
@@ -10947,6 +10952,11 @@
           "price": 0.2,
           "volume": 3298.0,
           "correct": true
+        },
+        {
+          "price": 0.59,
+          "volume": 1911.0,
+          "correct": false
         },
         {
           "price": 0.13,
@@ -10994,7 +11004,12 @@
           "correct": true
         },
         {
-          "price": 0.46,
+          "price": 0.02,
+          "volume": 398.0,
+          "correct": true
+        },
+        {
+          "price": 0.44,
           "volume": 1891.0,
           "correct": true
         },
@@ -11009,8 +11024,28 @@
           "correct": true
         },
         {
-          "price": 0.23,
+          "price": 0.38,
+          "volume": 3020.0,
+          "correct": false
+        },
+        {
+          "price": 0.28,
+          "volume": 2367.0,
+          "correct": true
+        },
+        {
+          "price": 0.19,
           "volume": 405.0,
+          "correct": true
+        },
+        {
+          "price": 0.46,
+          "volume": 1726.0,
+          "correct": false
+        },
+        {
+          "price": 0.68,
+          "volume": 7784.0,
           "correct": true
         },
         {
@@ -11031,6 +11066,11 @@
         {
           "price": 0.04,
           "volume": 1591.0,
+          "correct": true
+        },
+        {
+          "price": 0.21,
+          "volume": 1328.0,
           "correct": true
         },
         {
@@ -11472,39 +11512,39 @@
       "bins": [
         {
           "price_mid": 0.0231,
-          "median_volume": 352.0
+          "median_volume": 360.0
         },
         {
           "price_mid": 0.0721,
           "median_volume": 2171.0
         },
         {
-          "price_mid": 0.1267,
-          "median_volume": 4517.0
+          "price_mid": 0.1277,
+          "median_volume": 3620.0
         },
         {
-          "price_mid": 0.1833,
-          "median_volume": 9528.0
+          "price_mid": 0.184,
+          "median_volume": 6413.0
         },
         {
-          "price_mid": 0.236,
-          "median_volume": 405.0
+          "price_mid": 0.232,
+          "median_volume": 1328.0
         },
         {
-          "price_mid": 0.288,
-          "median_volume": 1368.0
+          "price_mid": 0.2867,
+          "median_volume": 1831.5
         },
         {
           "price_mid": 0.327,
           "median_volume": 19078.0
         },
         {
-          "price_mid": 0.37,
-          "median_volume": 25289.0
+          "price_mid": 0.3725,
+          "median_volume": 14154.5
         },
         {
-          "price_mid": 0.415,
-          "median_volume": 9042.0
+          "price_mid": 0.4186,
+          "median_volume": 8320.0
         },
         {
           "price_mid": 0.47,
@@ -11515,12 +11555,12 @@
           "median_volume": 138718.5
         },
         {
-          "price_mid": 0.55,
-          "median_volume": 99165.5
+          "price_mid": 0.5633,
+          "median_volume": 24509.0
         },
         {
-          "price_mid": 0.6625,
-          "median_volume": 74728.0
+          "price_mid": 0.666,
+          "median_volume": 18285.0
         },
         {
           "price_mid": 0.74,
@@ -11543,8 +11583,8 @@
           "median_volume": 6427.0
         }
       ],
-      "correlation": 0.1186,
-      "n": 275
+      "correlation": 0.1171,
+      "n": 283
     },
     "no": null
   }
