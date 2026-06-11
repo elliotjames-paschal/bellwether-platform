@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-06-11T04:16:50.991213",
+  "generated_at": "2026-06-11T10:08:01.822437",
   "total_points": 422,
-  "total_markets": 18355,
+  "total_markets": 18320,
   "category_colors": {
     "ELEC": "#3b82f6",
     "MONETARY": "#10b981",
@@ -28,8 +28,8 @@
     },
     "International": {
       "count": 62,
-      "markets": 677,
-      "volume": 61419524.41000001
+      "markets": 676,
+      "volume": 61401043.210000016
     },
     "Military & Security": {
       "count": 26,
@@ -38,8 +38,8 @@
     },
     "Monetary Policy": {
       "count": 38,
-      "markets": 1962,
-      "volume": 16991432.56
+      "markets": 1923,
+      "volume": 16989996.77
     },
     "Other": {
       "count": 13,
@@ -63,7 +63,7 @@
     },
     "Appointments": {
       "count": 19,
-      "markets": 706,
+      "markets": 711,
       "volume": 7621027.659999998
     },
     "Government Operations": {
@@ -89,7 +89,7 @@
     "Political Speech": {
       "count": 5,
       "markets": 206,
-      "volume": 63434.27999999999
+      "volume": 66161.93
     }
   },
   "markets": [
@@ -128,16 +128,16 @@
     {
       "lat": 38.9,
       "lng": -77.04,
-      "label": "White House: 142 International markets",
+      "label": "White House: 141 International markets",
       "category": "INTL",
       "category_display": "International",
       "color": "#06b6d4",
       "country": "United States",
       "location": "White House",
       "region": "north_america",
-      "markets": 142,
-      "volume": 30976230.26,
-      "price": 0.315,
+      "markets": 141,
+      "volume": 30973115.26,
+      "price": 0.316,
       "has_pm": 1,
       "has_k": 1
     },
@@ -153,7 +153,7 @@
       "region": "south_america",
       "markets": 416,
       "volume": 26143711.59,
-      "price": 0.112,
+      "price": 0.11,
       "has_pm": 1,
       "has_k": 1
     },
@@ -201,7 +201,7 @@
       "region": "europe",
       "markets": 367,
       "volume": 11466483.16,
-      "price": 0.128,
+      "price": 0.127,
       "has_pm": 1,
       "has_k": 1
     },
@@ -217,7 +217,7 @@
       "region": "unknown",
       "markets": 2,
       "volume": 11166911.9,
-      "price": 0.22,
+      "price": 0.23,
       "has_pm": 1,
       "has_k": 1
     },
@@ -249,7 +249,7 @@
       "region": "north_america",
       "markets": 89,
       "volume": 9011144.45,
-      "price": 0.362,
+      "price": 0.365,
       "has_pm": 1,
       "has_k": 1
     },
@@ -265,7 +265,7 @@
       "region": "south_america",
       "markets": 60,
       "volume": 7327148.56,
-      "price": 0.26,
+      "price": 0.263,
       "has_pm": 1,
       "has_k": 1
     },
@@ -288,32 +288,16 @@
     {
       "lat": 38.9,
       "lng": -77.04,
-      "label": "United States: 1111 Monetary Policy markets",
+      "label": "United States: 1072 Monetary Policy markets",
       "category": "MONETARY",
       "category_display": "Monetary Policy",
       "color": "#10b981",
       "country": "United States",
       "location": null,
       "region": "north_america",
-      "markets": 1111,
-      "volume": 5792859.27,
-      "price": 0.247,
-      "has_pm": 1,
-      "has_k": 1
-    },
-    {
-      "lat": 32,
-      "lng": 53,
-      "label": "Iran: 106 International markets",
-      "category": "INTL",
-      "category_display": "International",
-      "color": "#06b6d4",
-      "country": "Iran",
-      "location": null,
-      "region": "middle_east",
-      "markets": 106,
-      "volume": 5390675.61,
-      "price": 0.223,
+      "markets": 1072,
+      "volume": 5791423.48,
+      "price": 0.254,
       "has_pm": 1,
       "has_k": 1
     },
@@ -334,6 +318,22 @@
       "has_k": 1
     },
     {
+      "lat": 32,
+      "lng": 53,
+      "label": "Iran: 106 International markets",
+      "category": "INTL",
+      "category_display": "International",
+      "color": "#06b6d4",
+      "country": "Iran",
+      "location": null,
+      "region": "middle_east",
+      "markets": 106,
+      "volume": 5375309.41,
+      "price": 0.225,
+      "has_pm": 1,
+      "has_k": 1
+    },
+    {
       "lat": 36.78,
       "lng": -119.42,
       "label": "California: 699 Electoral markets",
@@ -345,7 +345,7 @@
       "region": "north_america",
       "markets": 699,
       "volume": 5155906.62,
-      "price": 0.377,
+      "price": 0.376,
       "has_pm": 1,
       "has_k": 1
     },
@@ -377,7 +377,7 @@
       "region": "north_america",
       "markets": 12,
       "volume": 4752431.0,
-      "price": 0.139,
+      "price": 0.141,
       "has_pm": 0,
       "has_k": 1
     },
@@ -393,7 +393,7 @@
       "region": "north_america",
       "markets": 121,
       "volume": 4684947.9,
-      "price": 0.23,
+      "price": 0.229,
       "has_pm": 1,
       "has_k": 1
     },
@@ -425,7 +425,7 @@
       "region": "europe",
       "markets": 259,
       "volume": 3760471.53,
-      "price": 0.156,
+      "price": 0.155,
       "has_pm": 1,
       "has_k": 1
     },
@@ -441,7 +441,7 @@
       "region": "europe",
       "markets": 42,
       "volume": 3172905.77,
-      "price": 0.131,
+      "price": 0.13,
       "has_pm": 1,
       "has_k": 1
     },
@@ -457,7 +457,7 @@
       "region": "north_america",
       "markets": 334,
       "volume": 2955581.0,
-      "price": 0.258,
+      "price": 0.259,
       "has_pm": 1,
       "has_k": 1
     },
@@ -473,7 +473,7 @@
       "region": "middle_east",
       "markets": 13,
       "volume": 2928309.79,
-      "price": 0.064,
+      "price": 0.063,
       "has_pm": 1,
       "has_k": 0
     },
@@ -489,7 +489,7 @@
       "region": "north_america",
       "markets": 559,
       "volume": 2909834.54,
-      "price": 0.302,
+      "price": 0.301,
       "has_pm": 1,
       "has_k": 1
     },
@@ -521,23 +521,23 @@
       "region": "north_america",
       "markets": 120,
       "volume": 2120029.57,
-      "price": 0.19,
+      "price": 0.191,
       "has_pm": 1,
       "has_k": 1
     },
     {
       "lat": 38.9,
       "lng": -77.04,
-      "label": "United States: 432 Appointments markets",
+      "label": "United States: 437 Appointments markets",
       "category": "APPOINT",
       "category_display": "Appointments",
       "color": "#f59e0b",
       "country": "United States",
       "location": null,
       "region": "north_america",
-      "markets": 432,
+      "markets": 437,
       "volume": 2104735.91,
-      "price": 0.146,
+      "price": 0.144,
       "has_pm": 1,
       "has_k": 1
     },
@@ -553,7 +553,7 @@
       "region": "north_america",
       "markets": 174,
       "volume": 2032323.01,
-      "price": 0.308,
+      "price": 0.31,
       "has_pm": 1,
       "has_k": 1
     },
@@ -585,7 +585,7 @@
       "region": "middle_east",
       "markets": 138,
       "volume": 1904154.4,
-      "price": 0.098,
+      "price": 0.096,
       "has_pm": 1,
       "has_k": 1
     },
@@ -617,7 +617,7 @@
       "region": "middle_east",
       "markets": 26,
       "volume": 1870727.75,
-      "price": 0.134,
+      "price": 0.133,
       "has_pm": 1,
       "has_k": 0
     },
@@ -650,7 +650,7 @@
       "region": "north_america",
       "markets": 20,
       "volume": 1823345.15,
-      "price": 0.193,
+      "price": 0.195,
       "has_pm": 1,
       "has_k": 1
     },
@@ -666,7 +666,7 @@
       "region": "middle_east",
       "markets": 79,
       "volume": 1665434.23,
-      "price": 0.06,
+      "price": 0.059,
       "has_pm": 1,
       "has_k": 1
     },
@@ -698,7 +698,7 @@
       "region": "europe",
       "markets": 61,
       "volume": 1345918.83,
-      "price": 0.175,
+      "price": 0.177,
       "has_pm": 1,
       "has_k": 0
     },
@@ -731,7 +731,7 @@
       "region": "north_america",
       "markets": 24,
       "volume": 1171254.77,
-      "price": 0.368,
+      "price": 0.371,
       "has_pm": 1,
       "has_k": 1
     },
@@ -763,7 +763,7 @@
       "region": "middle_east",
       "markets": 56,
       "volume": 1000848.62,
-      "price": 0.11,
+      "price": 0.109,
       "has_pm": 1,
       "has_k": 1
     },
@@ -779,7 +779,7 @@
       "region": "north_america",
       "markets": 530,
       "volume": 955131.56,
-      "price": 0.287,
+      "price": 0.288,
       "has_pm": 1,
       "has_k": 1
     },
@@ -795,7 +795,7 @@
       "region": "europe",
       "markets": 31,
       "volume": 856594.0,
-      "price": 0.283,
+      "price": 0.281,
       "has_pm": 0,
       "has_k": 1
     },
@@ -851,16 +851,16 @@
     {
       "lat": 44.31,
       "lng": -85.6,
-      "label": "Michigan: 491 Electoral markets",
+      "label": "Michigan: 490 Electoral markets",
       "category": "ELEC",
       "category_display": "Electoral",
       "color": "#3b82f6",
       "country": "United States",
       "location": "Michigan",
       "region": "north_america",
-      "markets": 491,
+      "markets": 490,
       "volume": 778102.24,
-      "price": 0.268,
+      "price": 0.263,
       "has_pm": 1,
       "has_k": 1
     },
@@ -876,7 +876,7 @@
       "region": "asia",
       "markets": 33,
       "volume": 664169.41,
-      "price": 0.524,
+      "price": 0.525,
       "has_pm": 1,
       "has_k": 1
     },
@@ -925,7 +925,7 @@
       "region": "north_america",
       "markets": 8,
       "volume": 552978.93,
-      "price": 0.108,
+      "price": 0.111,
       "has_pm": 1,
       "has_k": 1
     },
@@ -941,7 +941,7 @@
       "region": "north_america",
       "markets": 8,
       "volume": 542177.61,
-      "price": 0.671,
+      "price": 0.674,
       "has_pm": 1,
       "has_k": 0
     },
@@ -1009,7 +1009,7 @@
       "region": "middle_east",
       "markets": 1,
       "volume": 449113.18,
-      "price": 0.016,
+      "price": 0.012,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/greece-x-turkey-military-engagement-by-june-30"
@@ -1042,7 +1042,7 @@
       "region": "north_america",
       "markets": 162,
       "volume": 400844.2,
-      "price": 0.434,
+      "price": 0.435,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1058,7 +1058,7 @@
       "region": "north_america",
       "markets": 220,
       "volume": 379171.76,
-      "price": 0.458,
+      "price": 0.46,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1074,7 +1074,7 @@
       "region": "europe",
       "markets": 2,
       "volume": 353287.35,
-      "price": 0.181,
+      "price": 0.186,
       "has_pm": 1,
       "has_k": 0
     },
@@ -1106,7 +1106,7 @@
       "region": "south_america",
       "markets": 32,
       "volume": 332826.27,
-      "price": 0.201,
+      "price": 0.2,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1122,7 +1122,7 @@
       "region": "north_america",
       "markets": 84,
       "volume": 326224.51,
-      "price": 0.372,
+      "price": 0.375,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1170,7 +1170,7 @@
       "region": "north_america",
       "markets": 43,
       "volume": 294735.95,
-      "price": 0.153,
+      "price": 0.152,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1186,7 +1186,7 @@
       "region": "north_america",
       "markets": 63,
       "volume": 291270.79,
-      "price": 0.355,
+      "price": 0.356,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1218,7 +1218,7 @@
       "region": "europe",
       "markets": 1,
       "volume": 276686.21,
-      "price": 0.018,
+      "price": 0.017,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/will-france-uk-or-germany-strike-iran-by-june-30-259"
@@ -1251,7 +1251,7 @@
       "region": "north_america",
       "markets": 262,
       "volume": 272576.55,
-      "price": 0.286,
+      "price": 0.288,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1284,7 +1284,7 @@
       "region": "north_america",
       "markets": 146,
       "volume": 256268.49,
-      "price": 0.459,
+      "price": 0.457,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1317,7 +1317,7 @@
       "region": "asia",
       "markets": 1,
       "volume": 239788.86,
-      "price": 0.021,
+      "price": 0.02,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/nobel-peace-prize-winner-2026-139"
@@ -1334,7 +1334,7 @@
       "region": "north_america",
       "markets": 233,
       "volume": 238888.21,
-      "price": 0.277,
+      "price": 0.276,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1366,7 +1366,7 @@
       "region": "north_america",
       "markets": 78,
       "volume": 207788.18,
-      "price": 0.09,
+      "price": 0.088,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1382,7 +1382,7 @@
       "region": "europe",
       "markets": 5,
       "volume": 206246.44,
-      "price": 0.074,
+      "price": 0.073,
       "has_pm": 1,
       "has_k": 0
     },
@@ -1398,7 +1398,7 @@
       "region": "europe",
       "markets": 133,
       "volume": 204286.57,
-      "price": 0.115,
+      "price": 0.12,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1462,7 +1462,7 @@
       "region": "south_america",
       "markets": 3,
       "volume": 179076.51,
-      "price": 0.061,
+      "price": 0.064,
       "has_pm": 1,
       "has_k": 0
     },
@@ -1494,7 +1494,7 @@
       "region": "north_america",
       "markets": 29,
       "volume": 174578.73,
-      "price": 0.328,
+      "price": 0.334,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1542,7 +1542,7 @@
       "region": "north_america",
       "markets": 63,
       "volume": 159543.68,
-      "price": 0.141,
+      "price": 0.142,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1558,7 +1558,7 @@
       "region": "north_america",
       "markets": 13,
       "volume": 157534.0,
-      "price": 0.46,
+      "price": 0.459,
       "has_pm": 0,
       "has_k": 1
     },
@@ -1574,7 +1574,7 @@
       "region": "north_america",
       "markets": 40,
       "volume": 148055.56,
-      "price": 0.371,
+      "price": 0.374,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1606,7 +1606,7 @@
       "region": "north_america",
       "markets": 204,
       "volume": 145046.38,
-      "price": 0.247,
+      "price": 0.248,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1622,7 +1622,7 @@
       "region": "north_america",
       "markets": 29,
       "volume": 140345.34,
-      "price": 0.169,
+      "price": 0.176,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1661,16 +1661,16 @@
     {
       "lat": 33.84,
       "lng": -81.16,
-      "label": "South Carolina: 126 Electoral markets",
+      "label": "South Carolina: 128 Electoral markets",
       "category": "ELEC",
       "category_display": "Electoral",
       "color": "#3b82f6",
       "country": "United States",
       "location": "South Carolina",
       "region": "north_america",
-      "markets": 126,
+      "markets": 128,
       "volume": 128589.74,
-      "price": 0.47,
+      "price": 0.466,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1686,7 +1686,7 @@
       "region": "south_america",
       "markets": 2,
       "volume": 127251.67,
-      "price": 0.524,
+      "price": 0.525,
       "has_pm": 1,
       "has_k": 0
     },
@@ -1702,7 +1702,7 @@
       "region": "europe",
       "markets": 5,
       "volume": 126999.77,
-      "price": 0.218,
+      "price": 0.219,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1718,7 +1718,7 @@
       "region": "europe",
       "markets": 45,
       "volume": 110695.01,
-      "price": 0.195,
+      "price": 0.194,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1734,7 +1734,7 @@
       "region": "north_america",
       "markets": 303,
       "volume": 107193.38,
-      "price": 0.296,
+      "price": 0.295,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1750,23 +1750,23 @@
       "region": "north_america",
       "markets": 2,
       "volume": 106536.0,
-      "price": 0.21,
+      "price": 0.215,
       "has_pm": 0,
       "has_k": 1
     },
     {
       "lat": 35.52,
       "lng": -86.58,
-      "label": "Tennessee: 213 Electoral markets",
+      "label": "Tennessee: 212 Electoral markets",
       "category": "ELEC",
       "category_display": "Electoral",
       "color": "#3b82f6",
       "country": "United States",
       "location": "Tennessee",
       "region": "north_america",
-      "markets": 213,
+      "markets": 212,
       "volume": 103717.09,
-      "price": 0.355,
+      "price": 0.356,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1782,7 +1782,7 @@
       "region": "north_america",
       "markets": 14,
       "volume": 100297.0,
-      "price": 0.192,
+      "price": 0.193,
       "has_pm": 0,
       "has_k": 1
     },
@@ -1814,7 +1814,7 @@
       "region": "oceania",
       "markets": 59,
       "volume": 97745.92,
-      "price": 0.282,
+      "price": 0.272,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1847,7 +1847,7 @@
       "region": "north_america",
       "markets": 61,
       "volume": 95119.13,
-      "price": 0.497,
+      "price": 0.501,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1879,7 +1879,7 @@
       "region": "europe",
       "markets": 144,
       "volume": 92088.64,
-      "price": 0.13,
+      "price": 0.129,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1911,7 +1911,7 @@
       "region": "asia",
       "markets": 2,
       "volume": 85913.64,
-      "price": 0.14,
+      "price": 0.145,
       "has_pm": 1,
       "has_k": 0
     },
@@ -1927,7 +1927,7 @@
       "region": "north_america",
       "markets": 205,
       "volume": 85801.0,
-      "price": 0.247,
+      "price": 0.248,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1959,7 +1959,7 @@
       "region": "north_america",
       "markets": 150,
       "volume": 82732.56,
-      "price": 0.419,
+      "price": 0.42,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1975,7 +1975,7 @@
       "region": "north_america",
       "markets": 73,
       "volume": 82329.33,
-      "price": 0.464,
+      "price": 0.457,
       "has_pm": 1,
       "has_k": 1
     },
@@ -1991,7 +1991,7 @@
       "region": "north_america",
       "markets": 132,
       "volume": 79613.43,
-      "price": 0.45,
+      "price": 0.449,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2072,7 +2072,7 @@
       "region": "north_america",
       "markets": 30,
       "volume": 73791.97,
-      "price": 0.124,
+      "price": 0.125,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2088,7 +2088,7 @@
       "region": "asia",
       "markets": 9,
       "volume": 72561.65,
-      "price": 0.135,
+      "price": 0.138,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2185,7 +2185,23 @@
       "region": "north_america",
       "markets": 117,
       "volume": 59587.3,
-      "price": 0.443,
+      "price": 0.444,
+      "has_pm": 1,
+      "has_k": 1
+    },
+    {
+      "lat": 38.9,
+      "lng": -77.04,
+      "label": "White House: 134 Political Speech markets",
+      "category": "SPEECH",
+      "category_display": "Political Speech",
+      "color": "#f97316",
+      "country": "United States",
+      "location": "White House",
+      "region": "north_america",
+      "markets": 134,
+      "volume": 58514.67,
+      "price": 0.32,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2217,7 +2233,7 @@
       "region": "north_america",
       "markets": 98,
       "volume": 56555.4,
-      "price": 0.458,
+      "price": 0.459,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2233,23 +2249,7 @@
       "region": "asia",
       "markets": 17,
       "volume": 56044.48,
-      "price": 0.157,
-      "has_pm": 1,
-      "has_k": 1
-    },
-    {
-      "lat": 38.9,
-      "lng": -77.04,
-      "label": "White House: 134 Political Speech markets",
-      "category": "SPEECH",
-      "category_display": "Political Speech",
-      "color": "#f97316",
-      "country": "United States",
-      "location": "White House",
-      "region": "north_america",
-      "markets": 134,
-      "volume": 55787.02,
-      "price": 0.312,
+      "price": 0.156,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2265,7 +2265,7 @@
       "region": "asia",
       "markets": 36,
       "volume": 53535.46,
-      "price": 0.205,
+      "price": 0.206,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2281,7 +2281,7 @@
       "region": "europe",
       "markets": 50,
       "volume": 53273.47,
-      "price": 0.075,
+      "price": 0.073,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2313,7 +2313,7 @@
       "region": "asia",
       "markets": 37,
       "volume": 49535.2,
-      "price": 0.307,
+      "price": 0.304,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2329,7 +2329,7 @@
       "region": "north_america",
       "markets": 53,
       "volume": 49117.0,
-      "price": 0.144,
+      "price": 0.143,
       "has_pm": 0,
       "has_k": 1
     },
@@ -2345,7 +2345,7 @@
       "region": "north_america",
       "markets": 10,
       "volume": 48332.41,
-      "price": 0.241,
+      "price": 0.245,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2409,7 +2409,7 @@
       "region": "north_america",
       "markets": 56,
       "volume": 45850.97,
-      "price": 0.418,
+      "price": 0.404,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2425,7 +2425,7 @@
       "region": "north_america",
       "markets": 45,
       "volume": 44951.71,
-      "price": 0.272,
+      "price": 0.274,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2441,7 +2441,7 @@
       "region": "north_america",
       "markets": 210,
       "volume": 44781.27,
-      "price": 0.429,
+      "price": 0.428,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2489,7 +2489,7 @@
       "region": "south_america",
       "markets": 41,
       "volume": 42773.03,
-      "price": 0.194,
+      "price": 0.174,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2505,7 +2505,7 @@
       "region": "north_america",
       "markets": 58,
       "volume": 41817.8,
-      "price": 0.435,
+      "price": 0.434,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2537,7 +2537,7 @@
       "region": "north_america",
       "markets": 135,
       "volume": 41299.06,
-      "price": 0.363,
+      "price": 0.364,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2587,7 +2587,7 @@
       "region": "europe",
       "markets": 26,
       "volume": 39699.45,
-      "price": 0.265,
+      "price": 0.266,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2603,7 +2603,7 @@
       "region": "europe",
       "markets": 8,
       "volume": 37176.94,
-      "price": 0.406,
+      "price": 0.417,
       "has_pm": 1,
       "has_k": 0
     },
@@ -2635,7 +2635,7 @@
       "region": "europe",
       "markets": 42,
       "volume": 34870.09,
-      "price": 0.166,
+      "price": 0.164,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2684,7 +2684,7 @@
       "region": "north_america",
       "markets": 93,
       "volume": 33302.14,
-      "price": 0.337,
+      "price": 0.327,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2732,7 +2732,7 @@
       "region": "north_america",
       "markets": 3,
       "volume": 31371.0,
-      "price": 0.155,
+      "price": 0.152,
       "has_pm": 0,
       "has_k": 1
     },
@@ -2830,7 +2830,7 @@
       "region": "north_america",
       "markets": 162,
       "volume": 28388.28,
-      "price": 0.362,
+      "price": 0.365,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2846,7 +2846,7 @@
       "region": "north_america",
       "markets": 56,
       "volume": 27704.73,
-      "price": 0.237,
+      "price": 0.235,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2862,7 +2862,7 @@
       "region": "north_america",
       "markets": 171,
       "volume": 27489.64,
-      "price": 0.373,
+      "price": 0.371,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2878,7 +2878,7 @@
       "region": "north_america",
       "markets": 6,
       "volume": 27251.0,
-      "price": 0.375,
+      "price": 0.373,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2910,7 +2910,7 @@
       "region": "asia",
       "markets": 15,
       "volume": 24985.02,
-      "price": 0.148,
+      "price": 0.149,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2976,7 +2976,7 @@
       "region": "north_america",
       "markets": 74,
       "volume": 22117.28,
-      "price": 0.451,
+      "price": 0.453,
       "has_pm": 1,
       "has_k": 1
     },
@@ -2992,7 +2992,7 @@
       "region": "asia",
       "markets": 1,
       "volume": 21179.27,
-      "price": 0.01,
+      "price": 0.014,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/will-jia-yueting-enter-mainland-china-by"
@@ -3009,7 +3009,7 @@
       "region": "north_america",
       "markets": 1,
       "volume": 20648.0,
-      "price": 0.05,
+      "price": 0.11,
       "has_pm": 0,
       "has_k": 1,
       "k_url": "https://kalshi.com/events/KXFREYOUT"
@@ -3042,7 +3042,7 @@
       "region": "middle_east",
       "markets": 2,
       "volume": 19854.43,
-      "price": 0.076,
+      "price": 0.071,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3074,7 +3074,7 @@
       "region": "europe",
       "markets": 6,
       "volume": 19461.0,
-      "price": 0.667,
+      "price": 0.648,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3106,7 +3106,7 @@
       "region": "north_america",
       "markets": 3,
       "volume": 19295.0,
-      "price": 0.093,
+      "price": 0.09,
       "has_pm": 0,
       "has_k": 1
     },
@@ -3122,7 +3122,7 @@
       "region": "north_america",
       "markets": 13,
       "volume": 18893.0,
-      "price": 0.274,
+      "price": 0.269,
       "has_pm": 0,
       "has_k": 1
     },
@@ -3138,7 +3138,7 @@
       "region": "europe",
       "markets": 35,
       "volume": 18780.91,
-      "price": 0.112,
+      "price": 0.113,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3154,7 +3154,7 @@
       "region": "asia",
       "markets": 15,
       "volume": 18521.0,
-      "price": 0.255,
+      "price": 0.253,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3204,7 +3204,7 @@
       "region": "north_america",
       "markets": 9,
       "volume": 17716.0,
-      "price": 0.125,
+      "price": 0.162,
       "has_pm": 0,
       "has_k": 1
     },
@@ -3220,7 +3220,7 @@
       "region": "north_america",
       "markets": 64,
       "volume": 17229.67,
-      "price": 0.294,
+      "price": 0.29,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3319,7 +3319,7 @@
       "region": "north_america",
       "markets": 46,
       "volume": 14377.0,
-      "price": 0.312,
+      "price": 0.314,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3335,7 +3335,7 @@
       "region": "south_america",
       "markets": 72,
       "volume": 13674.48,
-      "price": 0.111,
+      "price": 0.109,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3383,7 +3383,7 @@
       "region": "north_america",
       "markets": 72,
       "volume": 12682.92,
-      "price": 0.357,
+      "price": 0.36,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3415,7 +3415,7 @@
       "region": "asia",
       "markets": 1,
       "volume": 11517.63,
-      "price": 0.07,
+      "price": 0.05,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/thailand-strikes-cambodia-by-966"
@@ -3546,7 +3546,7 @@
       "region": "europe",
       "markets": 3,
       "volume": 10032.02,
-      "price": 0.202,
+      "price": 0.242,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3612,7 +3612,7 @@
       "region": "north_america",
       "markets": 33,
       "volume": 9402.43,
-      "price": 0.247,
+      "price": 0.25,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3628,7 +3628,7 @@
       "region": "oceania",
       "markets": 137,
       "volume": 9392.0,
-      "price": 0.126,
+      "price": 0.129,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3725,7 +3725,7 @@
       "region": "europe",
       "markets": 65,
       "volume": 7047.37,
-      "price": 0.194,
+      "price": 0.191,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3757,7 +3757,7 @@
       "region": "europe",
       "markets": 3,
       "volume": 6651.0,
-      "price": 0.3,
+      "price": 0.297,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3837,7 +3837,7 @@
       "region": "asia",
       "markets": 4,
       "volume": 5387.78,
-      "price": 0.248,
+      "price": 0.251,
       "has_pm": 1,
       "has_k": 0
     },
@@ -3870,7 +3870,7 @@
       "region": "africa",
       "markets": 2,
       "volume": 5189.03,
-      "price": 0.205,
+      "price": 0.23,
       "has_pm": 1,
       "has_k": 0
     },
@@ -3936,7 +3936,7 @@
       "region": "middle_east",
       "markets": 4,
       "volume": 4720.89,
-      "price": 0.067,
+      "price": 0.066,
       "has_pm": 1,
       "has_k": 1
     },
@@ -3969,7 +3969,7 @@
       "region": "europe",
       "markets": 45,
       "volume": 4335.55,
-      "price": 0.107,
+      "price": 0.099,
       "has_pm": 1,
       "has_k": 1
     },
@@ -4083,7 +4083,7 @@
       "region": "north_america",
       "markets": 2,
       "volume": 3199.72,
-      "price": 0.329,
+      "price": 0.303,
       "has_pm": 1,
       "has_k": 0
     },
@@ -4212,7 +4212,7 @@
       "region": "europe",
       "markets": 22,
       "volume": 2557.31,
-      "price": 0.086,
+      "price": 0.092,
       "has_pm": 1,
       "has_k": 0
     },
@@ -4357,7 +4357,7 @@
       "region": "africa",
       "markets": 37,
       "volume": 2103.87,
-      "price": 0.262,
+      "price": 0.265,
       "has_pm": 1,
       "has_k": 1
     },
@@ -4406,7 +4406,7 @@
       "region": "europe",
       "markets": 6,
       "volume": 1766.61,
-      "price": 0.332,
+      "price": 0.335,
       "has_pm": 1,
       "has_k": 0
     },
@@ -4422,7 +4422,7 @@
       "region": "north_america",
       "markets": 2,
       "volume": 1751.83,
-      "price": 0.275,
+      "price": 0.296,
       "has_pm": 1,
       "has_k": 0
     },
@@ -4438,7 +4438,7 @@
       "region": "europe",
       "markets": 7,
       "volume": 1721.47,
-      "price": 0.343,
+      "price": 0.341,
       "has_pm": 1,
       "has_k": 0
     },
@@ -4617,7 +4617,7 @@
       "region": "north_america",
       "markets": 11,
       "volume": 833.06,
-      "price": 0.401,
+      "price": 0.393,
       "has_pm": 1,
       "has_k": 1
     },
@@ -4633,7 +4633,7 @@
       "region": "north_america",
       "markets": 46,
       "volume": 807.0,
-      "price": 0.114,
+      "price": 0.113,
       "has_pm": 1,
       "has_k": 1
     },
@@ -4665,7 +4665,7 @@
       "region": "south_america",
       "markets": 1,
       "volume": 762.63,
-      "price": 0.015,
+      "price": 0.013,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/hantavirus-outbreak-by-june-30"
@@ -4715,7 +4715,7 @@
       "region": "south_america",
       "markets": 2,
       "volume": 625.94,
-      "price": 0.046,
+      "price": 0.041,
       "has_pm": 1,
       "has_k": 1
     },
@@ -4848,7 +4848,7 @@
       "region": "oceania",
       "markets": 15,
       "volume": 465.0,
-      "price": 0.456,
+      "price": 0.458,
       "has_pm": 1,
       "has_k": 1
     },
@@ -4864,7 +4864,7 @@
       "region": "europe",
       "markets": 1,
       "volume": 424.67,
-      "price": 0.042,
+      "price": 0.041,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/trump-denmark-greenland-deal-signed-by-june-30-588"
@@ -4898,7 +4898,7 @@
       "region": "africa",
       "markets": 43,
       "volume": 403.26,
-      "price": 0.208,
+      "price": 0.21,
       "has_pm": 1,
       "has_k": 1
     },
@@ -4930,7 +4930,7 @@
       "region": "north_america",
       "markets": 2,
       "volume": 371.42,
-      "price": 0.448,
+      "price": 0.443,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5027,7 +5027,7 @@
       "region": "north_america",
       "markets": 1,
       "volume": 299.0,
-      "price": 0.21,
+      "price": 0.23,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/cuban-regime-falls-in-2026"
@@ -5093,7 +5093,7 @@
       "region": "europe",
       "markets": 48,
       "volume": 185.75,
-      "price": 0.271,
+      "price": 0.341,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5142,7 +5142,7 @@
       "region": "north_america",
       "markets": 1,
       "volume": 127.81,
-      "price": 0.01,
+      "price": 0.011,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/colorado-bill-to-decriminalize-sex-work-becomes-law-in-2026"
@@ -5192,7 +5192,7 @@
       "region": "south_america",
       "markets": 2,
       "volume": 105.58,
-      "price": 0.064,
+      "price": 0.069,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5242,7 +5242,7 @@
       "region": "asia",
       "markets": 41,
       "volume": 73.7,
-      "price": 0.227,
+      "price": 0.223,
       "has_pm": 1,
       "has_k": 1
     },
@@ -5323,7 +5323,7 @@
       "region": "middle_east",
       "markets": 3,
       "volume": 40.0,
-      "price": 0.178,
+      "price": 0.169,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5419,7 +5419,7 @@
       "region": "south_america",
       "markets": 16,
       "volume": 29.99,
-      "price": 0.199,
+      "price": 0.202,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5452,7 +5452,7 @@
       "region": "europe",
       "markets": 5,
       "volume": 25.0,
-      "price": 0.566,
+      "price": 0.58,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5468,7 +5468,7 @@
       "region": "south_america",
       "markets": 8,
       "volume": 23.12,
-      "price": 0.202,
+      "price": 0.25,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5551,7 +5551,7 @@
       "region": "europe",
       "markets": 2,
       "volume": 12.4,
-      "price": 0.57,
+      "price": 0.575,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5650,7 +5650,7 @@
       "region": "europe",
       "markets": 4,
       "volume": 1.04,
-      "price": 0.122,
+      "price": 0.168,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5666,7 +5666,7 @@
       "region": "oceania",
       "markets": 3,
       "volume": 1.02,
-      "price": 0.333,
+      "price": 0.332,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5715,7 +5715,7 @@
       "region": "asia",
       "markets": 2,
       "volume": 0.0,
-      "price": 0.128,
+      "price": 0.118,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5796,7 +5796,7 @@
       "region": "north_america",
       "markets": 24,
       "volume": 0.0,
-      "price": 0.202,
+      "price": 0.207,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5812,7 +5812,7 @@
       "region": "europe",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.29,
+      "price": 0.28,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/edi-rama-out-as-albania-pm-in-2026"
@@ -5829,7 +5829,7 @@
       "region": "europe",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.27,
+      "price": 0.26,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/which-countries-will-recognize-palestine-before-2027"
@@ -5863,7 +5863,7 @@
       "region": "middle_east",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.006,
+      "price": 0.005,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/who-will-enter-iran-by-june-30"
@@ -5880,7 +5880,7 @@
       "region": "europe",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.011,
+      "price": 0.014,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/meloni-out-as-prime-minister-of-italy-by-june-30"
@@ -5965,7 +5965,7 @@
       "region": "north_america",
       "markets": 3,
       "volume": 0.0,
-      "price": 0.015,
+      "price": 0.016,
       "has_pm": 1,
       "has_k": 0
     },
@@ -5981,7 +5981,7 @@
       "region": "north_america",
       "markets": 4,
       "volume": 0.0,
-      "price": 0.088,
+      "price": 0.09,
       "has_pm": 1,
       "has_k": 0
     },
@@ -6029,7 +6029,7 @@
       "region": "asia",
       "markets": 3,
       "volume": 0.0,
-      "price": 0.011,
+      "price": 0.012,
       "has_pm": 1,
       "has_k": 0
     },
@@ -6045,7 +6045,7 @@
       "region": "europe",
       "markets": 18,
       "volume": 0.0,
-      "price": 0.36,
+      "price": 0.361,
       "has_pm": 1,
       "has_k": 1
     },
@@ -6077,7 +6077,7 @@
       "region": "middle_east",
       "markets": 13,
       "volume": 0.0,
-      "price": 0.249,
+      "price": 0.235,
       "has_pm": 1,
       "has_k": 1
     },
@@ -6126,7 +6126,7 @@
       "region": "north_america",
       "markets": 31,
       "volume": 0.0,
-      "price": 0.225,
+      "price": 0.236,
       "has_pm": 1,
       "has_k": 0
     },
@@ -6142,7 +6142,7 @@
       "region": "south_america",
       "markets": 35,
       "volume": 0.0,
-      "price": 0.08,
+      "price": 0.081,
       "has_pm": 1,
       "has_k": 1
     },
@@ -6174,7 +6174,7 @@
       "region": "middle_east",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.07,
+      "price": 0.11,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/will-netanyahu-talk-to-joseph-aoun-by"
@@ -6191,7 +6191,7 @@
       "region": "europe",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.333,
+      "price": 0.307,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/romanian-pm-bolojan-out-by"
@@ -6208,7 +6208,7 @@
       "region": "europe",
       "markets": 21,
       "volume": 0.0,
-      "price": 0.399,
+      "price": 0.393,
       "has_pm": 1,
       "has_k": 1
     },
@@ -6224,7 +6224,7 @@
       "region": "asia",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.05,
+      "price": 0.02,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/will-usd-hit-indonesian-rupiah-by-june-30"
@@ -6292,7 +6292,7 @@
       "region": "north_america",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.09,
+      "price": 0.1,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/which-countries-will-have-an-ebola-case-in-2026"
@@ -6410,7 +6410,7 @@
       "region": "middle_east",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.06,
+      "price": 0.03,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/which-countries-will-send-warships-through-the-strait-of-hormuz-by-june-30"
@@ -6461,7 +6461,7 @@
       "region": "middle_east",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.058,
+      "price": 0.043,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/abbas-araghchi-out-as-minister-of-foreign-affairs-of-iran-by"
@@ -6528,7 +6528,7 @@
       "region": "south_america",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.65,
+      "price": 0.66,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/fda-approves-gsk-spero-therapeutics-tebipenem-hbr-06-18-2026"
@@ -6545,7 +6545,7 @@
       "region": "europe",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.65,
+      "price": 0.68,
       "has_pm": 1,
       "has_k": 0,
       "pm_url": "https://polymarket.com/event/italy-senate-approves-nuclear-power-bill-by-august-31"
@@ -6562,7 +6562,7 @@
       "region": "europe",
       "markets": 2,
       "volume": 0.0,
-      "price": 0.14,
+      "price": 0.18,
       "has_pm": 1,
       "has_k": 0
     },
@@ -6578,7 +6578,7 @@
       "region": "north_america",
       "markets": 12,
       "volume": 0.0,
-      "price": 0.233,
+      "price": 0.236,
       "has_pm": 1,
       "has_k": 1
     },
@@ -6594,7 +6594,7 @@
       "region": "south_america",
       "markets": 19,
       "volume": 0.0,
-      "price": 0.131,
+      "price": 0.112,
       "has_pm": 1,
       "has_k": 0
     },
@@ -6610,7 +6610,7 @@
       "region": "south_america",
       "markets": 18,
       "volume": 0.0,
-      "price": 0.142,
+      "price": 0.137,
       "has_pm": 1,
       "has_k": 0
     },
@@ -6626,7 +6626,7 @@
       "region": "south_america",
       "markets": 27,
       "volume": 0.0,
-      "price": 0.1,
+      "price": 0.102,
       "has_pm": 1,
       "has_k": 1
     },
@@ -6642,7 +6642,7 @@
       "region": "europe",
       "markets": 2,
       "volume": 0.0,
-      "price": 0.485,
+      "price": 0.465,
       "has_pm": 1,
       "has_k": 1
     },
@@ -6741,7 +6741,7 @@
       "region": "north_america",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.03,
+      "price": 0.05,
       "has_pm": 0,
       "has_k": 1,
       "k_url": "https://kalshi.com/events/KXSTATE51-29"
@@ -6792,7 +6792,7 @@
       "region": "north_america",
       "markets": 16,
       "volume": 0.0,
-      "price": 0.239,
+      "price": 0.261,
       "has_pm": 0,
       "has_k": 1
     },
@@ -6825,7 +6825,7 @@
       "region": "asia",
       "markets": 1,
       "volume": 0.0,
-      "price": 0.48,
+      "price": 0.33,
       "has_pm": 0,
       "has_k": 1,
       "k_url": "https://kalshi.com/events/KXH200CHINA-27"
@@ -6859,7 +6859,7 @@
       "region": "north_america",
       "markets": 4,
       "volume": 0.0,
-      "price": 0.037,
+      "price": 0.025,
       "has_pm": 0,
       "has_k": 1
     },
