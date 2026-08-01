@@ -4,10 +4,10 @@
       "domain": "finance.yahoo.com",
       "domain_name": "Yahoo Finance",
       "citations_24h": 1,
-      "citations_30d": 68,
+      "citations_30d": 67,
       "total_citations": 938,
       "avg_fragility": 37.8,
-      "avg_cost_to_move_5c": 307685.0,
+      "avg_cost_to_move_5c": 307916.0,
       "avg_brier": null,
       "pct_reportable": 16.7,
       "tier_breakdown": {
@@ -30,7 +30,7 @@
       "citations_30d": 49,
       "total_citations": 1688,
       "avg_fragility": 28.5,
-      "avg_cost_to_move_5c": 3243532.0,
+      "avg_cost_to_move_5c": 3244518.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -53,7 +53,7 @@
       "citations_30d": 42,
       "total_citations": 567,
       "avg_fragility": 34.0,
-      "avg_cost_to_move_5c": 3636412.0,
+      "avg_cost_to_move_5c": 3639861.0,
       "avg_brier": null,
       "pct_reportable": 58.8,
       "tier_breakdown": {
@@ -76,7 +76,7 @@
       "citations_30d": 23,
       "total_citations": 386,
       "avg_fragility": 39.7,
-      "avg_cost_to_move_5c": 1250756.0,
+      "avg_cost_to_move_5c": 1251492.0,
       "avg_brier": null,
       "pct_reportable": 14.3,
       "tier_breakdown": {
@@ -99,7 +99,7 @@
       "citations_30d": 20,
       "total_citations": 151,
       "avg_fragility": 55.5,
-      "avg_cost_to_move_5c": 48953.0,
+      "avg_cost_to_move_5c": 48983.0,
       "avg_brier": null,
       "pct_reportable": 0.0,
       "tier_breakdown": {
@@ -122,7 +122,7 @@
       "citations_30d": 17,
       "total_citations": 72,
       "avg_fragility": 33.0,
-      "avg_cost_to_move_5c": 185117.0,
+      "avg_cost_to_move_5c": 185000.0,
       "avg_brier": null,
       "pct_reportable": 50.0,
       "tier_breakdown": {
@@ -141,11 +141,11 @@
     {
       "domain": "coindesk.com",
       "domain_name": "CoinDesk",
-      "citations_24h": 1,
+      "citations_24h": 0,
       "citations_30d": 16,
       "total_citations": 706,
       "avg_fragility": 37.0,
-      "avg_cost_to_move_5c": 163915.0,
+      "avg_cost_to_move_5c": 163833.0,
       "avg_brier": null,
       "pct_reportable": 25.0,
       "tier_breakdown": {
@@ -191,7 +191,7 @@
       "citations_30d": 15,
       "total_citations": 312,
       "avg_fragility": 22.5,
-      "avg_cost_to_move_5c": 3431881.0,
+      "avg_cost_to_move_5c": 3434701.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -237,7 +237,7 @@
       "citations_30d": 10,
       "total_citations": 80,
       "avg_fragility": 32.5,
-      "avg_cost_to_move_5c": 117691.0,
+      "avg_cost_to_move_5c": 117801.0,
       "avg_brier": null,
       "pct_reportable": 50.0,
       "tier_breakdown": {
@@ -283,7 +283,7 @@
       "citations_30d": 10,
       "total_citations": 80,
       "avg_fragility": 32.0,
-      "avg_cost_to_move_5c": 14274348.0,
+      "avg_cost_to_move_5c": 14278770.0,
       "avg_brier": null,
       "pct_reportable": 80.0,
       "tier_breakdown": {
@@ -352,7 +352,7 @@
       "citations_30d": 9,
       "total_citations": 34,
       "avg_fragility": 39.0,
-      "avg_cost_to_move_5c": 71761.0,
+      "avg_cost_to_move_5c": 71775.0,
       "avg_brier": null,
       "pct_reportable": 0.0,
       "tier_breakdown": {
@@ -398,7 +398,7 @@
       "citations_30d": 9,
       "total_citations": 32,
       "avg_fragility": 32.0,
-      "avg_cost_to_move_5c": 649689.0,
+      "avg_cost_to_move_5c": 650908.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -415,13 +415,36 @@
       "source_type": "article"
     },
     {
+      "domain": "independent.co.uk",
+      "domain_name": "Independent",
+      "citations_24h": 1,
+      "citations_30d": 8,
+      "total_citations": 99,
+      "avg_fragility": 37.0,
+      "avg_cost_to_move_5c": 1419007.0,
+      "avg_brier": null,
+      "pct_reportable": 100.0,
+      "tier_breakdown": {
+        "reportable": 1,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 34,
+        "kalshi": 26,
+        "generic": 2
+      },
+      "latest_date": "2026-08-01T03:16:41+00:00",
+      "source_type": "article"
+    },
+    {
       "domain": "manilatimes.net",
       "domain_name": "Manilatimes",
       "citations_24h": 0,
       "citations_30d": 8,
       "total_citations": 34,
       "avg_fragility": 48.5,
-      "avg_cost_to_move_5c": 42905.0,
+      "avg_cost_to_move_5c": 42912.0,
       "avg_brier": null,
       "pct_reportable": 0.0,
       "tier_breakdown": {
@@ -435,6 +458,29 @@
         "generic": 1
       },
       "latest_date": "2026-07-30T13:46:59+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "nypost.com",
+      "domain_name": "New York Post",
+      "citations_24h": 3,
+      "citations_30d": 7,
+      "total_citations": 101,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 35,
+        "kalshi": 33,
+        "generic": 6
+      },
+      "latest_date": "2026-08-01T02:16:56+00:00",
       "source_type": "article"
     },
     {
@@ -467,7 +513,7 @@
       "citations_30d": 7,
       "total_citations": 30,
       "avg_fragility": 32.0,
-      "avg_cost_to_move_5c": 177632.0,
+      "avg_cost_to_move_5c": 177488.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -484,36 +530,13 @@
       "source_type": "article"
     },
     {
-      "domain": "independent.co.uk",
-      "domain_name": "Independent",
-      "citations_24h": 0,
-      "citations_30d": 7,
-      "total_citations": 98,
-      "avg_fragility": 37.0,
-      "avg_cost_to_move_5c": 1419007.0,
-      "avg_brier": null,
-      "pct_reportable": 100.0,
-      "tier_breakdown": {
-        "reportable": 1,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 33,
-        "kalshi": 26,
-        "generic": 2
-      },
-      "latest_date": "2026-07-28T19:46:51+00:00",
-      "source_type": "article"
-    },
-    {
       "domain": "techtimes.com",
       "domain_name": "Techtimes",
       "citations_24h": 0,
       "citations_30d": 7,
       "total_citations": 16,
       "avg_fragility": 30.0,
-      "avg_cost_to_move_5c": 201800.0,
+      "avg_cost_to_move_5c": 201684.0,
       "avg_brier": null,
       "pct_reportable": 33.3,
       "tier_breakdown": {
@@ -553,36 +576,13 @@
       "source_type": "article"
     },
     {
-      "domain": "nypost.com",
-      "domain_name": "New York Post",
-      "citations_24h": 2,
-      "citations_30d": 6,
-      "total_citations": 100,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 35,
-        "kalshi": 32,
-        "generic": 6
-      },
-      "latest_date": "2026-07-31T13:17:12+00:00",
-      "source_type": "article"
-    },
-    {
       "domain": "pymnts.com",
       "domain_name": "Pymnts",
       "citations_24h": 1,
       "citations_30d": 6,
       "total_citations": 36,
       "avg_fragility": 15.0,
-      "avg_cost_to_move_5c": 486557.0,
+      "avg_cost_to_move_5c": 486201.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -624,7 +624,7 @@
     {
       "domain": "covers.com",
       "domain_name": "Covers",
-      "citations_24h": 1,
+      "citations_24h": 0,
       "citations_30d": 6,
       "total_citations": 6,
       "avg_fragility": 54.0,
@@ -651,7 +651,7 @@
       "citations_30d": 6,
       "total_citations": 10,
       "avg_fragility": 39.0,
-      "avg_cost_to_move_5c": 71761.0,
+      "avg_cost_to_move_5c": 71775.0,
       "avg_brier": null,
       "pct_reportable": 0.0,
       "tier_breakdown": {
@@ -881,7 +881,7 @@
       "citations_30d": 5,
       "total_citations": 8,
       "avg_fragility": 33.0,
-      "avg_cost_to_move_5c": 284006.0,
+      "avg_cost_to_move_5c": 284021.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -996,7 +996,7 @@
       "citations_30d": 5,
       "total_citations": 36,
       "avg_fragility": 43.0,
-      "avg_cost_to_move_5c": 379940.0,
+      "avg_cost_to_move_5c": 380323.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -1111,7 +1111,7 @@
       "citations_30d": 5,
       "total_citations": 83,
       "avg_fragility": 25.3,
-      "avg_cost_to_move_5c": 8174751.0,
+      "avg_cost_to_move_5c": 8183842.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -1134,7 +1134,7 @@
       "citations_30d": 4,
       "total_citations": 50,
       "avg_fragility": 39.0,
-      "avg_cost_to_move_5c": 71761.0,
+      "avg_cost_to_move_5c": 71775.0,
       "avg_brier": null,
       "pct_reportable": 0.0,
       "tier_breakdown": {
@@ -1148,6 +1148,29 @@
         "generic": 0
       },
       "latest_date": "2026-07-31T14:46:56+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "igamingbusiness.com",
+      "domain_name": "Igamingbusiness",
+      "citations_24h": 1,
+      "citations_30d": 4,
+      "total_citations": 19,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 7,
+        "kalshi": 12,
+        "generic": 1
+      },
+      "latest_date": "2026-07-31T23:32:03+00:00",
       "source_type": "article"
     },
     {
@@ -1180,7 +1203,7 @@
       "citations_30d": 4,
       "total_citations": 26,
       "avg_fragility": 39.0,
-      "avg_cost_to_move_5c": 71761.0,
+      "avg_cost_to_move_5c": 71775.0,
       "avg_brier": null,
       "pct_reportable": 0.0,
       "tier_breakdown": {
@@ -1226,7 +1249,7 @@
       "citations_30d": 4,
       "total_citations": 5,
       "avg_fragility": 37.0,
-      "avg_cost_to_move_5c": 633577.0,
+      "avg_cost_to_move_5c": 634025.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -1410,7 +1433,7 @@
       "citations_30d": 4,
       "total_citations": 8,
       "avg_fragility": 43.0,
-      "avg_cost_to_move_5c": 379940.0,
+      "avg_cost_to_move_5c": 380323.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -1801,7 +1824,7 @@
       "citations_30d": 4,
       "total_citations": 15,
       "avg_fragility": 24.0,
-      "avg_cost_to_move_5c": 486557.0,
+      "avg_cost_to_move_5c": 486201.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -1933,6 +1956,374 @@
       "source_type": "article"
     },
     {
+      "domain": "jetradio1400.iheart.com",
+      "domain_name": "Jetradio1400",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 3,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 0,
+        "kalshi": 3,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:32:18+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "720thevoice.iheart.com",
+      "domain_name": "720thevoice",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 5,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 1,
+        "kalshi": 4,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:31:58+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "powertalk967.iheart.com",
+      "domain_name": "Powertalk967",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 5,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 1,
+        "kalshi": 4,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:31:57+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "wbhpam.iheart.com",
+      "domain_name": "Wbhpam",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 3,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 0,
+        "kalshi": 3,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:31:54+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "wiod.iheart.com",
+      "domain_name": "Wiod",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 4,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 0,
+        "kalshi": 4,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:31:49+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "patriotla.iheart.com",
+      "domain_name": "Patriotla",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 5,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 1,
+        "kalshi": 4,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:31:48+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "1150wima.iheart.com",
+      "domain_name": "1150wima",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 5,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 1,
+        "kalshi": 4,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:31:43+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "600wmtradio.iheart.com",
+      "domain_name": "600wmtradio",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 4,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 1,
+        "kalshi": 3,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:31:40+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "wflafm.iheart.com",
+      "domain_name": "Wflafm",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 4,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 0,
+        "kalshi": 4,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:16:46+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "945wpti.iheart.com",
+      "domain_name": "945wpti",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 4,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 1,
+        "kalshi": 3,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:16:43+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "wsfcam.iheart.com",
+      "domain_name": "Wsfcam",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 4,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 1,
+        "kalshi": 3,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:16:38+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "woc1420.iheart.com",
+      "domain_name": "Woc1420",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 3,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 0,
+        "kalshi": 3,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:16:30+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "wrno.iheart.com",
+      "domain_name": "Wrno",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 5,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 1,
+        "kalshi": 4,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:16:30+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "wgiram.iheart.com",
+      "domain_name": "Wgiram",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 5,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 2,
+        "kalshi": 3,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:16:29+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "1061fmtalk.iheart.com",
+      "domain_name": "1061fmtalk",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 3,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 0,
+        "kalshi": 3,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:16:29+00:00",
+      "source_type": "article"
+    },
+    {
+      "domain": "wrak.iheart.com",
+      "domain_name": "Wrak",
+      "citations_24h": 1,
+      "citations_30d": 3,
+      "total_citations": 3,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 0,
+        "kalshi": 3,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:01:34+00:00",
+      "source_type": "article"
+    },
+    {
       "domain": "wrvo.org",
       "domain_name": "Wrvo",
       "citations_24h": 1,
@@ -1962,7 +2353,7 @@
       "citations_30d": 3,
       "total_citations": 10,
       "avg_fragility": 26.0,
-      "avg_cost_to_move_5c": 167105.0,
+      "avg_cost_to_move_5c": 166816.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -2652,7 +3043,7 @@
       "citations_30d": 3,
       "total_citations": 15,
       "avg_fragility": 25.0,
-      "avg_cost_to_move_5c": 8398649.0,
+      "avg_cost_to_move_5c": 8403606.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -2712,29 +3103,6 @@
         "generic": 3
       },
       "latest_date": "2026-07-28T05:01:46+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "igamingbusiness.com",
-      "domain_name": "Igamingbusiness",
-      "citations_24h": 0,
-      "citations_30d": 3,
-      "total_citations": 18,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 7,
-        "kalshi": 11,
-        "generic": 1
-      },
-      "latest_date": "2026-07-28T00:46:38+00:00",
       "source_type": "article"
     },
     {
@@ -3687,7 +4055,7 @@
       "citations_30d": 3,
       "total_citations": 99,
       "avg_fragility": 40.0,
-      "avg_cost_to_move_5c": 21627912.0,
+      "avg_cost_to_move_5c": 21623884.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -3819,6 +4187,29 @@
       "source_type": "article"
     },
     {
+      "domain": "wjbo.iheart.com",
+      "domain_name": "Wjbo",
+      "citations_24h": 1,
+      "citations_30d": 2,
+      "total_citations": 3,
+      "avg_fragility": null,
+      "avg_cost_to_move_5c": null,
+      "avg_brier": null,
+      "pct_reportable": null,
+      "tier_breakdown": {
+        "reportable": 0,
+        "caution": 0,
+        "fragile": 0
+      },
+      "platforms": {
+        "polymarket": 1,
+        "kalshi": 2,
+        "generic": 0
+      },
+      "latest_date": "2026-08-01T04:16:25+00:00",
+      "source_type": "article"
+    },
+    {
       "domain": "aljazeera.com",
       "domain_name": "Aljazeera",
       "citations_24h": 1,
@@ -3890,11 +4281,11 @@
     {
       "domain": "ipowerrichmond.com",
       "domain_name": "Ipowerrichmond",
-      "citations_24h": 1,
+      "citations_24h": 0,
       "citations_30d": 2,
       "total_citations": 3,
       "avg_fragility": 47.0,
-      "avg_cost_to_move_5c": 221065.0,
+      "avg_cost_to_move_5c": 221952.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -3913,11 +4304,11 @@
     {
       "domain": "92q.com",
       "domain_name": "92q",
-      "citations_24h": 1,
+      "citations_24h": 0,
       "citations_30d": 2,
       "total_citations": 2,
       "avg_fragility": 47.0,
-      "avg_cost_to_move_5c": 221065.0,
+      "avg_cost_to_move_5c": 221952.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -3940,7 +4331,7 @@
       "citations_30d": 2,
       "total_citations": 17,
       "avg_fragility": 25.0,
-      "avg_cost_to_move_5c": 8398649.0,
+      "avg_cost_to_move_5c": 8403606.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -4124,7 +4515,7 @@
       "citations_30d": 2,
       "total_citations": 91,
       "avg_fragility": 31.0,
-      "avg_cost_to_move_5c": 256068.0,
+      "avg_cost_to_move_5c": 255890.0,
       "avg_brier": null,
       "pct_reportable": 50.0,
       "tier_breakdown": {
@@ -4538,7 +4929,7 @@
       "citations_30d": 2,
       "total_citations": 18,
       "avg_fragility": 25.0,
-      "avg_cost_to_move_5c": 8398649.0,
+      "avg_cost_to_move_5c": 8403606.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -5826,7 +6217,7 @@
       "citations_30d": 2,
       "total_citations": 21,
       "avg_fragility": 34.0,
-      "avg_cost_to_move_5c": 13374779.0,
+      "avg_cost_to_move_5c": 13378580.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -6648,29 +7039,6 @@
       "source_type": "article"
     },
     {
-      "domain": "1150wima.iheart.com",
-      "domain_name": "1150wima",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 4,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 1,
-        "kalshi": 3,
-        "generic": 0
-      },
-      "latest_date": "2026-07-17T00:17:00+00:00",
-      "source_type": "article"
-    },
-    {
       "domain": "newsradio1049.iheart.com",
       "domain_name": "Newsradio1049",
       "citations_24h": 0,
@@ -6815,7 +7183,7 @@
       "citations_30d": 2,
       "total_citations": 7,
       "avg_fragility": 39.0,
-      "avg_cost_to_move_5c": 71761.0,
+      "avg_cost_to_move_5c": 71775.0,
       "avg_brier": null,
       "pct_reportable": 0.0,
       "tier_breakdown": {
@@ -6993,29 +7361,6 @@
       "source_type": "article"
     },
     {
-      "domain": "945wpti.iheart.com",
-      "domain_name": "945wpti",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 3,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 1,
-        "kalshi": 2,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T23:46:32+00:00",
-      "source_type": "article"
-    },
-    {
       "domain": "powertalk1460.iheart.com",
       "domain_name": "Powertalk1460",
       "citations_24h": 0,
@@ -7036,52 +7381,6 @@
         "generic": 0
       },
       "latest_date": "2026-07-16T23:32:04+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "wflafm.iheart.com",
-      "domain_name": "Wflafm",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 3,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 0,
-        "kalshi": 3,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T23:32:01+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "600wmtradio.iheart.com",
-      "domain_name": "600wmtradio",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 3,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 1,
-        "kalshi": 2,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T23:31:58+00:00",
       "source_type": "article"
     },
     {
@@ -7246,29 +7545,6 @@
       "source_type": "article"
     },
     {
-      "domain": "wbhpam.iheart.com",
-      "domain_name": "Wbhpam",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 2,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 0,
-        "kalshi": 2,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T23:16:45+00:00",
-      "source_type": "article"
-    },
-    {
       "domain": "wrko.iheart.com",
       "domain_name": "Wrko",
       "citations_24h": 0,
@@ -7312,29 +7588,6 @@
         "generic": 0
       },
       "latest_date": "2026-07-16T23:15:00+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "wrno.iheart.com",
-      "domain_name": "Wrno",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 4,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 1,
-        "kalshi": 3,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T23:01:53+00:00",
       "source_type": "article"
     },
     {
@@ -7568,29 +7821,6 @@
       "source_type": "article"
     },
     {
-      "domain": "wiod.iheart.com",
-      "domain_name": "Wiod",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 3,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 0,
-        "kalshi": 3,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T22:46:59+00:00",
-      "source_type": "article"
-    },
-    {
       "domain": "newsradiowkcy.iheart.com",
       "domain_name": "Newsradiowkcy",
       "citations_24h": 0,
@@ -7680,75 +7910,6 @@
         "generic": 0
       },
       "latest_date": "2026-07-16T22:32:01+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "patriotla.iheart.com",
-      "domain_name": "Patriotla",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 4,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 1,
-        "kalshi": 3,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T22:32:00+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "wrak.iheart.com",
-      "domain_name": "Wrak",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 2,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 0,
-        "kalshi": 2,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T22:32:00+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "jetradio1400.iheart.com",
-      "domain_name": "Jetradio1400",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 2,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 0,
-        "kalshi": 2,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T22:31:53+00:00",
       "source_type": "article"
     },
     {
@@ -8094,29 +8255,6 @@
         "generic": 0
       },
       "latest_date": "2026-07-16T21:47:05+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "wgiram.iheart.com",
-      "domain_name": "Wgiram",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 4,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 2,
-        "kalshi": 2,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T21:47:04+00:00",
       "source_type": "article"
     },
     {
@@ -8488,29 +8626,6 @@
       "source_type": "article"
     },
     {
-      "domain": "wsfcam.iheart.com",
-      "domain_name": "Wsfcam",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 3,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 1,
-        "kalshi": 2,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T20:47:07+00:00",
-      "source_type": "article"
-    },
-    {
       "domain": "wvoc.iheart.com",
       "domain_name": "Wvoc",
       "citations_24h": 0,
@@ -8577,52 +8692,6 @@
         "generic": 0
       },
       "latest_date": "2026-07-16T20:45:00+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "powertalk967.iheart.com",
-      "domain_name": "Powertalk967",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 4,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 1,
-        "kalshi": 3,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T20:32:20+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "1061fmtalk.iheart.com",
-      "domain_name": "1061fmtalk",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 2,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 0,
-        "kalshi": 2,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T20:32:11+00:00",
       "source_type": "article"
     },
     {
@@ -8695,29 +8764,6 @@
       "source_type": "article"
     },
     {
-      "domain": "woc1420.iheart.com",
-      "domain_name": "Woc1420",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 2,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 0,
-        "kalshi": 2,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T20:17:45+00:00",
-      "source_type": "article"
-    },
-    {
       "domain": "newstalk1400online.iheart.com",
       "domain_name": "Newstalk1400online",
       "citations_24h": 0,
@@ -8761,29 +8807,6 @@
         "generic": 0
       },
       "latest_date": "2026-07-16T20:17:25+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "720thevoice.iheart.com",
-      "domain_name": "720thevoice",
-      "citations_24h": 0,
-      "citations_30d": 2,
-      "total_citations": 4,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 1,
-        "kalshi": 3,
-        "generic": 0
-      },
-      "latest_date": "2026-07-16T20:17:21+00:00",
       "source_type": "article"
     },
     {
@@ -9184,7 +9207,7 @@
       "citations_30d": 1,
       "total_citations": 15,
       "avg_fragility": 47.0,
-      "avg_cost_to_move_5c": 61688.0,
+      "avg_cost_to_move_5c": 61804.0,
       "avg_brier": null,
       "pct_reportable": 0.0,
       "tier_breakdown": {
@@ -9207,7 +9230,7 @@
       "citations_30d": 1,
       "total_citations": 2,
       "avg_fragility": 47.0,
-      "avg_cost_to_move_5c": 221065.0,
+      "avg_cost_to_move_5c": 221952.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -9295,11 +9318,11 @@
     {
       "domain": "thebeatdfw.com",
       "domain_name": "Thebeatdfw",
-      "citations_24h": 1,
+      "citations_24h": 0,
       "citations_30d": 1,
       "total_citations": 1,
       "avg_fragility": 47.0,
-      "avg_cost_to_move_5c": 221065.0,
+      "avg_cost_to_move_5c": 221952.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -9318,7 +9341,7 @@
     {
       "domain": "wcjb.com",
       "domain_name": "Wcjb",
-      "citations_24h": 1,
+      "citations_24h": 0,
       "citations_30d": 1,
       "total_citations": 1,
       "avg_fragility": null,
@@ -9341,7 +9364,7 @@
     {
       "domain": "knsiradio.com",
       "domain_name": "Knsiradio",
-      "citations_24h": 1,
+      "citations_24h": 0,
       "citations_30d": 1,
       "total_citations": 2,
       "avg_fragility": null,
@@ -9414,7 +9437,7 @@
       "citations_30d": 1,
       "total_citations": 1,
       "avg_fragility": 47.0,
-      "avg_cost_to_move_5c": 221065.0,
+      "avg_cost_to_move_5c": 221952.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -10357,7 +10380,7 @@
       "citations_30d": 1,
       "total_citations": 4,
       "avg_fragility": 47.0,
-      "avg_cost_to_move_5c": 61688.0,
+      "avg_cost_to_move_5c": 61804.0,
       "avg_brier": null,
       "pct_reportable": 0.0,
       "tier_breakdown": {
@@ -11438,7 +11461,7 @@
       "citations_30d": 1,
       "total_citations": 64,
       "avg_fragility": 37.0,
-      "avg_cost_to_move_5c": 380492.0,
+      "avg_cost_to_move_5c": 381183.0,
       "avg_brier": null,
       "pct_reportable": 100.0,
       "tier_breakdown": {
@@ -12059,7 +12082,7 @@
       "citations_30d": 1,
       "total_citations": 4,
       "avg_fragility": 51.0,
-      "avg_cost_to_move_5c": 40248.0,
+      "avg_cost_to_move_5c": 40401.0,
       "avg_brier": null,
       "pct_reportable": 0.0,
       "tier_breakdown": {
@@ -12901,29 +12924,6 @@
         "generic": 0
       },
       "latest_date": "2026-07-17T00:15:00+00:00",
-      "source_type": "article"
-    },
-    {
-      "domain": "wjbo.iheart.com",
-      "domain_name": "Wjbo",
-      "citations_24h": 0,
-      "citations_30d": 1,
-      "total_citations": 2,
-      "avg_fragility": null,
-      "avg_cost_to_move_5c": null,
-      "avg_brier": null,
-      "pct_reportable": null,
-      "tier_breakdown": {
-        "reportable": 0,
-        "caution": 0,
-        "fragile": 0
-      },
-      "platforms": {
-        "polymarket": 1,
-        "kalshi": 1,
-        "generic": 0
-      },
-      "latest_date": "2026-07-17T00:01:54+00:00",
       "source_type": "article"
     },
     {
@@ -16797,7 +16797,7 @@
       "citations_30d": 1,
       "total_citations": 1,
       "avg_fragility": 39.0,
-      "avg_cost_to_move_5c": 71761.0,
+      "avg_cost_to_move_5c": 71775.0,
       "avg_brier": null,
       "pct_reportable": 0.0,
       "tier_breakdown": {
@@ -60790,5 +60790,5 @@
       "source_type": "article"
     }
   ],
-  "generated_at": "2026-07-31T23:08:07.264481+00:00"
+  "generated_at": "2026-08-01T05:02:04.470853+00:00"
 }
