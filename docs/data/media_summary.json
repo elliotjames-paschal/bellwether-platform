@@ -1,42 +1,42 @@
 {
   "hero": {
-    "total_citations_24h": 12,
+    "total_citations_24h": 11,
     "total_citations_30d": 1382,
-    "total_outlets_24h": 8,
-    "total_outlets_30d": 646,
+    "total_outlets_24h": 9,
+    "total_outlets_30d": 647,
     "total_outlets": 2747,
-    "total_raw_mentions_30d": 3130,
-    "total_raw_outlets_30d": 1036,
+    "total_raw_mentions_30d": 3124,
+    "total_raw_outlets_30d": 1035,
     "citations_with_probability": 2981,
-    "citations_matched": 2808,
-    "citations_mention_only": 23165,
-    "tiers_reportable": 210,
+    "citations_matched": 2809,
+    "citations_mention_only": 23170,
+    "tiers_reportable": 209,
     "tiers_caution": 45,
     "tiers_fragile": 98,
-    "tiers_total": 353,
+    "tiers_total": 352,
     "pct_not_reportable": 41,
-    "tiers_reportable_all": 1673,
+    "tiers_reportable_all": 1674,
     "tiers_caution_all": 1241,
     "tiers_fragile_all": 861,
-    "tiers_total_all": 3775,
+    "tiers_total_all": 3776,
     "pct_not_reportable_all": 56
   },
   "topics": [
     {
       "name": "US Politics",
-      "count": 11671,
+      "count": 11673,
       "platforms": [
         "generic",
         "kalshi",
         "polymarket",
         "predictit"
       ],
-      "outlet_count": 2067,
+      "outlet_count": 2068,
       "example_sentence": "Former Governor of New Jersey Chris Christie said that issues around voting registration and administering elections should be left up to states and does not see evidence from recent years that the fe"
     },
     {
       "name": "Regulation",
-      "count": 4588,
+      "count": 4591,
       "platforms": [
         "generic",
         "kalshi",
@@ -2443,7 +2443,17 @@
         "caution": 15,
         "fragile": 11
       }
+    },
+    {
+      "week": "2026-09-21",
+      "count": 5,
+      "avg_fragility": 35.0,
+      "tiers": {
+        "reportable": 1,
+        "caution": 0,
+        "fragile": 0
+      }
     }
   ],
-  "generated_at": "2026-09-20T23:54:50.318009+00:00"
+  "generated_at": "2026-09-21T05:53:15.143155+00:00"
 }
