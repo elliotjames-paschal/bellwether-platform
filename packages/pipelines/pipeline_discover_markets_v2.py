@@ -437,6 +437,20 @@ def _fetch_events_for_tag(tag_slug: str, limit: int = 100) -> list:
     return all_events
 
 
+_WEATHER_KEYWORDS = (
+    "temperature", "rainfall", "snowfall",
+    "inches of rain", "inches of snow",
+)
+
+
+def _is_weather_market(market: dict) -> bool:
+    """True for weather/temperature markets (non-political, discarded downstream).
+    Filters the daily city-temperature flood that enters via geo tags (nyc/new-york-city).
+    """
+    q = (market.get("question") or "").lower()
+    return any(k in q for k in _WEATHER_KEYWORDS)
+
+
 def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> list:
     """
     Fetch Polymarket political markets via the /events?tag_slug= endpoint.
@@ -468,6 +482,7 @@ def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> li
     seen_condition_ids = set()
     processed_markets = []
     tags_with_markets = 0
+    weather_skipped = 0
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -502,6 +517,9 @@ def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> li
                     slug = market.get("slug")
                     if condition_id in existing_ids or (slug and slug in existing_ids):
                         continue
+                    if _is_weather_market(market):
+                        weather_skipped += 1
+                        continue
                     processed_markets.append(process_polymarket_market_native(market))
 
                 if tag_markets:
@@ -511,6 +529,7 @@ def fetch_polymarket_political_markets(existing_ids: Optional[set] = None) -> li
             f"unique markets: {len(processed_markets)}")
 
     log(f"  Tags with markets: {tags_with_markets}/{len(tag_slugs)}")
+    log(f"  Weather markets skipped: {weather_skipped}")
     log(f"  Total unique political markets: {len(processed_markets)}")
 
     return processed_markets
