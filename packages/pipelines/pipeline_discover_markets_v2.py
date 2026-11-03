@@ -290,6 +290,81 @@ def _fetch_markets_for_event_ticker(
     return []
 
 
+def _fetch_kalshi_political_bulk(political_tickers, existing_ids, limit=1000):
+    """Bulk-fetch open Kalshi markets and filter to political event tickers.
+
+    Paginates GET /markets?status=open (public, up to 1000/page) and keeps only
+    markets whose event_ticker is political, discarding the rest per page so peak
+    memory stays flat. Replaces ~14k per-event queries that tripped Kalshi 429
+    rate limiting. 429s retry after 0.5s (Kalshi docs: no cooldown penalty).
+    """
+    political_set = set(political_tickers)
+    political_markets = []
+    political_event_set = set()
+    total_scanned = 0
+
+    log(f"Bulk-fetching open Kalshi markets, filtering to {len(political_set)} "
+        f"political event tickers...")
+
+    def _get_page(params):
+        for attempt in range(10):
+            try:
+                response = requests.get(
+                    f"{KALSHI_API_BASE}/markets",
+                    params=params,
+                    headers={"Accept": "application/json"},
+                    timeout=30,
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("markets", []), data.get("cursor")
+                if response.status_code == 429:
+                    time.sleep(0.5)
+                    continue
+                log(f"  Error {response.status_code}: {response.text[:200]}")
+                time.sleep(1)
+            except Exception as e:
+                log(f"  Exception: {e}")
+                time.sleep(1)
+        return None, None
+
+    cursor = None
+    page = 0
+    while True:
+        params = {"limit": limit, "status": "open", "mve_filter": "exclude"}
+        if cursor:
+            params["cursor"] = cursor
+        markets, cursor = _get_page(params)
+        if markets is None:
+            log("  Giving up after repeated errors; returning partial results")
+            break
+        total_scanned += len(markets)
+        for m in markets:
+            if m.get("event_ticker") not in political_set:
+                continue
+            ticker = m.get("ticker")
+            if ticker and ticker in existing_ids:
+                continue
+            political_markets.append(process_kalshi_market_native(m))
+            political_event_set.add(m.get("event_ticker"))
+        page += 1
+        if page % 25 == 0:
+            log(f"  Page {page}: scanned {total_scanned}, "
+                f"kept {len(political_markets)} political")
+        if not cursor or not markets:
+            break
+        time.sleep(KALSHI_RATE_LIMIT)
+
+    log(f"Fetched {len(political_markets)} political markets "
+        f"({len(political_event_set)} events) from {total_scanned} open markets scanned")
+    return {
+        "markets": political_markets,
+        "political_event_tickers": len(political_tickers),
+        "political_events_found": len(political_event_set),
+        "total_markets_scanned": total_scanned,
+    }
+
+
 def fetch_kalshi_political_markets(
     status: Optional[str] = None,
     existing_ids: Optional[set] = None,
@@ -316,6 +391,13 @@ def fetch_kalshi_political_markets(
 
     if existing_ids is None:
         existing_ids = set()
+
+    # Fast path for the daily active-only run: bulk-paginate open markets and
+    # filter to political event tickers in memory (avoids ~14k per-event queries
+    # that trigger Kalshi 429 rate limiting). Full-refresh (status=None) keeps
+    # the per-event path below.
+    if status == "open":
+        return _fetch_kalshi_political_bulk(political_tickers, existing_ids, limit)
 
     political_markets = []
     political_event_set = set()
